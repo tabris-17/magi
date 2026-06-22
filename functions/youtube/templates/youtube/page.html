@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}magi · YouTube Downloader{% endblock %}
+{% block content %}
+<div class="yt">
+  <h1 class="view-title">YouTube Downloader</h1>
+  <p class="lead">Paste a video URL, pick any available format, and it downloads to <b id="dldir">./downloads</b> on this machine.</p>
+
+  <div class="bar">
+    <input id="url" type="text" placeholder="https://www.youtube.com/watch?v=…" />
+    <button id="fetch" class="btn primary">Fetch options</button>
+  </div>
+  <div class="opts">
+    <div class="opt-row">
+      <label class="opt-label" for="dest">Save to</label>
+      <input id="dest" type="text" placeholder="/Users/kai/doc/_my_creations/saved stuffs" />
+    </div>
+    <label class="chk"><input type="checkbox" id="datePrefix" checked /> Prefix filename with download date <span class="muted">(yyyyMMdd-)</span></label>
+    <label class="chk"><input type="checkbox" id="metaChk" checked /> Log entry to <span class="muted">video-links.txt</span> (metadata)</label>
+  </div>
+  <div id="ffwarn" class="warn">⚠️ ffmpeg not found — high-res merges and MP3 conversion are disabled. Only combined (≤720p) formats will work.</div>
+
+  <div id="status">
+    <div class="label" id="statusLabel"><span class="spin"></span>Starting…</div>
+    <div class="track"><div class="fill" id="fill"></div></div>
+    <div class="stat"><span id="statLeft"></span><span id="statRight"></span></div>
+  </div>
+  <div id="doneBox" class="done-box"></div>
+  <div id="errBox" class="err-box"></div>
+
+  <div id="meta" class="meta">
+    <img id="thumb" alt="" />
+    <div>
+      <div class="t" id="title"></div>
+      <div class="d" id="byline"></div>
+    </div>
+  </div>
+
+  <div id="quickWrap" style="display:none">
+    <div class="section-title">Quick picks</div>
+    <div class="quick" id="quick"></div>
+  </div>
+
+  <div id="tableWrap" style="display:none">
+    <div class="section-title">All available formats</div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Resolution</th><th>FPS</th><th>Ext</th><th>Video codec</th><th>Audio codec</th><th>Size</th><th>Note</th><th></th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = "/youtube";
+const $ = (id) => document.getElementById(id);
+let CURRENT = null;       // current video info
+let activeES = null;      // active EventSource
+
+function humanSpeed(b){ if(!b) return ""; const u=["B","KB","MB","GB"]; let i=0; while(b>=1024&&i<u.length-1){b/=1024;i++;} return b.toFixed(1)+" "+u[i]+"/s"; }
+function humanEta(s){ if(s==null) return ""; const m=Math.floor(s/60), ss=s%60; return m?`${m}m ${ss}s`:`${ss}s`; }
+
+async function checkHealth(){
+  try {
+    const r = await fetch(API + "/api/health");
+    const j = await r.json();
+    if(!j.ffmpeg) $("ffwarn").style.display = "block";
+    if(j.default_dir && !$("dest").value) $("dest").value = j.default_dir;
+    if(j.default_dir) $("dldir").textContent = j.default_dir;
+  } catch(e){}
+}
+
+async function fetchInfo(){
+  const url = $("url").value.trim();
+  if(!url) return;
+  resetDownloadUI();
+  $("quickWrap").style.display = "none";
+  $("tableWrap").style.display = "none";
+  $("meta").style.display = "none";
+  $("fetch").disabled = true;
+  $("fetch").textContent = "Loading…";
+  try {
+    const r = await fetch(API + "/api/info?url=" + encodeURIComponent(url));
+    const j = await r.json();
+    if(j.error){ showError(j.error); return; }
+    CURRENT = j;
+    render(j);
+  } catch(e){
+    showError(String(e));
+  } finally {
+    $("fetch").disabled = false;
+    $("fetch").textContent = "Fetch options";
+  }
+}
+
+function render(info){
+  $("errBox").style.display = "none";
+  $("thumb").src = info.thumbnail || "";
+  $("thumb").style.display = info.thumbnail ? "block" : "none";
+  $("title").textContent = info.title || "(untitled)";
+  $("byline").textContent = [info.uploader, info.duration_string].filter(Boolean).join("  ·  ");
+  $("meta").style.display = "flex";
+
+  const q = $("quick");
+  q.innerHTML = "";
+  const bestVideo = info.formats.filter(f => f.kind !== "audio").sort((a,b)=>(b.height||0)-(a.height||0))[0];
+  const bestAudio = info.formats.filter(f => f.kind === "audio").sort((a,b)=>(b.abr||0)-(a.abr||0))[0];
+
+  addQuick(q, "⭐ Best quality", bestVideo ? `up to ${bestVideo.height}p, merged with best audio` : "best available",
+    () => startDownload({ format_id: bestVideo ? bestVideo.format_id : "bestvideo", kind: "video", audio_mp3: false }));
+  if(bestAudio)
+    addQuick(q, "🎵 Best audio (m4a)", `${Math.round(bestAudio.abr||0)} kbps`,
+      () => startDownload({ format_id: bestAudio.format_id, kind: "audio", audio_mp3: false }));
+  addQuick(q, "🎧 Audio as MP3", "extract & convert to 192 kbps mp3",
+    () => startDownload({ format_id: "", kind: "audio", audio_mp3: true }));
+  $("quickWrap").style.display = "block";
+
+  const rows = $("rows");
+  rows.innerHTML = "";
+  for(const f of info.formats){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="tag ${f.kind}">${f.kind==='both'?'video+audio':f.kind}</span></td>
+      <td>${f.resolution || (f.kind==='audio'?'audio only':'—')}</td>
+      <td>${f.fps || ''}</td>
+      <td>${f.ext || ''}</td>
+      <td class="muted">${f.vcodec || '—'}</td>
+      <td class="muted">${f.acodec || '—'}</td>
+      <td>${f.filesize_human || '<span class="muted">~</span>'}</td>
+      <td class="muted">${f.note || ''}</td>
+      <td></td>`;
+    const btn = document.createElement("button");
+    btn.className = "btn";
+    btn.textContent = "Download";
+    btn.onclick = () => startDownload({ format_id: f.format_id, kind: f.kind, audio_mp3: false });
+    tr.lastElementChild.appendChild(btn);
+    rows.appendChild(tr);
+  }
+  $("tableWrap").style.display = "block";
+}
+
+function addQuick(parent, title, sub, onClick){
+  const b = document.createElement("button");
+  b.innerHTML = `${title}<span class="q">${sub}</span>`;
+  b.onclick = onClick;
+  parent.appendChild(b);
+}
+
+function resetDownloadUI(){
+  if(activeES){ activeES.close(); activeES = null; }
+  $("status").style.display = "none";
+  $("doneBox").style.display = "none";
+  $("errBox").style.display = "none";
+  $("fill").style.width = "0%";
+}
+
+function startDownload(opts){
+  if(!CURRENT){ return; }
+  resetDownloadUI();
+  $("status").style.display = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  $("statusLabel").innerHTML = '<span class="spin"></span>Preparing download…';
+  $("statLeft").textContent = "";
+  $("statRight").textContent = "";
+
+  const params = new URLSearchParams({
+    url: CURRENT.webpage_url || $("url").value.trim(),
+    format_id: opts.format_id || "",
+    kind: opts.kind || "both",
+    audio_mp3: opts.audio_mp3 ? "1" : "0",
+    date_prefix: $("datePrefix").checked ? "1" : "0",
+    metadata: $("metaChk").checked ? "1" : "0",
+    dest: $("dest").value.trim(),
+  });
+  const es = new EventSource(API + "/api/download?" + params.toString());
+  activeES = es;
+
+  es.addEventListener("progress", (ev) => {
+    const d = JSON.parse(ev.data);
+    const pct = d.percent != null ? d.percent : null;
+    $("statusLabel").innerHTML = '<span class="spin"></span>Downloading ' + (d.filename || "");
+    if(pct != null) $("fill").style.width = pct.toFixed(1) + "%";
+    const got = d.total ? `${(d.downloaded/1048576).toFixed(1)} / ${(d.total/1048576).toFixed(1)} MB` : `${(d.downloaded/1048576).toFixed(1)} MB`;
+    $("statLeft").textContent = got + (pct!=null ? `  (${pct.toFixed(0)}%)` : "");
+    $("statRight").textContent = [humanSpeed(d.speed), d.eta!=null?("ETA "+humanEta(d.eta)):""].filter(Boolean).join("  ·  ");
+  });
+
+  es.addEventListener("stage", (ev) => {
+    const d = JSON.parse(ev.data);
+    $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message;
+    $("fill").style.width = "100%";
+  });
+
+  es.addEventListener("done", (ev) => {
+    const d = JSON.parse(ev.data);
+    es.close(); activeES = null;
+    $("status").style.display = "none";
+    $("doneBox").style.display = "block";
+    $("doneBox").innerHTML =
+      `✅ <b>Saved!</b><br>` +
+      `<div style="margin-top:8px">File: <code>${d.filename}</code> ${d.size_human?('· '+d.size_human):''}</div>` +
+      `<div style="margin-top:4px" class="muted">Location: <code>${d.path}</code></div>` +
+      (d.metadata
+        ? `<div style="margin-top:8px">📝 Logged to <code>video-links.txt</code>:<div style="margin-top:4px" class="muted"><code>${d.metadata.replace(/</g,'&lt;')}</code></div></div>`
+        : "") +
+      `<div style="margin-top:10px"><a href="${d.url}" download>⬇️ Save a copy via browser</a></div>`;
+  });
+
+  es.addEventListener("error", (ev) => {
+    let msg = "Download failed.";
+    if(ev.data){ try { msg = JSON.parse(ev.data).message || msg; } catch(e){} }
+    es.close(); activeES = null;
+    $("status").style.display = "none";
+    showError(msg);
+  });
+}
+
+function showError(msg){
+  $("errBox").style.display = "block";
+  $("errBox").innerHTML = "❌ " + msg;
+}
+
+$("fetch").addEventListener("click", fetchInfo);
+$("url").addEventListener("keydown", (e) => { if(e.key === "Enter") fetchInfo(); });
+if (window.innerWidth > 860) $("url").focus();
+checkHealth();
+</script>
+{% endblock %}

@@ -1,0 +1,2618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Betelgeuse</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bt-bg) 0%, var(--bt-surface) 50%, var(--bt-bg) 100%);
+            color: var(--bt-fg);
+            min-height: 100vh;
+        }
+
+        /* top bar (header + h1) is styled centrally in header.html */
+
+        .content {
+            padding: 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Master-detail layout */
+        .settings-shell {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+
+        .settings-nav {
+            flex: 0 0 240px;
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 100px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.625rem 0.875rem;
+            border-radius: 8px;
+            color: var(--bt-fg-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            color: var(--bt-fg-2);
+        }
+
+        .nav-item.active {
+            background: rgba(var(--bt-accent-rgb), 0.15);
+            color: var(--bt-accent-2);
+            border-left-color: var(--bt-accent);
+        }
+
+        .nav-group {
+            margin-top: 0.25rem;
+        }
+
+        .nav-group-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.625rem 0.875rem;
+            border-radius: 8px;
+            color: var(--bt-fg-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+
+        .nav-group-label:hover {
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            color: var(--bt-fg-2);
+        }
+
+        .nav-group-arrow {
+            margin-left: auto;
+            font-size: 0.7rem;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-group.open .nav-group-arrow {
+            transform: rotate(90deg);
+        }
+
+        .nav-group-items {
+            display: none;
+            margin: 0.15rem 0 0.15rem 0.75rem;
+            padding-left: 0.5rem;
+            border-left: 1px solid rgba(var(--bt-slate-rgb), 0.15);
+        }
+
+        .nav-group.open .nav-group-items {
+            display: block;
+        }
+
+        .nav-group-items .nav-item {
+            font-size: 0.85rem;
+        }
+
+        .settings-detail {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .settings-panel {
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .db-table-chip {
+            background: rgba(var(--bt-accent-rgb), 0.08);
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.2);
+            color: var(--bt-fg-2);
+            padding: 0.4rem 0.85rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s ease;
+        }
+        .db-table-chip:hover {
+            background: rgba(var(--bt-accent-rgb), 0.18);
+            color: var(--bt-fg);
+        }
+        .db-table-chip.active {
+            background: linear-gradient(135deg, var(--bt-accent), var(--bt-accent-2));
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .settings-section {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .settings-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--bt-accent-2) 0%, var(--bt-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .settings-icon {
+            font-size: 1.5rem;
+            -webkit-text-fill-color: initial;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--bt-fg-2);
+            margin-bottom: 0.4rem;
+            font-size: 0.85rem;
+            text-transform: none;
+            letter-spacing: normal;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.5rem 0.65rem;
+            background-color: rgba(var(--bt-bg-rgb), 0.5);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 6px;
+            color: var(--bt-fg);
+            font-size: 0.82rem;
+            line-height: 1.2;
+            transition: all 0.3s ease;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+            background-color: rgba(var(--bt-bg-rgb), 0.7);
+            box-shadow: 0 0 0 3px rgba(var(--bt-accent-rgb), 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--bt-fg-subtle);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        /* Button styles (.btn / .btn-primary / .btn-secondary) are defined once in
+           header.html and inherited app-wide — do not redefine them here. */
+
+        .static-url-block {
+            margin-top: 0.85rem;
+            padding: 0.75rem;
+            background: rgba(var(--bt-bg-rgb), 0.4);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            border-radius: 8px;
+        }
+        .static-url-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--bt-fg-2);
+            cursor: pointer;
+            user-select: none;
+        }
+        .static-url-toggle input { cursor: pointer; }
+        .static-url-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .static-url-input {
+            flex: 1;
+            min-width: 240px;
+            padding: 0.5rem 0.65rem;
+            background: rgba(var(--bt-bg-rgb), 0.6);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 6px;
+            color: var(--bt-fg);
+            font-size: 0.82rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            transition: all 0.2s ease;
+        }
+        .static-url-input:focus {
+            outline: none;
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+            box-shadow: 0 0 0 3px rgba(var(--bt-accent-rgb), 0.1);
+        }
+        .static-url-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .static-url-input::placeholder { color: var(--bt-fg-subtle); }
+        .static-url-save {
+            font-size: 0.82rem;
+            padding: 0.5rem 1rem;
+            white-space: nowrap;
+        }
+        .static-url-hint {
+            margin-top: 0.45rem;
+            font-size: 0.74rem;
+            color: var(--bt-fg-subtle);
+        }
+        .static-url-msg {
+            display: inline-block;
+            margin-top: 0.4rem;
+            font-size: 0.8rem;
+            min-height: 1em;
+        }
+
+        .success-message {
+            display: none;
+            background: rgba(var(--bt-up-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-up3-rgb), 0.3);
+            color: var(--bt-up-soft);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            text-align: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.4rem;
+            }
+
+            .content {
+                padding: 1rem;
+            }
+
+            .settings-shell {
+                flex-direction: column;
+            }
+
+            .settings-nav {
+                flex: 1 1 auto;
+                width: 100%;
+                position: static;
+            }
+
+            .settings-section {
+                padding: 1.5rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+        /* Securities modal */
+        .sec-modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+        }
+        .sec-modal-backdrop.open { display: flex; }
+
+        .sec-modal {
+            background: linear-gradient(135deg, var(--bt-surface) 0%, var(--bt-bg) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.15);
+            border-radius: 14px;
+            width: min(1000px, 96vw);
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .sec-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            flex-shrink: 0;
+        }
+
+        .sec-modal-title {
+            font-weight: 700;
+            font-size: 1rem;
+            background: linear-gradient(135deg, var(--bt-accent-2) 0%, var(--bt-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .sec-close-btn {
+            background: none;
+            border: none;
+            color: var(--bt-fg-muted);
+            font-size: 1.4rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0.1rem 0.3rem;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .sec-close-btn:hover { color: var(--bt-fg); }
+
+        .sec-filters {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .sec-search {
+            flex: 1;
+            min-width: 160px;
+            padding: 0.4rem 0.7rem;
+            background: rgba(var(--bt-bg-rgb), 0.6);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 7px;
+            color: var(--bt-fg);
+            font-size: 0.85rem;
+        }
+        .sec-search:focus { outline: none; border-color: rgba(var(--bt-accent2-rgb), 0.5); }
+
+        .sec-cat-filter {
+            padding: 0.4rem 0.7rem;
+            background: rgba(var(--bt-bg-rgb), 0.6);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 7px;
+            color: var(--bt-fg);
+            font-size: 0.85rem;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 1.8rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+        }
+        .sec-cat-filter:focus { outline: none; border-color: rgba(var(--bt-accent2-rgb), 0.5); }
+
+        .sec-count {
+            font-size: 0.8rem;
+            color: var(--bt-fg-subtle);
+            white-space: nowrap;
+        }
+
+        .sec-table-wrap {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .sec-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+        }
+
+        .sec-table thead th {
+            position: sticky;
+            top: 0;
+            background: var(--bt-bg);
+            color: var(--bt-fg-muted);
+            text-transform: uppercase;
+            font-size: 0.72rem;
+            letter-spacing: 0.05em;
+            padding: 0.55rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.15);
+            font-weight: 600;
+        }
+
+        .sec-table tbody tr {
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.06);
+            transition: background 0.15s;
+        }
+        .sec-table tbody tr:hover { background: rgba(var(--bt-accent-rgb), 0.07); }
+
+        .sec-table tbody td {
+            padding: 0.45rem 0.75rem;
+            color: var(--bt-fg-2);
+        }
+
+        .sec-table td.code { font-weight: 700; color: var(--bt-accent-2); font-family: monospace; }
+        .sec-table td.cat  { font-size: 0.75rem; color: var(--bt-fg-muted); }
+        .sec-table td.lot  { color: var(--bt-fg-subtle); font-size: 0.78rem; }
+
+        .sec-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.25rem;
+            border-top: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            flex-shrink: 0;
+        }
+
+        .sec-page-btn {
+            padding: 0.3rem 0.75rem;
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.25);
+            border-radius: 6px;
+            color: var(--bt-accent-2);
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sec-page-btn:hover:not(:disabled) { background: rgba(var(--bt-accent-rgb), 0.2); }
+        .sec-page-btn:disabled { opacity: 0.35; cursor: default; }
+        .sec-page-info { font-size: 0.82rem; color: var(--bt-fg-subtle); }
+    </style>
+</head>
+<body>
+    {% include 'header.html' %}
+
+    <!-- Securities modal -->
+    <div class="sec-modal-backdrop" id="securitiesModal" onclick="closeSecuritiesOnBackdrop(event)">
+        <div class="sec-modal">
+            <div class="sec-modal-header">
+                <span class="sec-modal-title">🇭🇰 HK Securities</span>
+                <button class="sec-close-btn" onclick="closeSecuritiesModal()">×</button>
+            </div>
+            <div class="sec-filters">
+                <input class="sec-search" id="secSearch" type="text" placeholder="Search code or name…" oninput="debounceSearch()">
+                <select class="sec-cat-filter" id="secCategory" onchange="loadSecurities(1)">
+                    <option value="">All categories</option>
+                </select>
+                <span class="sec-count" id="secCount"></span>
+            </div>
+            <div class="sec-table-wrap">
+                <table class="sec-table">
+                    <thead>
+                        <tr>
+                            <th>Stock Code</th>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Sub-Category</th>
+                            <th>Board Lot</th>
+                        </tr>
+                    </thead>
+                    <tbody id="secTableBody"></tbody>
+                </table>
+            </div>
+            <div class="sec-pagination">
+                <button class="sec-page-btn" id="secPrevBtn" onclick="loadSecurities(secCurrentPage - 1)">‹ Prev</button>
+                <span class="sec-page-info" id="secPageInfo"></span>
+                <button class="sec-page-btn" id="secNextBtn" onclick="loadSecurities(secCurrentPage + 1)">Next ›</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sec-modal-backdrop" id="coingeckoModal" onclick="closeCoingeckoOnBackdrop(event)">
+        <div class="sec-modal">
+            <div class="sec-modal-header">
+                <span class="sec-modal-title">🦎 CoinGecko Catalog</span>
+                <button class="sec-close-btn" onclick="closeCoingeckoModal()">×</button>
+            </div>
+            <div class="sec-filters">
+                <input class="sec-search" id="cgSearch" type="text" placeholder="Search id, symbol or name…" oninput="debounceCgSearch()">
+                <span class="sec-count" id="cgCount"></span>
+            </div>
+            <div class="sec-table-wrap">
+                <table class="sec-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Symbol</th>
+                            <th>CoinGecko ID</th>
+                            <th>Name</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cgTableBody"></tbody>
+                </table>
+            </div>
+            <div class="sec-pagination">
+                <button class="sec-page-btn" id="cgPrevBtn" onclick="loadCoingeckoCoins(cgCurrentPage - 1)">‹ Prev</button>
+                <span class="sec-page-info" id="cgPageInfo"></span>
+                <button class="sec-page-btn" id="cgNextBtn" onclick="loadCoingeckoCoins(cgCurrentPage + 1)">Next ›</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="settings-shell">
+            <!-- Left: settings navigation -->
+            <nav class="settings-nav">
+                <div class="nav-group open" id="adminGroup">
+                    <div class="nav-group-label" onclick="toggleGroup('adminGroup')">
+                        <span>🛠️</span> Admin
+                        <span class="nav-group-arrow">▶</span>
+                    </div>
+                    <div class="nav-group-items">
+                        <div class="nav-item active" data-panel="general">
+                            <span>⚙️</span> General
+                        </div>
+                        <div class="nav-item" data-panel="static-data">
+                            <span>🗃️</span> Static Data
+                        </div>
+                        <div class="nav-item" data-panel="market-data">
+                            <span>📊</span> Market Data
+                        </div>
+                        <div class="nav-item" data-panel="fx-rates">
+                            <span>💱</span> FX Rates
+                        </div>
+                        <div class="nav-item" data-panel="telegram">
+                            <span>✈️</span> Telegram
+                        </div>
+                        <div class="nav-item" data-panel="tools">
+                            <span>🧰</span> Tools
+                        </div>
+                    </div>
+                </div>
+                <div class="nav-group" id="trackerGroup">
+                    <div class="nav-group-label" onclick="toggleGroup('trackerGroup')">
+                        <span>📊</span> Markets
+                        <span class="nav-group-arrow">▶</span>
+                    </div>
+                    <div class="nav-group-items">
+                        <div class="nav-item" data-panel="stock-url">
+                            <span>🇭🇰</span> HK
+                        </div>
+                        <div class="nav-item" data-panel="crypto-config" onclick="selectPanel('crypto-config', this)">
+                            <span>🟠</span> Crypto
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Right: detail panels -->
+            <div class="settings-detail">
+                <div class="success-message" id="successMessage">✓ Settings saved successfully!</div>
+
+                <!-- Panel: Admin -> General -->
+                <div class="settings-panel active" data-panel-id="general">
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">⚙️</span>
+                            General
+                        </div>
+
+                        <div class="form-group">
+                            <label for="defaultTimezone">Default Timezone</label>
+                            <select id="defaultTimezone" style="width:100%;padding:0.625rem 0.875rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:#e6edf3;font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                                <optgroup label="🇦🇺 Australia">
+                                    <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
+                                    <option value="Australia/Brisbane">Australia/Brisbane (AEST, no DST)</option>
+                                    <option value="Australia/Adelaide">Australia/Adelaide (ACST/ACDT)</option>
+                                    <option value="Australia/Perth">Australia/Perth (AWST)</option>
+                                    <option value="Australia/Darwin">Australia/Darwin (ACST, no DST)</option>
+                                    <option value="Australia/Hobart">Australia/Hobart (AEST/AEDT)</option>
+                                </optgroup>
+                                <optgroup label="🌏 Asia">
+                                    <option value="Asia/Hong_Kong">Asia/Hong_Kong (HKT)</option>
+                                    <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                                    <option value="Asia/Singapore">Asia/Singapore (SGT)</option>
+                                    <option value="Asia/Shanghai">Asia/Shanghai (CST)</option>
+                                </optgroup>
+                                <optgroup label="🌍 Europe">
+                                    <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                </optgroup>
+                                <optgroup label="🌎 Americas">
+                                    <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                    <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                                </optgroup>
+                                <optgroup label="🌐 Universal">
+                                    <option value="UTC">UTC</option>
+                                </optgroup>
+                            </select>
+                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Used for recurring notification scheduling.</div>
+                        </div>
+
+                        <div id="generalSuccessMsg" class="success-message"></div>
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="saveGeneralSettings()">💾 Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: Admin -> Static Data -->
+                <div class="settings-panel" data-panel-id="static-data">
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">🗃️</span>
+                            Static Data
+                        </div>
+
+                        <!-- HK Securities -->
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🇭🇰 HK Securities</div>
+                            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="hkLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Securities</span><br>
+                                    <span id="hkRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <button id="hkDownloadBtn" class="btn btn-primary" onclick="downloadHkSecurities()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    ⬇️ Download / Refresh
+                                </button>
+                                <button class="btn btn-secondary" onclick="openSecuritiesModal()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    📋 Show Securities
+                                </button>
+                            </div>
+                            <div class="static-url-block">
+                                <label class="static-url-toggle">
+                                    <input type="checkbox" id="hkUrlEnabled" onchange="toggleStaticUrl('hk')"> Use custom source URL
+                                </label>
+                                <div class="static-url-row">
+                                    <input type="text" id="hkUrl" class="static-url-input" disabled spellcheck="false" placeholder="">
+                                    <button class="btn btn-secondary static-url-save" onclick="saveStaticUrl('hk')">💾 Save URL</button>
+                                </div>
+                                <div class="static-url-hint">Leave the box empty to fall back to the default (shown as the placeholder).</div>
+                                <span id="hkUrlMsg" class="static-url-msg"></span>
+                            </div>
+                            <div id="hkStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                        </div>
+
+                        <!-- CoinGecko Catalog -->
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🦎 CoinGecko Catalog</div>
+                            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="cgLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Coins</span><br>
+                                    <span id="cgRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <button id="cgDownloadBtn" class="btn btn-primary" onclick="downloadCoingeckoCoins()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    ⬇️ Download / Refresh
+                                </button>
+                                <button class="btn btn-secondary" onclick="openCoingeckoModal()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    📋 Show Coins
+                                </button>
+                            </div>
+                            <div class="static-url-block">
+                                <label class="static-url-toggle">
+                                    <input type="checkbox" id="cgUrlEnabled" onchange="toggleStaticUrl('cg')"> Use custom source URL
+                                </label>
+                                <div class="static-url-row">
+                                    <input type="text" id="cgUrl" class="static-url-input" disabled spellcheck="false" placeholder="">
+                                    <button class="btn btn-secondary static-url-save" onclick="saveStaticUrl('cg')">💾 Save URL</button>
+                                </div>
+                                <div class="static-url-hint">Leave the box empty to fall back to the default (shown as the placeholder).</div>
+                                <span id="cgUrlMsg" class="static-url-msg"></span>
+                            </div>
+                            <div id="cgStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                        </div>
+
+                        <!-- US Securities (Nasdaq Trader symbol directory) -->
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🇺🇸 US Securities <span style="font-weight:400;color:#6e7681;font-size:0.8rem;">(NASDAQ + NYSE/AMEX/ARCA/BATS/IEX)</span></div>
+                            <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="usLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                                <div>
+                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Tickers</span><br>
+                                    <span id="usRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                                <button id="usDownloadBtn" class="btn btn-primary" onclick="downloadUsSecurities()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    ⬇️ Download / Refresh
+                                </button>
+                                <button class="btn btn-secondary" onclick="selectPanel('database-tool')" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
+                                    📋 Browse in Tools
+                                </button>
+                            </div>
+                            <div class="static-url-block">
+                                <label class="static-url-toggle">
+                                    <input type="checkbox" id="usNasdaqUrlEnabled" onchange="toggleStaticUrl('usNasdaq')"> Custom <code style="color:#79c0ff;">nasdaqlisted.txt</code> URL
+                                </label>
+                                <div class="static-url-row">
+                                    <input type="text" id="usNasdaqUrl" class="static-url-input" disabled spellcheck="false" placeholder="">
+                                    <button class="btn btn-secondary static-url-save" onclick="saveStaticUrl('usNasdaq')">💾 Save URL</button>
+                                </div>
+                                <span id="usNasdaqUrlMsg" class="static-url-msg"></span>
+                            </div>
+                            <div class="static-url-block">
+                                <label class="static-url-toggle">
+                                    <input type="checkbox" id="usOtherUrlEnabled" onchange="toggleStaticUrl('usOther')"> Custom <code style="color:#79c0ff;">otherlisted.txt</code> URL
+                                </label>
+                                <div class="static-url-row">
+                                    <input type="text" id="usOtherUrl" class="static-url-input" disabled spellcheck="false" placeholder="">
+                                    <button class="btn btn-secondary static-url-save" onclick="saveStaticUrl('usOther')">💾 Save URL</button>
+                                </div>
+                                <div class="static-url-hint">Leave a box empty to fall back to its default (shown as the placeholder).</div>
+                                <span id="usOtherUrlMsg" class="static-url-msg"></span>
+                            </div>
+                            <div id="usStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: Admin -> Telegram -->
+                <div class="settings-panel" data-panel-id="telegram">
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">✈️</span>
+                            Telegram Notifications
+                        </div>
+
+                        <div style="background:rgba(47,129,247, 0.06);border:1px solid rgba(88,166,255, 0.15);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.85rem;color:#7d8590;line-height:1.7;">
+                            <strong style="color:#58a6ff;">Setup steps:</strong><br>
+                            1. Open Telegram and search for <code style="color:#79c0ff;">@BotFather</code> → type <code style="color:#79c0ff;">/newbot</code> → follow prompts → copy the bot token.<br>
+                            2. Start a chat with your new bot by sending it <code style="color:#79c0ff;">/start</code>.<br>
+                            3. Paste the token below, click <strong>Auto-detect Chat ID</strong>, then <strong>Save</strong>.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="telegramToken">Bot Token</label>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <input type="password" id="telegramToken" placeholder="123456789:ABCdef…" autocomplete="off" style="flex:1;">
+                                <button type="button" class="btn btn-secondary" style="padding:0.5rem 0.75rem;white-space:nowrap;font-size:0.8rem;" onclick="toggleTokenVisibility()">👁 Show</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="telegramChatId">Chat ID</label>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <input type="text" id="telegramChatId" placeholder="e.g. 987654321" style="flex:1;">
+                                <button type="button" class="btn btn-secondary" id="detectBtn" style="padding:0.5rem 0.75rem;white-space:nowrap;font-size:0.8rem;" onclick="detectChatId()">🔍 Auto-detect</button>
+                            </div>
+                            <div id="detectMsg" style="font-size:0.8rem;margin-top:0.4rem;"></div>
+                        </div>
+
+                        <div id="telegramSuccessMsg" class="success-message"></div>
+                        <div id="telegramErrorMsg" style="display:none;background:rgba(218,54,51, 0.1);border:1px solid rgba(248,81,73, 0.3);color:#f85149;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem;"></div>
+
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="saveTelegramSettings()">💾 Save</button>
+                            <button class="btn btn-secondary" id="testTelegramBtn" onclick="testTelegram()">🧪 Test Connection</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: HK charts (chart-style card + AAStocks URL card) -->
+                <div class="settings-panel" data-panel-id="stock-url">
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">📈</span>
+                            HK Chart Style
+                        </div>
+
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label for="hkChartProvider">Chart type</label>
+                            <select id="hkChartProvider" onchange="saveHkChartProvider()" style="width:100%;padding:0.5rem 0.65rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:6px;color:#e6edf3;font-size:0.82rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                                <option value="aastocks">AAStocks</option>
+                                <option value="yfinance">App-Rendered</option>
+                            </select>
+                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">How HK charts render everywhere (cards, detail view, expanders). <b>AAStocks</b> embeds the live GIFs from the URL card below; <b>App-Rendered</b> draws candlesticks from market data — same as JP/US — and the URL templates are then unused. HK prices &amp; performance are yfinance-backed either way.</div>
+                            <div id="hkChartProviderMsg" class="success-message" style="margin-top:0.5rem;margin-bottom:0;padding:0.4rem 0.7rem;font-size:0.8rem;">✓ Saved</div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">🔗</span>
+                            AAStocks URL Configuration
+                        </div>
+                        <div style="font-size:0.78rem;color:#6e7681;margin:-0.5rem 0 1.25rem;">Used only when <b>Chart type</b> above is set to <b>AAStocks</b>.</div>
+                        <form id="settingsForm">
+                            <div class="form-group">
+                                <label for="url3ms">3 Months (Small) URL Template</label>
+                                <input type="text" id="url3ms" name="url_template_3m_small" placeholder="https://example.com/chart?stockid={stockid}&period=4" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="url3m">3 Months URL Template</label>
+                                <input type="text" id="url3m" name="url_template_3m" placeholder="https://example.com/chart?stockid={stockid}&period=4" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="url6m">6 Months URL Template</label>
+                                <input type="text" id="url6m" name="url_template_6m" placeholder="https://example.com/chart?stockid={stockid}&period=5" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="url1y">1 Year URL Template</label>
+                                <input type="text" id="url1y" name="url_template_1y" placeholder="https://example.com/chart?stockid={stockid}&period=6" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="url1ym">1 Year (Monthly) URL Template</label>
+                                <input type="text" id="url1ym" name="url_template_1y_monthly" placeholder="https://example.com/chart?stockid={stockid}&period=7" required>
+                            </div>
+
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-primary">💾 Save Settings</button>
+                                <button type="reset" class="btn btn-secondary">↻ Reset</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <!-- Panel: Markets -> Crypto -->
+                <div class="settings-panel" data-panel-id="crypto-config">
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">🟠</span>
+                            CoinGecko Settings
+                        </div>
+
+                        <div class="form-group">
+                            <label for="coingeckoApiUrl">CoinGecko API Base URL</label>
+                            <input type="text" id="coingeckoApiUrl" placeholder="https://api.coingecko.com/api/v3">
+                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Leave as default unless you use a proxy or self-hosted instance.</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="coingeckoApiKey">API Key <span style="color:#484f58;font-weight:400;">(optional — for higher rate limits)</span></label>
+                            <div style="display:flex;gap:0.5rem;align-items:center;">
+                                <input type="password" id="coingeckoApiKey" placeholder="CG-xxxxxxxxxxxxxxxxxxxx" style="flex:1;">
+                                <button class="btn btn-secondary" onclick="toggleCgKeyVisibility()" style="white-space:nowrap;">👁 Show</button>
+                            </div>
+                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Free Demo API key from CoinGecko gives higher rate limits. Without a key the free public API is used (30 req/min).</div>
+                        </div>
+
+                        <div id="cryptoSuccessMsg" class="success-message"></div>
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="saveCryptoSettings()">💾 Save</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: Admin -> Tools  (sub-tabs: Database · Application Health · Migrations) -->
+                <div class="settings-panel" data-panel-id="tools">
+                    <style>
+                        /* Tools sub-tab strip — same idiom as the Market Data panel's .md-tab */
+                        .tools-tabstrip { display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:1.5rem; padding-bottom:0.9rem; border-bottom:1px solid rgba(var(--bt-slate-rgb), 0.15); }
+                        .tools-tab { background: rgba(var(--bt-bg-rgb), 0.5); border:1px solid rgba(var(--bt-slate-rgb), 0.2); color:var(--bt-fg-muted); padding:0.5rem 1.05rem; border-radius:9px; font-size:0.88rem; font-weight:600; cursor:pointer; transition: all 0.2s ease; display:inline-flex; align-items:center; gap:0.4rem; }
+                        .tools-tab:hover { border-color: rgba(var(--bt-accent2-rgb), 0.45); color:var(--bt-fg-2); }
+                        .tools-tab.active { background: linear-gradient(135deg,var(--bt-accent) 0%,var(--bt-accent-2) 100%); color:#fff; border-color: transparent; }
+                        .tools-tab .tools-tab-ico { font-style:normal; }
+                        .tools-view { display:none; }
+                        .tools-view.active { display:block; }
+                        /* Application Health */
+                        .ah-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-top:0.5rem; }
+                        .ah-card { background:rgba(var(--bt-bg-rgb), 0.5); border:1px solid rgba(var(--bt-slate-rgb), 0.2); border-radius:10px; padding:1rem 1.1rem; }
+                        .ah-label { font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--bt-fg-subtle); margin-bottom:0.45rem; }
+                        .ah-value { font-size:1.15rem; font-weight:600; color:var(--bt-fg); font-variant-numeric:tabular-nums; }
+                        .ah-sub { font-size:0.78rem; color:var(--bt-fg-muted); margin-top:0.3rem; }
+                        .ah-badge { display:inline-block; padding:0.15rem 0.6rem; border-radius:999px; font-size:0.8rem; font-weight:600; }
+                        .ah-badge.dev { background:rgba(var(--bt-warn-rgb), 0.15); color:var(--bt-warn); border:1px solid rgba(var(--bt-warn-rgb), 0.35); }
+                        .ah-badge.prod { background:rgba(var(--bt-accent-rgb), 0.15); color:var(--bt-accent-2); border:1px solid rgba(var(--bt-accent-rgb), 0.35); }
+                        .ah-badge.ready { background:rgba(var(--bt-up-rgb), 0.15); color:var(--bt-up); border:1px solid rgba(var(--bt-up-rgb), 0.35); }
+                        .ah-badge.down { background:rgba(var(--bt-down2-rgb), 0.15); color:var(--bt-down); border:1px solid rgba(var(--bt-down2-rgb), 0.35); }
+                        .ah-badge.na { background:rgba(var(--bt-subtle-rgb), 0.15); color:var(--bt-fg-muted); border:1px solid rgba(var(--bt-subtle-rgb), 0.35); }
+                        .ah-section-title { font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--bt-fg-muted); margin:1.25rem 0 0.25rem; }
+                        .ah-section-title:first-child { margin-top:0; }
+                        .ah-prod-link { text-transform:none; letter-spacing:0; font-weight:500; font-size:0.78rem; color:var(--bt-accent-2); text-decoration:none; margin-left:0.5rem; }
+                        .ah-prod-link:hover { text-decoration:underline; }
+                        .tools-refresh { background:rgba(var(--bt-bg-rgb), 0.6); border:1px solid rgba(var(--bt-slate-rgb), 0.25); color:var(--bt-fg-2); padding:0.4rem 0.9rem; border-radius:8px; font-size:0.85rem; cursor:pointer; }
+                        .tools-refresh:hover { border-color:rgba(var(--bt-accent2-rgb), 0.5); }
+                        .ah-produrl { margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(var(--bt-slate-rgb), 0.12); display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; }
+                        .ah-produrl label { font-size:0.8rem; color:var(--bt-fg-muted); }
+                        .ah-produrl input { flex:1; min-width:200px; background:rgba(var(--bt-bg-rgb), 0.6); border:1px solid rgba(var(--bt-slate-rgb), 0.25); color:var(--bt-fg); padding:0.4rem 0.6rem; border-radius:8px; font-size:0.85rem; }
+                        .ah-produrl button { background:rgba(var(--bt-bg-rgb), 0.6); border:1px solid rgba(var(--bt-slate-rgb), 0.25); color:var(--bt-fg-2); padding:0.4rem 0.9rem; border-radius:8px; font-size:0.85rem; cursor:pointer; }
+                        .ah-produrl button:hover { border-color:rgba(var(--bt-accent2-rgb), 0.5); }
+                        /* Database Migrations */
+                        .mig-verline { display:flex; gap:0.6rem; align-items:center; font-size:1.05rem; margin:0.5rem 0 1.25rem; }
+                        .mig-pill { padding:0.15rem 0.6rem; border-radius:999px; font-weight:700; font-size:0.95rem; font-variant-numeric:tabular-nums; }
+                        .mig-pill.cur { background:rgba(var(--bt-accent2-rgb), 0.15); color:var(--bt-accent-2); }
+                        .mig-pill.head { background:rgba(var(--bt-subtle-rgb), 0.15); color:var(--bt-fg-muted); }
+                        .mig-pill.ok { background:rgba(var(--bt-up-rgb), 0.15); color:var(--bt-up); }
+                        .mig-badge { display:inline-block; padding:0.15rem 0.65rem; border-radius:999px; font-size:0.78rem; font-weight:600; }
+                        .mig-badge.ok { background:rgba(var(--bt-up-rgb), 0.15); color:var(--bt-up); border:1px solid rgba(var(--bt-up-rgb), 0.35); }
+                        .mig-badge.up { background:rgba(var(--bt-warn-rgb), 0.15); color:var(--bt-warn); border:1px solid rgba(var(--bt-warn-rgb), 0.35); }
+                        .mig-badge.newer { background:rgba(var(--bt-down2-rgb), 0.15); color:var(--bt-down); border:1px solid rgba(var(--bt-down2-rgb), 0.35); }
+                        .mig-list { list-style:none; padding:0; margin:0 0 1rem; font-size:0.85rem; }
+                        .mig-list li { padding:0.45rem 0.7rem; margin-bottom:0.35rem; background:rgba(var(--bt-bg-rgb), 0.45); border-radius:8px; display:flex; gap:0.6rem; align-items:baseline; }
+                        .mig-list .v { color:var(--bt-accent-2); font-weight:700; font-variant-numeric:tabular-nums; min-width:2.5rem; }
+                        .mig-list .when { margin-left:auto; color:var(--bt-fg-subtle); font-size:0.78rem; white-space:nowrap; }
+                        .mig-actions { display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center; margin:0.5rem 0 1rem; }
+                        .mig-msg { font-size:0.85rem; min-height:1.2em; margin-top:0.25rem; }
+                        .mig-msg.ok { color:var(--bt-up-teal); } .mig-msg.err { color:var(--bt-down); }
+                        .mig-down { display:flex; gap:0.5rem; align-items:center; }
+                        .mig-down input { width:5rem; background:rgba(var(--bt-bg-rgb), 0.6); border:1px solid rgba(var(--bt-slate-rgb), 0.25); color:var(--bt-fg); padding:0.4rem 0.6rem; border-radius:8px; font-size:0.85rem; }
+                        .mig-readonly { background:rgba(var(--bt-warn-rgb), 0.08); border:1px solid rgba(var(--bt-warn-rgb), 0.25); color:var(--bt-warn-soft); padding:0.7rem 0.95rem; border-radius:10px; font-size:0.83rem; line-height:1.5; }
+                        .mig-readonly code { background:rgba(var(--bt-bg-rgb), 0.7); padding:0.15rem 0.45rem; border-radius:6px; color:var(--bt-accent-3); }
+                    </style>
+
+                    <div class="tools-tabstrip">
+                        <div class="tools-tab active" data-tool="database" onclick="selectTool('database', this)"><span class="tools-tab-ico">🗄️</span> Database</div>
+                        <div class="tools-tab" data-tool="health" onclick="selectTool('health', this)"><span class="tools-tab-ico">🩺</span> Application Health</div>
+                        <div class="tools-tab" data-tool="migrations" onclick="selectTool('migrations', this)"><span class="tools-tab-ico">🧬</span> Migrations</div>
+                    </div>
+
+                    <!-- Tool: Database browser -->
+                    <div class="tools-view active" data-tool-view="database">
+                        <div class="settings-section">
+                            <div class="settings-title">
+                                <span class="settings-icon">🗄️</span>
+                                Database Tool
+                            </div>
+                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1rem;line-height:1.6;">
+                                Browse every table in <code style="color:#79c0ff;">portfolio.db</code>. Tables are auto-discovered from the database — any new table appears here automatically. Read-only.
+                            </div>
+                            <div id="dbTableList" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
+                                <span style="color:#6e7681;font-size:0.85rem;">Loading tables…</span>
+                            </div>
+                            <div id="dbTableView" style="display:none;">
+                                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                                    <span id="dbTableName" style="font-weight:700;color:#e6edf3;font-size:1rem;"></span>
+                                    <span id="dbTableCount" class="sec-count"></span>
+                                </div>
+                                <div class="sec-table-wrap">
+                                    <table class="sec-table">
+                                        <thead><tr id="dbTableHead"></tr></thead>
+                                        <tbody id="dbTableBody"></tbody>
+                                    </table>
+                                </div>
+                                <div class="sec-pagination">
+                                    <button class="sec-page-btn" id="dbPrevBtn" onclick="loadDbTable(dbCurrentTable, dbCurrentPage - 1)">‹ Prev</button>
+                                    <span class="sec-page-info" id="dbPageInfo"></span>
+                                    <button class="sec-page-btn" id="dbNextBtn" onclick="loadDbTable(dbCurrentTable, dbCurrentPage + 1)">Next ›</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tool: Application Health -->
+                    <div class="tools-view" data-tool-view="health">
+                        <div class="settings-section">
+                            <div class="settings-title">
+                                <span class="settings-icon">🩺</span>
+                                Application Health
+                            </div>
+                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1.25rem;line-height:1.6;">
+                                Runtime mode, component versions, and whether the background worker (the
+                                scheduler "server") is alive. The worker reports a heartbeat every 30s;
+                                it shows <b>Down</b> if no beat has arrived in ~90s.
+                            </div>
+                            <div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
+                                <button class="tools-refresh" onclick="loadAppHealth()">↻ Refresh</button>
+                            </div>
+                            <div id="ahBody">
+                                <span style="color:#6e7681;font-size:0.85rem;">Loading…</span>
+                            </div>
+                            {% if app_env == 'dev' %}
+                            <div class="ah-produrl">
+                                <label for="ahProdUrl">Prod URL</label>
+                                <input id="ahProdUrl" type="text" placeholder="auto — from deploy/config.sh" />
+                                <button onclick="saveProdUrl()">Save</button>
+                                <span id="ahProdUrlMsg" style="font-size:0.8rem;color:#6e7681;"></span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Tool: Database Migrations -->
+                    <div class="tools-view" data-tool-view="migrations">
+                        <div class="settings-section">
+                            <div class="settings-title">
+                                <span class="settings-icon">🧬</span>
+                                Database Migrations
+                            </div>
+                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1rem;line-height:1.6;">
+                                Versioned, reversible schema changes. Definitions live in <code style="color:#79c0ff;">migrations/</code>
+                                (git); what has actually run on <b>this</b> DB is the ledger below. Every up/down
+                                takes an automatic timestamped backup first.
+                                {% if app_env != 'dev' %}<br><b>This is prod</b> — migrations run via
+                                <code style="color:#79c0ff;">migrate.py</code> during deploy, so the controls are read-only here.{% endif %}
+                            </div>
+                            <div style="display:flex;justify-content:flex-end;margin-bottom:0.5rem;">
+                                <button class="tools-refresh" onclick="loadMigrations()">↻ Refresh</button>
+                            </div>
+                            <div id="migBody">
+                                <span style="color:#6e7681;font-size:0.85rem;">Loading…</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel: Admin -> Market Data -->
+                <div class="settings-panel" data-panel-id="market-data">
+                    <style>
+                        .md-tab { background: rgba(var(--bt-bg-rgb), 0.5); border:1px solid rgba(var(--bt-slate-rgb), 0.2); color:var(--bt-fg-muted); padding:0.45rem 0.95rem; border-radius:8px; font-size:0.85rem; cursor:pointer; transition: all 0.2s ease; }
+                        .md-tab:hover { border-color: rgba(var(--bt-accent2-rgb), 0.45); color:var(--bt-fg-2); }
+                        .md-tab.active { background: linear-gradient(135deg,var(--bt-accent) 0%,var(--bt-accent-2) 100%); color:#fff; border-color: transparent; }
+                        #mdSearch { padding:0.4rem 0.7rem; background: rgba(var(--bt-bg-rgb), 0.6); border:1px solid rgba(var(--bt-slate-rgb), 0.2); border-radius:7px; color:var(--bt-fg); font-size:0.85rem; }
+                        #mdSearch:focus { outline:none; border-color: rgba(var(--bt-accent2-rgb), 0.5); }
+                        .md-spin { display:inline-block; width:12px; height:12px; border:2px solid rgba(var(--bt-accent2-rgb), 0.3); border-top-color:var(--bt-accent-2); border-radius:50%; animation: md-spin 0.8s linear infinite; vertical-align:-1px; }
+                        @keyframes md-spin { to { transform: rotate(360deg); } }
+                        .md-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--bt-fg-faint); vertical-align:0; }
+                        .md-job-row { display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; font-size:0.82rem; color:var(--bt-fg-muted); }
+                    </style>
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">📊</span>
+                            Market Data
+                        </div>
+                        <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1.25rem;line-height:1.6;">
+                            Market-data providers, cache statistics and controls — categorized by market. Each
+                            market can be served by one or more providers; pick the active one. Cached data is
+                            reused until it ages past the freshness window, then refetched on demand.
+                        </div>
+                        <!-- Global settings (apply to all markets / the backload component) -->
+                        <div style="background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:#c9d1d9;font-size:0.9rem;margin-bottom:0.4rem;">⚙️ Backload settings <span style="font-weight:400;color:#6e7681;font-size:0.78rem;">· all markets</span></div>
+                            <div style="font-size:0.82rem;color:#7d8590;margin-bottom:0.75rem;line-height:1.5;">
+                                The earliest date the worker fills daily history back to (for stocks; crypto is best-effort
+                                via the provider's deepest window). Also the start date used by <b>Rebuild cache</b>.
+                            </div>
+                            <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
+                                <label style="color:#7d8590;font-size:0.85rem;">Start date</label>
+                                <input type="date" id="mdBackloadStart" style="padding:0.4rem 0.6rem;background:rgba(13,17,23, 0.6);border:1px solid rgba(125,133,144, 0.2);border-radius:7px;color:#e6edf3;font-size:0.85rem;">
+                                <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;" onclick="saveMdBackloadStart()">Save</button>
+                                <span id="mdBackloadMsg" style="font-size:0.82rem;color:#7d8590;"></span>
+                            </div>
+                        </div>
+                        <!-- Background reload indicator (worker's recurring prefetch + backfill jobs) -->
+                        <div style="background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:#c9d1d9;font-size:0.9rem;margin-bottom:0.3rem;">🔁 Background reload <span style="font-weight:400;color:#6e7681;font-size:0.78rem;">· runs in the worker</span></div>
+                            <div style="font-size:0.8rem;color:#7d8590;margin-bottom:0.7rem;line-height:1.5;">
+                                <b style="color:#c9d1d9;">Forward-fill</b> keeps the newest prices current; <b style="color:#c9d1d9;">backward-fill</b> extends daily history back to the start date.
+                            </div>
+                            <div id="mdJobs" style="display:flex;flex-direction:column;gap:0.5rem;">
+                                <span style="color:#6e7681;font-size:0.82rem;">Loading job status…</span>
+                            </div>
+                        </div>
+                        <!-- Market sub-tabs -->
+                        <div id="mdTabs" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+                            <span style="color:#6e7681;font-size:0.85rem;">Loading markets…</span>
+                        </div>
+                        <!-- Active market sub-panel (rendered by JS) -->
+                        <div id="mdBody"></div>
+                    </div>
+                </div>
+
+                <!-- Panel: Admin -> FX Rates -->
+                <div class="settings-panel" data-panel-id="fx-rates">
+                    <style>
+                        .fx-provline {
+                            display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 1rem;
+                            font-size:0.85rem; color:var(--bt-fg-muted); margin:0.25rem 0 1.25rem;
+                        }
+                        .fx-provline .fx-prov { color:var(--bt-fg); font-weight:600; }
+                        .fx-provline .fx-chip {
+                            font-family:'SF Mono','Roboto Mono',Menlo,monospace; font-size:0.78rem;
+                            padding:0.12rem 0.5rem; border-radius:999px;
+                            background:rgba(var(--bt-accent-rgb), 0.15); color:var(--bt-accent-2);
+                        }
+                        .fx-base-row { display:flex; align-items:flex-end; gap:0.75rem; flex-wrap:wrap; }
+                        .fx-grid { width:100%; border-collapse:collapse; margin-top:0.5rem; font-size:0.85rem; }
+                        .fx-grid th {
+                            text-align:left; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.05em;
+                            color:var(--bt-fg-subtle); font-weight:600; padding:0.5rem 0.75rem;
+                            border-bottom:1px solid rgba(var(--bt-slate-rgb), 0.12); white-space:nowrap;
+                        }
+                        .fx-grid td {
+                            padding:0.55rem 0.75rem; border-bottom:1px solid rgba(var(--bt-slate-rgb), 0.06);
+                            color:var(--bt-fg-2); font-variant-numeric:tabular-nums;
+                        }
+                        .fx-grid .fx-pair { font-family:'SF Mono','Roboto Mono',Menlo,monospace; }
+                        .fx-grid .fx-rate { color:var(--bt-fg); font-weight:600; }
+                        .fx-grid .fx-arrow { color:var(--bt-fg-subtle); }
+                        .fx-src {
+                            font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+                            padding:0.1rem 0.45rem; border-radius:6px; white-space:nowrap;
+                        }
+                        .fx-src.live { color:var(--bt-up); background:rgba(var(--bt-up2-rgb), 0.13); border:1px solid rgba(var(--bt-up2-rgb), 0.3); }
+                        .fx-src.fallback { color:var(--bt-warn); background:rgba(var(--bt-warn2-rgb), 0.13); border:1px solid rgba(var(--bt-warn2-rgb), 0.32); }
+                        .fx-foot { font-size:0.78rem; color:var(--bt-fg-subtle); line-height:1.5; margin-top:0.9rem; }
+                    </style>
+                    <div class="settings-section">
+                        <div class="settings-title">
+                            <span class="settings-icon">💱</span>
+                            FX Rates
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fxBaseCurrency">Base Currency</label>
+                            <div class="fx-base-row">
+                                <select id="fxBaseCurrency" style="flex:0 0 auto;min-width:160px;padding:0.625rem 0.875rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:#e6edf3;font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                                    <option value="HKD">HKD</option>
+                                    <option value="USD">USD</option>
+                                    <option value="AUD">AUD</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="saveFxBaseCurrency()">💾 Save</button>
+                                <button class="btn btn-secondary" onclick="loadFx()">🔄 Refresh</button>
+                            </div>
+                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">All portfolio P&amp;L is normalized to this currency.</div>
+                        </div>
+
+                        <div id="fxBaseMsg" class="success-message"></div>
+
+                        <div class="fx-provline" id="fxProvline">
+                            <span>Provider: <span class="fx-prov">…</span></span>
+                        </div>
+
+                        <div id="fxGridHost">
+                            <span style="color:#6e7681;font-size:0.85rem;">Loading rates…</span>
+                        </div>
+
+                        <div class="fx-foot">
+                            Rates are delayed, USD-pivoted, and refreshed by the worker every 15&nbsp;min. When the
+                            provider is unreachable, fixed anchors (HKD/USD&nbsp;=&nbsp;0.1276, HKD/AUD&nbsp;=&nbsp;0.181,
+                            triangle for the rest) are used and shown as <b style="color:#d29922;">Fallback</b>.
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle an expandable nav group open/closed
+        function toggleGroup(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
+
+        // The three former Admin panels are now sub-tabs of one "Tools" panel. Map their
+        // old panel ids → (tools panel, sub-tool) so existing callers + #hash deep-links
+        // (e.g. the static-data "Browse in Tools" button, /settings#app-health) keep working.
+        const TOOL_ALIASES = { 'database-tool': 'database', 'app-health': 'health', 'db-migrations': 'migrations' };
+
+        // Switch the right-hand detail panel based on the clicked nav item
+        function selectPanel(panelId, clickedEl) {
+            const tool = TOOL_ALIASES[panelId] || null;   // an old alias → open Tools + that sub-tab
+            if (tool) panelId = 'tools';
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            // Resolve the nav item to highlight (the alias has no nav item of its own).
+            const navItem = (clickedEl && clickedEl.dataset.panel === panelId)
+                ? clickedEl : document.querySelector(`.nav-item[data-panel="${panelId}"]`);
+            if (navItem) navItem.classList.add('active');
+            document.querySelectorAll('.settings-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panelId === panelId);
+            });
+            if (panelId === 'tools') { selectTool(tool || 'database'); return; }
+            if (panelId === 'market-data') loadMarketData();
+            if (panelId === 'fx-rates') loadFx();
+        }
+
+        // Switch the active sub-tool inside the Tools panel (Database · Health · Migrations)
+        // and lazy-load that tool's data. `clickedEl` is optional (programmatic switches
+        // resolve the tab by data-tool).
+        function selectTool(tool, clickedEl) {
+            document.querySelectorAll('.tools-tab').forEach(t =>
+                t.classList.toggle('active', t.dataset.tool === tool));
+            document.querySelectorAll('.tools-view').forEach(v =>
+                v.classList.toggle('active', v.dataset.toolView === tool));
+            if (tool === 'database') loadDbTables();
+            if (tool === 'health') loadAppHealth();
+            if (tool === 'migrations') loadMigrations();
+        }
+
+        // ── Database Migrations panel ───────────────────────────────────────
+        const MIG_IS_DEV = {{ 'true' if app_env == 'dev' else 'false' }};
+
+        async function loadMigrations() {
+            const body = document.getElementById('migBody');
+            try {
+                const [stRes, hiRes] = await Promise.all([
+                    fetch('/betelgeuse/api/admin/migrate/status'),
+                    fetch('/betelgeuse/api/admin/migrate/history'),
+                ]);
+                const st = await stRes.json();
+                const hist = (await hiRes.json()).history || [];
+                body.innerHTML = renderMigrations(st, hist);
+            } catch (e) {
+                body.innerHTML = `<span class="mig-msg err">Failed to load: ${e}</span>`;
+            }
+        }
+
+        function renderMigrations(st, hist) {
+            const gate = st.gate;
+            const badge = gate === 'OK'
+                ? '<span class="mig-badge ok">up to date</span>'
+                : (gate === 'DB_NEWER'
+                    ? '<span class="mig-badge newer">DB newer than code</span>'
+                    : `<span class="mig-badge up">${st.pending.length} pending</span>`);
+            let html = `<div class="mig-verline">
+                DB <span class="mig-pill ${gate === 'OK' ? 'ok' : 'cur'}">v${st.current}</span>
+                <span style="color:#6e7681;">→ code</span>
+                <span class="mig-pill head">v${st.head}</span>
+                ${badge}
+            </div>`;
+
+            if (st.pending.length) {
+                html += '<div class="ah-section-title">Pending</div><ul class="mig-list">';
+                for (const p of st.pending) {
+                    html += `<li><span class="v">v${p.version}</span><span>${escMig(p.name)} — ${escMig(p.description)}</span></li>`;
+                }
+                html += '</ul>';
+            }
+
+            if (gate === 'DB_NEWER') {
+                html += `<div class="mig-readonly">This DB (v${st.current}) is <b>newer</b> than the code (v${st.head}).
+                    Do not downgrade live data — deploy newer code or restore a backup.</div>`;
+            } else if (MIG_IS_DEV) {
+                html += '<div class="mig-actions">';
+                if (gate === 'NEEDS_UP') {
+                    html += `<button class="btn btn-primary" onclick="migRun('up', null)">Migrate up to v${st.head}</button>`;
+                }
+                if (st.current > 0) {
+                    html += `<span class="mig-down">Downgrade to v
+                        <input type="number" id="migDownTo" min="0" max="${st.current - 1}" value="${st.current - 1}">
+                        <button class="btn btn-danger" onclick="migDown()">Go</button></span>`;
+                }
+                html += '</div>';
+            } else {
+                html += `<div class="mig-readonly">On prod, run <code>python3 migrate.py up --env prod</code>
+                    during deploy (it backs up first), then restart the services.</div>`;
+            }
+            html += '<div class="mig-msg" id="migMsg"></div>';
+
+            html += '<div class="ah-section-title">Applied ledger</div>';
+            if (!hist.length) {
+                html += '<span style="color:#6e7681;font-size:0.85rem;">(nothing recorded yet)</span>';
+            } else {
+                html += '<ul class="mig-list">';
+                for (const r of hist) {
+                    html += `<li><span class="v">v${r.version}</span><span>${escMig(r.name)} — ${escMig(r.description || '')}</span><span class="when">${escMig(r.applied_at || '')}</span></li>`;
+                }
+                html += '</ul>';
+            }
+            return html;
+        }
+
+        function escMig(s) {
+            return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        }
+
+        async function migRun(direction, to) {
+            const msg = document.getElementById('migMsg');
+            msg.className = 'mig-msg'; msg.textContent = 'Working…';
+            try {
+                const r = await fetch(`/betelgeuse/api/admin/migrate/${direction}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(to == null ? {} : { to }),
+                });
+                const d = await r.json();
+                if (r.ok && !d.error) {
+                    msg.className = 'mig-msg ok';
+                    let t = `Migrated v${d.from} → v${d.to}.`;
+                    if (d.backup) t += ` Backup: ${d.backup.split('/').pop()}.`;
+                    if (d.pruned && d.pruned.length) t += ` Pruned ${d.pruned.length} old backup(s).`;
+                    msg.textContent = t;
+                    loadMigrations();
+                } else {
+                    msg.className = 'mig-msg err';
+                    msg.textContent = d.error || 'Migration failed.';
+                }
+            } catch (e) {
+                msg.className = 'mig-msg err'; msg.textContent = 'Request failed: ' + e;
+            }
+        }
+
+        function migDown() {
+            const to = parseInt(document.getElementById('migDownTo').value, 10);
+            if (isNaN(to)) return;
+            if (!confirm(`Downgrade the database to v${to}? A backup is taken first, but downgrades can drop data.`)) return;
+            migRun('down', to);
+        }
+
+        // ── Application Health panel ────────────────────────────────────────
+        function ahRelative(ageSec) {
+            if (ageSec == null) return 'never';
+            const s = Math.max(0, Math.round(ageSec));
+            if (s < 60) return s + 's ago';
+            const m = Math.round(s / 60);
+            if (m < 60) return m + 'm ago';
+            const h = Math.round(m / 60);
+            if (h < 24) return h + 'h ago';
+            return Math.round(h / 24) + 'd ago';
+        }
+
+        function ahFmtMs(ms) { return ms ? new Date(ms).toLocaleString() : '—'; }
+        function ahFmtEpoch(s) { return s ? new Date(s * 1000).toLocaleString() : '—'; }
+
+        // Cards shared by the dev instance and a reachable prod (same /api/health shape).
+        function ahHealthCards(h) {
+            const env = h.env || '—';
+            const w = h.worker || {};
+            const ready = !!w.ready;
+            const webStarted = h.web && h.web.started_at ? ahFmtMs(h.web.started_at) : '—';
+            const workerStarted = w.started_at ? ahFmtEpoch(w.started_at) : '—';
+            const lastSeen = w.last_seen
+                ? ahFmtEpoch(w.last_seen) + ' · ' + ahRelative(w.age_seconds)
+                : 'never';
+            const serverTime = h.server_time ? ahFmtMs(h.server_time) : '—';
+            const db = h.db || {};
+            const dbVersion = db.version != null ? db.version : '—';
+            const dbDesc = db.description ? db.description : '—';
+            // Schema gate (older /api/health responses omit it — degrade gracefully).
+            const gate = db.schema_gate;
+            let schemaBadge = '';
+            if (gate === 'OK') schemaBadge = '<span class="ah-badge ready">up to date</span>';
+            else if (gate === 'NEEDS_UP') schemaBadge = `<span class="ah-badge dev">${db.pending_count || 0} pending</span>`;
+            else if (gate === 'DB_NEWER') schemaBadge = '<span class="ah-badge down">DB newer than code</span>';
+            const schemaSub = gate
+                ? `<div class="ah-sub">${schemaBadge}${db.schema_head != null ? ' · code head v' + db.schema_head : ''}</div>`
+                : '';
+            return `
+                <div class="ah-card">
+                    <div class="ah-label">Mode</div>
+                    <div class="ah-value"><span class="ah-badge ${env}">${env.toUpperCase()}</span></div>
+                </div>
+                <div class="ah-card">
+                    <div class="ah-label">Web (app)</div>
+                    <div class="ah-value">v${h.web && h.web.version ? h.web.version : '—'}</div>
+                    <div class="ah-sub">started: ${webStarted}</div>
+                </div>
+                <div class="ah-card">
+                    <div class="ah-label">Worker (server)</div>
+                    <div class="ah-value">v${w.version || '—'}</div>
+                    <div class="ah-sub">running as: ${w.env || '—'}</div>
+                    <div class="ah-sub">started: ${workerStarted}</div>
+                </div>
+                <div class="ah-card">
+                    <div class="ah-label">Worker status</div>
+                    <div class="ah-value"><span class="ah-badge ${ready ? 'ready' : 'down'}">${ready ? 'Ready' : 'Down'}</span></div>
+                    <div class="ah-sub">last beat: ${lastSeen}</div>
+                </div>
+                <div class="ah-card">
+                    <div class="ah-label">Database</div>
+                    <div class="ah-value">schema v${dbVersion}</div>
+                    ${schemaSub}
+                    <div class="ah-sub">${dbDesc}</div>
+                </div>
+                <div class="ah-card">
+                    <div class="ah-label">Server time</div>
+                    <div class="ah-value" style="font-size:0.95rem;">${serverTime}</div>
+                </div>
+            `;
+        }
+
+        // Prod (mini) cards from /api/prod/health: unconfigured / unreachable / reachable.
+        function ahProdCards(p) {
+            if (!p || p.configured === false) {
+                return `<div class="ah-card" style="grid-column:1/-1;">
+                    <div class="ah-label">Prod target</div>
+                    <div class="ah-value" style="font-size:0.95rem;"><span class="ah-badge na">Not configured</span></div>
+                    <div class="ah-sub">Set a Prod URL below, or create deploy/config.sh with MINI_HOST.</div>
+                </div>`;
+            }
+            const when = p.probed_at ? ahFmtMs(p.probed_at) : '—';
+            if (!p.reachable) {
+                return `<div class="ah-card" style="grid-column:1/-1;">
+                    <div class="ah-label">Prod</div>
+                    <div class="ah-value"><span class="ah-badge down">Unreachable</span></div>
+                    <div class="ah-sub">${p.base_url || ''}</div>
+                    <div class="ah-sub" style="color:#f85149;">${p.error || ''}</div>
+                    <div class="ah-sub">last probed: ${when}</div>
+                </div>`;
+            }
+            return ahHealthCards(p.health || {}) + `
+                <div class="ah-card">
+                    <div class="ah-label">Reachability</div>
+                    <div class="ah-value"><span class="ah-badge ready">Reachable</span></div>
+                    <div class="ah-sub">${p.base_url || ''}</div>
+                    <div class="ah-sub">probed: ${when}</div>
+                </div>`;
+        }
+
+        async function loadAppHealth() {
+            const body = document.getElementById('ahBody');
+            body.innerHTML = '<span style="color:#6e7681;font-size:0.85rem;">Loading…</span>';
+            try {
+                const h = await (await fetch('/betelgeuse/api/health')).json();
+                const env = h.env || 'dev';
+                let html = `<div class="ah-section-title">This instance (${env.toUpperCase()})</div>`;
+                html += `<div class="ah-grid">${ahHealthCards(h)}</div>`;
+                if (env === 'dev') {
+                    html += `<div class="ah-section-title" id="ahProdTitle">Prod (mini)</div>`;
+                    html += `<div class="ah-grid" id="ahProdGrid"><span style="color:#6e7681;font-size:0.85rem;">Probing prod…</span></div>`;
+                }
+                body.innerHTML = html;
+
+                // Populate the Prod URL override field (dev only) from saved settings.
+                const urlInput = document.getElementById('ahProdUrl');
+                if (urlInput) {
+                    try {
+                        const s = await (await fetch('/betelgeuse/api/settings')).json();
+                        urlInput.value = s.prod_base_url || '';
+                    } catch (e) { /* ignore */ }
+                }
+
+                // Probe prod and fill its cards (dev only).
+                if (env === 'dev') {
+                    const grid = document.getElementById('ahProdGrid');
+                    try {
+                        const p = await (await fetch('/betelgeuse/api/prod/health', { cache: 'no-store' })).json();
+                        grid.innerHTML = ahProdCards(p);
+                        // Link the section heading to the live prod server (when a target is known).
+                        const title = document.getElementById('ahProdTitle');
+                        if (title && p.base_url) {
+                            title.innerHTML = 'Prod (mini) <a class="ah-prod-link" href="' + p.base_url
+                                + '" target="_blank" rel="noopener" title="Open the prod server">' + p.base_url + ' ↗</a>';
+                        }
+                    } catch (e) {
+                        grid.innerHTML = '<span style="color:#f85149;font-size:0.85rem;">Failed to probe prod: ' + e + '</span>';
+                    }
+                }
+            } catch (e) {
+                body.innerHTML = '<span style="color:#f85149;font-size:0.85rem;">Failed to load health: ' + e + '</span>';
+            }
+        }
+
+        async function saveProdUrl() {
+            const input = document.getElementById('ahProdUrl');
+            const msg = document.getElementById('ahProdUrlMsg');
+            if (!input) return;
+            msg.textContent = 'Saving…';
+            msg.style.color = '#6e7681';
+            try {
+                const resp = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prod_base_url: input.value.trim() })
+                });
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                msg.textContent = 'Saved — re-probing…';
+                msg.style.color = '#3fb950';
+                await loadAppHealth();
+            } catch (e) {
+                msg.textContent = 'Save failed: ' + e;
+                msg.style.color = '#f85149';
+            }
+        }
+
+        document.querySelectorAll('.nav-item').forEach(el => {
+            el.addEventListener('click', () => selectPanel(el.dataset.panel, el));
+        });
+
+        // Load settings on page load
+        async function loadSettings() {
+            try {
+                const response = await fetch('/betelgeuse/api/settings');
+                const settings = await response.json();
+
+                document.getElementById('url3m').value = settings.url_template_3m || '';
+                document.getElementById('url6m').value = settings.url_template_6m || '';
+                document.getElementById('url1y').value = settings.url_template_1y || '';
+                document.getElementById('url1ym').value = settings.url_template_1y_monthly || '';
+                document.getElementById('url3ms').value = settings.url_template_3m_small || '';
+                document.getElementById('hkChartProvider').value =
+                    (settings.hk_chart_provider === 'yfinance') ? 'yfinance' : 'aastocks';
+                document.getElementById('telegramToken').value = settings.telegram_bot_token || '';
+                document.getElementById('telegramChatId').value = settings.telegram_chat_id || '';
+                document.getElementById('defaultTimezone').value = settings.default_timezone || 'Australia/Sydney';
+                document.getElementById('coingeckoApiUrl').value = settings.coingecko_api_url || '';
+                document.getElementById('coingeckoApiKey').value = settings.coingecko_api_key || '';
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        async function saveGeneralSettings() {
+            const tz = document.getElementById('defaultTimezone').value;
+            const successEl = document.getElementById('generalSuccessMsg');
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ default_timezone: tz })
+                });
+                if (res.ok) {
+                    successEl.textContent = '✓ General settings saved!';
+                    successEl.classList.add('show');
+                    setTimeout(() => successEl.classList.remove('show'), 3000);
+                } else {
+                    alert('Error saving settings');
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+        }
+
+        // ── FX Rates panel ──────────────────────────────────────────────────
+        // Read-only provider + provenance, plus the (editable) base-currency selector.
+        // Pair rates + their inverses are derived from the cached USD-per values, so the
+        // grid re-labels itself the moment the base currency changes.
+        function fxFmt(v) {
+            if (v == null || !isFinite(v)) return '—';
+            const a = Math.abs(v);
+            if (a >= 100) return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+            if (a >= 1)   return v.toLocaleString('en-US', { maximumFractionDigits: 4 });
+            return v.toLocaleString('en-US', { maximumSignificantDigits: 4 });
+        }
+        function fxAgo(iso) {
+            if (!iso) return '—';
+            const t = Date.parse(iso);
+            if (isNaN(t)) return '—';
+            const s = Math.floor((Date.now() - t) / 1000);
+            if (s < 60) return s + 's ago';
+            const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+            const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+            return Math.floor(h / 24) + 'd ago';
+        }
+        function renderFxGrid(st) {
+            const map = {};
+            st.rates.forEach(r => { map[r.currency] = r; });
+            const base = st.base, baseLeg = map[base];
+            if (!baseLeg) return '<span style="color:#f85149;font-size:0.85rem;">Unknown base currency.</span>';
+            const rows = st.rates.filter(r => r.currency !== base).map(r => {
+                const ccy = r.currency;
+                const rate = baseLeg.usd_per / r.usd_per;   // base → ccy
+                const inv  = r.usd_per / baseLeg.usd_per;   // ccy → base (inverse)
+                const live = baseLeg.source === 'live' && r.source === 'live';
+                // freshness of the non-USD leg(s); USD is the constant pivot (no timestamp)
+                const ts = (ccy !== 'USD' ? r.fetched_at : null) || (base !== 'USD' ? baseLeg.fetched_at : null);
+                return `<tr>
+                    <td class="fx-pair">${escMig(base)} <span class="fx-arrow">→</span> ${escMig(ccy)}&nbsp; <span class="fx-rate">${fxFmt(rate)}</span></td>
+                    <td class="fx-pair">${escMig(ccy)} <span class="fx-arrow">→</span> ${escMig(base)}&nbsp; <span class="fx-rate">${fxFmt(inv)}</span></td>
+                    <td><span class="fx-src ${live ? 'live' : 'fallback'}">${live ? 'Live' : 'Fallback'}</span></td>
+                    <td style="color:#6e7681;">${live ? escMig(fxAgo(ts)) : '—'}</td>
+                </tr>`;
+            }).join('');
+            return `<table class="fx-grid">
+                <thead><tr><th>Rate</th><th>Inverse</th><th>Source</th><th>Updated</th></tr></thead>
+                <tbody>${rows}</tbody></table>`;
+        }
+        async function loadFx() {
+            const host = document.getElementById('fxGridHost');
+            const prov = document.getElementById('fxProvline');
+            try {
+                const st = await fetch('/betelgeuse/api/fx').then(r => r.json());
+                const sel = document.getElementById('fxBaseCurrency');
+                if (sel) sel.value = st.base;
+                prov.innerHTML =
+                    `<span>Provider: <span class="fx-prov">${escMig(st.provider)}</span></span>`
+                    + `<span class="fx-chip">${escMig(st.pivot)}-pivot</span>`
+                    + `<span class="fx-chip">delayed</span>`
+                    + `<span>Base: <span class="fx-prov">${escMig(st.base)}</span></span>`;
+                host.innerHTML = renderFxGrid(st);
+            } catch (e) {
+                host.innerHTML = `<span style="color:#f85149;font-size:0.85rem;">Failed to load FX rates: ${escMig(String(e))}</span>`;
+            }
+        }
+        async function saveFxBaseCurrency() {
+            const base = document.getElementById('fxBaseCurrency').value;
+            const msg = document.getElementById('fxBaseMsg');
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ base_currency: base })
+                });
+                if (res.ok) {
+                    msg.textContent = '✓ Base currency saved!';
+                    msg.classList.add('show');
+                    setTimeout(() => msg.classList.remove('show'), 3000);
+                    loadFx();   // re-denominate the grid against the new base
+                } else {
+                    alert('Error saving base currency');
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+        }
+
+        // Persist the HK chart-style toggle immediately on change.
+        async function saveHkChartProvider() {
+            const value = document.getElementById('hkChartProvider').value;
+            const msg = document.getElementById('hkChartProviderMsg');
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hk_chart_provider: value })
+                });
+                if (res.ok) {
+                    msg.classList.add('show');
+                    setTimeout(() => msg.classList.remove('show'), 2500);
+                } else {
+                    alert('Error saving chart style');
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+            }
+        }
+
+        // Save settings
+        document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = {
+                url_template_3m: document.getElementById('url3m').value,
+                url_template_6m: document.getElementById('url6m').value,
+                url_template_1y: document.getElementById('url1y').value,
+                url_template_1y_monthly: document.getElementById('url1ym').value,
+                url_template_3m_small: document.getElementById('url3ms').value
+            };
+
+            try {
+                const response = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                if (response.ok) {
+                    // Show success message
+                    const successMsg = document.getElementById('successMessage');
+                    successMsg.classList.add('show');
+
+                    // Hide after 3 seconds
+                    setTimeout(() => {
+                        successMsg.classList.remove('show');
+                    }, 3000);
+                } else {
+                    alert('Error saving settings');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Error saving settings');
+            }
+        });
+
+        function toggleCgKeyVisibility() {
+            const inp = document.getElementById('coingeckoApiKey');
+            const btn = event.target;
+            if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈 Hide'; }
+            else { inp.type = 'password'; btn.textContent = '👁 Show'; }
+        }
+
+        async function saveCryptoSettings() {
+            const msg = document.getElementById('cryptoSuccessMsg');
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        coingecko_api_url: document.getElementById('coingeckoApiUrl').value.trim(),
+                        coingecko_api_key: document.getElementById('coingeckoApiKey').value.trim(),
+                    })
+                });
+                if (res.ok) {
+                    msg.className = 'success-message'; msg.style.display = 'block';
+                    msg.textContent = '✓ Crypto settings saved!';
+                    setTimeout(() => { msg.style.display = 'none'; }, 4000);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // Load settings when page loads
+        window.addEventListener('load', () => {
+            loadSettings();
+            loadHkStatus();
+            loadCoingeckoStatus();
+            loadUsStatus();
+            openPanelFromHash();
+        });
+
+        // Deep-link support: /settings#static-data opens that panel (expanding its
+        // nav group). Used by the "data is stale" prompt in header.html. A Tools-alias
+        // hash (#app-health / #db-migrations / #database-tool) resolves to the Tools nav item.
+        function openPanelFromHash() {
+            const panelId = (location.hash || '').replace('#', '');
+            if (!panelId) return;
+            const navPanel = TOOL_ALIASES[panelId] ? 'tools' : panelId;
+            const navItem = document.querySelector(`.nav-item[data-panel="${navPanel}"]`);
+            if (!navItem) return;
+            const group = navItem.closest('.nav-group');
+            if (group) group.classList.add('open');
+            selectPanel(panelId, navItem);   // selectPanel re-applies the alias → Tools + sub-tab
+            navItem.scrollIntoView({ block: 'nearest' });
+        }
+
+        // ── Custom static-data source URLs (HK / CoinGecko catalog) ──
+        const STATIC_URL_KEYS = {
+            hk: { value: 'hk_securities_url', enabled: 'hk_securities_url_enabled' },
+            cg: { value: 'coingecko_catalog_url', enabled: 'coingecko_catalog_url_enabled' },
+            usNasdaq: { value: 'us_nasdaq_url', enabled: 'us_nasdaq_url_enabled' },
+            usOther: { value: 'us_other_url', enabled: 'us_other_url_enabled' }
+        };
+
+        // Populate the textbox + checkbox from a status payload (url_default/url_value/url_enabled).
+        // The box shows the URL currently in use (custom if set, else default); the placeholder
+        // always shows the default so an emptied box hints how to roll back.
+        function applyStaticUrlInfo(prefix, data) {
+            const enabledBox = document.getElementById(prefix + 'UrlEnabled');
+            const input = document.getElementById(prefix + 'Url');
+            if (!enabledBox || !input) return;
+            enabledBox.checked = !!data.url_enabled;
+            input.placeholder = data.url_default || '';
+            input.value = data.url_value || data.url_default || '';
+            input.disabled = !enabledBox.checked;
+        }
+
+        function toggleStaticUrl(prefix) {
+            const enabledBox = document.getElementById(prefix + 'UrlEnabled');
+            const input = document.getElementById(prefix + 'Url');
+            input.disabled = !enabledBox.checked;
+            if (enabledBox.checked) {
+                if (!input.value.trim() && input.placeholder) input.value = input.placeholder;
+                input.focus();
+            }
+        }
+
+        async function saveStaticUrl(prefix) {
+            const keys = STATIC_URL_KEYS[prefix];
+            const enabledBox = document.getElementById(prefix + 'UrlEnabled');
+            const input = document.getElementById(prefix + 'Url');
+            const msg = document.getElementById(prefix + 'UrlMsg');
+            const payload = {};
+            payload[keys.enabled] = enabledBox.checked ? 'true' : 'false';
+            payload[keys.value] = enabledBox.checked ? input.value.trim() : '';
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) { msg.textContent = '✓ Saved'; msg.style.color = '#56d364'; }
+                else { msg.textContent = '✗ Save failed'; msg.style.color = '#f85149'; }
+            } catch (e) {
+                msg.textContent = '✗ ' + e.message; msg.style.color = '#f85149';
+            }
+            setTimeout(() => { msg.textContent = ''; }, 2500);
+            // Reload status so the box reflects what was actually persisted.
+            const reload = { hk: loadHkStatus, cg: loadCoingeckoStatus, usNasdaq: loadUsStatus, usOther: loadUsStatus };
+            (reload[prefix] || loadHkStatus)();
+        }
+
+        async function loadHkStatus() {
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/hk/status');
+                const data = await res.json();
+                document.getElementById('hkLastUpdated').textContent = data.updated_at || 'Never';
+                document.getElementById('hkRowCount').textContent = data.row_count > 0 ? data.row_count.toLocaleString() : '0';
+                applyStaticUrlInfo('hk', data);
+            } catch (e) {
+                document.getElementById('hkLastUpdated').textContent = 'Error';
+            }
+        }
+
+        // Securities modal
+        let secCurrentPage = 1;
+        let secSearchTimer = null;
+
+        function openSecuritiesModal() {
+            document.getElementById('securitiesModal').classList.add('open');
+            loadSecurities(1);
+        }
+
+        function closeSecuritiesModal() {
+            document.getElementById('securitiesModal').classList.remove('open');
+        }
+
+        function closeSecuritiesOnBackdrop(e) {
+            if (e.target === document.getElementById('securitiesModal')) closeSecuritiesModal();
+        }
+
+        function debounceSearch() {
+            clearTimeout(secSearchTimer);
+            secSearchTimer = setTimeout(() => loadSecurities(1), 300);
+        }
+
+        async function loadSecurities(page) {
+            secCurrentPage = page;
+            const q = document.getElementById('secSearch').value.trim();
+            const category = document.getElementById('secCategory').value;
+            const params = new URLSearchParams({ page, per_page: 50 });
+            if (q) params.set('q', q);
+            if (category) params.set('category', category);
+
+            const body = document.getElementById('secTableBody');
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+
+            const res = await fetch(`/betelgeuse/api/admin/static-data/hk/securities?${params}`);
+            const data = await res.json();
+
+            // Populate category dropdown once
+            const catSel = document.getElementById('secCategory');
+            if (catSel.options.length <= 1 && data.categories) {
+                data.categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat; opt.textContent = cat;
+                    catSel.appendChild(opt);
+                });
+                catSel.value = category;
+            }
+
+            document.getElementById('secCount').textContent =
+                `${data.total.toLocaleString()} result${data.total !== 1 ? 's' : ''}`;
+            document.getElementById('secPageInfo').textContent =
+                `Page ${data.page} of ${data.pages}`;
+            document.getElementById('secPrevBtn').disabled = data.page <= 1;
+            document.getElementById('secNextBtn').disabled = data.page >= data.pages;
+
+            body.innerHTML = data.rows.length === 0
+                ? '<tr><td colspan="5" style="text-align:center;color:#6e7681;padding:2rem;">No results</td></tr>'
+                : data.rows.map(r => `
+                    <tr>
+                        <td class="code">${r.stock_code}</td>
+                        <td>${r.name}</td>
+                        <td class="cat">${r.category}</td>
+                        <td class="cat">${r.sub_category || '—'}</td>
+                        <td class="lot">${r.board_lot}</td>
+                    </tr>`).join('');
+        }
+
+        // CoinGecko catalog
+        async function loadCoingeckoStatus() {
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/coingecko/status');
+                const data = await res.json();
+                document.getElementById('cgLastUpdated').textContent = data.updated_at || 'Never';
+                document.getElementById('cgRowCount').textContent = data.row_count > 0 ? data.row_count.toLocaleString() : '0';
+                applyStaticUrlInfo('cg', data);
+            } catch (e) {
+                document.getElementById('cgLastUpdated').textContent = 'Error';
+            }
+        }
+
+        // US securities (Nasdaq Trader)
+        async function loadUsStatus() {
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/us/status');
+                const data = await res.json();
+                document.getElementById('usLastUpdated').textContent = data.updated_at || 'Never';
+                document.getElementById('usRowCount').textContent = data.row_count > 0 ? data.row_count.toLocaleString() : '0';
+                applyStaticUrlInfo('usNasdaq', data.nasdaq || {});
+                applyStaticUrlInfo('usOther', data.other || {});
+            } catch (e) {
+                document.getElementById('usLastUpdated').textContent = 'Error';
+            }
+        }
+
+        async function downloadUsSecurities() {
+            const btn = document.getElementById('usDownloadBtn');
+            const status = document.getElementById('usStatus');
+            btn.disabled = true;
+            btn.textContent = '⏳ Downloading…';
+            status.textContent = 'Fetching the Nasdaq Trader symbol directory (both files)…';
+            status.style.color = '#7d8590';
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/us/download', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    status.textContent = `✓ ${data.message} (${data.updated_at})`;
+                    status.style.color = '#56d364';
+                    await loadUsStatus();
+                } else if (data.aborted) {
+                    status.textContent = `⚠️ ${data.error}`;
+                    status.style.color = '#d29922';
+                } else {
+                    status.textContent = `✗ Error: ${data.error}`;
+                    status.style.color = '#f85149';
+                }
+            } catch (e) {
+                status.textContent = `✗ Network error: ${e.message}`;
+                status.style.color = '#f85149';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⬇️ Download / Refresh';
+            }
+        }
+
+        async function downloadCoingeckoCoins() {
+            const btn = document.getElementById('cgDownloadBtn');
+            const status = document.getElementById('cgStatus');
+            btn.disabled = true;
+            btn.textContent = '⏳ Downloading…';
+            status.textContent = 'Fetching the CoinGecko catalog, this may take a few seconds…';
+            status.style.color = '#7d8590';
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/coingecko/download', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    status.textContent = `✓ ${data.message} (${data.updated_at})`;
+                    status.style.color = '#56d364';
+                    await loadCoingeckoStatus();
+                } else if (data.aborted) {
+                    status.textContent = `⚠️ ${data.error}`;
+                    status.style.color = '#d29922';
+                } else {
+                    status.textContent = `✗ Error: ${data.error}`;
+                    status.style.color = '#f85149';
+                }
+            } catch (e) {
+                status.textContent = `✗ Network error: ${e.message}`;
+                status.style.color = '#f85149';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⬇️ Download / Refresh';
+            }
+        }
+
+        let cgCurrentPage = 1;
+        let cgSearchTimer = null;
+
+        function openCoingeckoModal() {
+            document.getElementById('coingeckoModal').classList.add('open');
+            loadCoingeckoCoins(1);
+        }
+
+        function closeCoingeckoModal() {
+            document.getElementById('coingeckoModal').classList.remove('open');
+        }
+
+        function closeCoingeckoOnBackdrop(e) {
+            if (e.target === document.getElementById('coingeckoModal')) closeCoingeckoModal();
+        }
+
+        function debounceCgSearch() {
+            clearTimeout(cgSearchTimer);
+            cgSearchTimer = setTimeout(() => loadCoingeckoCoins(1), 300);
+        }
+
+        async function loadCoingeckoCoins(page) {
+            cgCurrentPage = page;
+            const q = document.getElementById('cgSearch').value.trim();
+            const params = new URLSearchParams({ page, per_page: 50 });
+            if (q) params.set('q', q);
+
+            const body = document.getElementById('cgTableBody');
+            body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+
+            const res = await fetch(`/betelgeuse/api/admin/static-data/coingecko/coins?${params}`);
+            const data = await res.json();
+
+            document.getElementById('cgCount').textContent =
+                `${data.total.toLocaleString()} result${data.total !== 1 ? 's' : ''}`;
+            document.getElementById('cgPageInfo').textContent =
+                `Page ${data.page} of ${data.pages}`;
+            document.getElementById('cgPrevBtn').disabled = data.page <= 1;
+            document.getElementById('cgNextBtn').disabled = data.page >= data.pages;
+
+            body.innerHTML = data.rows.length === 0
+                ? '<tr><td colspan="4" style="text-align:center;color:#6e7681;padding:2rem;">No results — try Download / Refresh first</td></tr>'
+                : data.rows.map(r => `
+                    <tr>
+                        <td class="lot">${r.market_cap_rank ?? '—'}</td>
+                        <td class="code">${(r.symbol || '').toUpperCase()}</td>
+                        <td class="cat">${r.coin_id}</td>
+                        <td>${r.name || '—'}</td>
+                    </tr>`).join('');
+        }
+
+        // Database Tool — generic, introspective table browser
+        let dbCurrentTable = null;
+        let dbCurrentPage = 1;
+
+        async function loadDbTables() {
+            const list = document.getElementById('dbTableList');
+            try {
+                const res = await fetch('/betelgeuse/api/admin/db/tables');
+                const data = await res.json();
+                if (!data.tables || !data.tables.length) {
+                    list.innerHTML = '<span style="color:#6e7681;font-size:0.85rem;">No tables found.</span>';
+                    return;
+                }
+                list.innerHTML = data.tables.map(t =>
+                    `<button class="db-table-chip${t.name === dbCurrentTable ? ' active' : ''}" data-table="${t.name}" onclick="loadDbTable('${t.name}', 1)">${t.name} <span style="opacity:0.6;">(${t.row_count.toLocaleString()})</span></button>`
+                ).join('');
+            } catch (e) {
+                list.innerHTML = `<span style="color:#f85149;font-size:0.85rem;">Error loading tables: ${e.message}</span>`;
+            }
+        }
+
+        function escapeDbCell(v) {
+            if (v === null || v === undefined) return '<span style="color:#484f58;">NULL</span>';
+            let s = String(v);
+            if (s.length > 160) s = s.slice(0, 160) + '…';
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        async function loadDbTable(name, page) {
+            dbCurrentTable = name;
+            dbCurrentPage = page;
+            document.querySelectorAll('.db-table-chip').forEach(b =>
+                b.classList.toggle('active', b.dataset.table === name));
+
+            const view = document.getElementById('dbTableView');
+            view.style.display = 'block';
+            const head = document.getElementById('dbTableHead');
+            const body = document.getElementById('dbTableBody');
+            body.innerHTML = '<tr><td style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+
+            const res = await fetch(`/betelgeuse/api/admin/db/table/${encodeURIComponent(name)}?page=${page}&per_page=50`);
+            const data = await res.json();
+            if (data.error) {
+                head.innerHTML = '';
+                body.innerHTML = `<tr><td style="color:#f85149;padding:1rem;">${data.error}</td></tr>`;
+                return;
+            }
+
+            document.getElementById('dbTableName').textContent = data.name;
+            document.getElementById('dbTableCount').textContent =
+                `${data.total.toLocaleString()} row${data.total !== 1 ? 's' : ''}`;
+            head.innerHTML = data.columns.map(c => `<th>${escapeDbCell(c)}</th>`).join('');
+            document.getElementById('dbPageInfo').textContent = `Page ${data.page} of ${data.pages}`;
+            document.getElementById('dbPrevBtn').disabled = data.page <= 1;
+            document.getElementById('dbNextBtn').disabled = data.page >= data.pages;
+
+            body.innerHTML = data.rows.length === 0
+                ? `<tr><td colspan="${data.columns.length || 1}" style="text-align:center;color:#6e7681;padding:2rem;">Empty table</td></tr>`
+                : data.rows.map(r =>
+                    `<tr>${data.columns.map(c => `<td>${escapeDbCell(r[c])}</td>`).join('')}</tr>`
+                ).join('');
+        }
+
+        // ── Market Data panel ──────────────────────────────────────────────
+        const MD_FLAGS = { hk: '🇭🇰', jp: '🇯🇵', us: '🇺🇸', crypto: '🪙' };
+        let mdMarkets = [];          // cached /markets response
+        let mdActiveMarket = 'crypto';
+        let mdServerTime = null;     // server "now" from the last status call
+        let mdInstrPage = 1;
+        let mdInstrQuery = '';
+        let mdSearchTimer = null;
+        let mdRebuildTimer = null;   // poll handle for an in-flight rebuild
+        let mdJobsTimer = null;      // poll handle for the background-job indicator
+
+        function mdParseTs(s) { return s ? Date.parse(String(s).replace(' ', 'T')) : NaN; }
+        function mdFmtTime(s) { const t = mdParseTs(s); return isNaN(t) ? '—' : new Date(t).toLocaleString(); }
+        function mdFmtEpoch(ms) { const n = Number(ms); return Number.isFinite(n) && n > 0 ? new Date(n).toLocaleString() : '—'; }
+        function mdFmtDate(ms) { const n = Number(ms); return Number.isFinite(n) && n > 0 ? new Date(n).toLocaleDateString() : '—'; }
+        function mdFmtRange(a, b) { return `${mdFmtDate(a)} – ${mdFmtDate(b)}`; }
+        function mdFmtAge(s, nowIso) {
+            const t = mdParseTs(s); if (isNaN(t)) return '—';
+            const now = mdParseTs(nowIso) || Date.now();
+            let sec = Math.max(0, (now - t) / 1000);
+            if (sec < 60) return Math.floor(sec) + 's ago';
+            if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+            if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+            return Math.floor(sec / 86400) + 'd ago';
+        }
+        function mdFmtBytes(n) {
+            n = Number(n) || 0; const u = ['B', 'KB', 'MB', 'GB']; let i = 0;
+            while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+            return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
+        }
+        // Relative time for a FUTURE instant ("in 4m" / "in 2h"); "now" once due/past.
+        function mdFmtUntil(s) {
+            const t = mdParseTs(s); if (isNaN(t)) return '—';
+            let sec = (t - Date.now()) / 1000;
+            if (sec <= 0) return 'any moment';
+            if (sec < 60) return 'in ' + Math.floor(sec) + 's';
+            if (sec < 3600) return 'in ' + Math.floor(sec / 60) + 'm';
+            if (sec < 86400) return 'in ' + Math.floor(sec / 3600) + 'h';
+            return 'in ' + Math.floor(sec / 86400) + 'd';
+        }
+
+        async function loadMarketData() {
+            const tabs = document.getElementById('mdTabs');
+            try {
+                const res = await fetch('/betelgeuse/api/admin/market-data/markets');
+                mdMarkets = (await res.json()).markets || [];
+            } catch (e) {
+                tabs.innerHTML = `<span style="color:#f85149;font-size:0.85rem;">Error: ${e.message}</span>`;
+                return;
+            }
+            if (!mdMarkets.some(m => m.market === mdActiveMarket)) {
+                mdActiveMarket = mdMarkets.length ? mdMarkets[0].market : 'crypto';
+            }
+            renderMdTabs();
+            selectMdMarket(mdActiveMarket);
+            // Prefill the global backload start date from settings (default 2024-01-01).
+            try {
+                const s = await (await fetch('/betelgeuse/api/settings')).json();
+                const inp = document.getElementById('mdBackloadStart');
+                if (inp) inp.value = s.market_data_backload_start_date || '2024-01-01';
+            } catch (e) { /* non-fatal */ }
+            startMdJobsPolling();   // live "background reload" indicator
+        }
+
+        // Recurring background jobs (worker's prefetch + backfill) — labels for the UI.
+        // `dir` makes the direction explicit: forward-fill keeps the newest edge current,
+        // backward-fill extends history back to the start date.
+        const MD_JOB_LABELS = {
+            prefetch: { icon: '💲', name: 'Price refresh', dir: 'forward-fill', every: 'every 15m', tip: 'newest prices (trailing 1y)' },
+            backload: { icon: '📈', name: 'History backfill', dir: 'backward-fill', every: 'every 6h', tip: 'older history back to start date' },
+        };
+
+        function startMdJobsPolling() {
+            loadMdJobs();
+            clearInterval(mdJobsTimer);
+            mdJobsTimer = setInterval(loadMdJobs, 10000);   // refresh the indicator ~every 10s
+        }
+
+        async function loadMdJobs() {
+            const el = document.getElementById('mdJobs');
+            if (!el) { clearInterval(mdJobsTimer); return; }
+            let jobs;
+            try { jobs = await (await fetch('/betelgeuse/api/admin/market-data/jobs')).json(); }
+            catch (e) { return; }   // transient — keep the last render
+            el.innerHTML = ['prefetch', 'backload'].map(name => {
+                const j = jobs[name] || { state: 'idle' };
+                const meta = MD_JOB_LABELS[name] || { icon: '•', name: name, every: '' };
+                const running = j.state === 'running';
+                const indicator = running
+                    ? `<span class="md-spin"></span> <span style="color:#58a6ff;font-weight:600;">Reloading now…</span>`
+                    : `<span class="md-dot"></span> <span>Idle</span>`;
+                const r = j.last_result || null;
+                let summary = '';
+                if (r && name === 'prefetch' && r.fetched != null) summary = `fetched ${r.fetched}, skipped ${r.skipped}`;
+                else if (r && name === 'backload' && r.backfilled != null) summary = `backfilled ${r.backfilled}, skipped ${r.skipped}`;
+                const last = j.last_finished ? `last ${mdFmtAge(j.last_finished)}`
+                    : (j.last_started ? `started ${mdFmtAge(j.last_started)}` : 'not run yet');
+                const next = running ? '' : (j.next_run ? `· next ${mdFmtUntil(j.next_run)}` : '');
+                const err = j.last_error ? ` · <span style="color:#f85149;">last error: ${escapeDbCell(j.last_error)}</span>` : '';
+                return `<div class="md-job-row">
+                    <span style="min-width:215px;color:#c9d1d9;" title="${meta.tip || ''}">
+                        ${meta.icon} ${meta.name}
+                        <span style="color:#58a6ff;font-size:0.72rem;font-weight:600;">${meta.dir || ''}</span>
+                        <span style="color:#484f58;font-size:0.72rem;">· ${meta.every}</span>
+                    </span>
+                    ${indicator}
+                    <span style="color:#6e7681;">${last}${summary ? ` (${summary})` : ''} ${next}</span>${err}
+                </div>`;
+            }).join('');
+        }
+
+        async function saveMdBackloadStart() {
+            const inp = document.getElementById('mdBackloadStart');
+            const msg = document.getElementById('mdBackloadMsg');
+            const val = (inp && inp.value || '').trim();
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+                if (msg) { msg.textContent = '✗ Use a YYYY-MM-DD date.'; msg.style.color = '#f85149'; }
+                return;
+            }
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ market_data_backload_start_date: val })
+                });
+                const d = await res.json();
+                if (d.success) { if (msg) { msg.textContent = `✓ Saved (${val}).`; msg.style.color = '#56d364'; } }
+                else if (msg) { msg.textContent = `✗ ${d.error || 'save failed'}`; msg.style.color = '#f85149'; }
+            } catch (e) { if (msg) { msg.textContent = '✗ ' + e.message; msg.style.color = '#f85149'; } }
+        }
+
+        function renderMdTabs() {
+            document.getElementById('mdTabs').innerHTML = mdMarkets.map(m => {
+                const active = m.market === mdActiveMarket ? ' active' : '';
+                const tag = m.available ? '' : ' <span style="opacity:0.5;font-size:0.75rem;">(n/a)</span>';
+                return `<button class="md-tab${active}" onclick="selectMdMarket('${m.market}')">${MD_FLAGS[m.market] || ''} ${m.name}${tag}</button>`;
+            }).join('');
+        }
+
+        function renderMdProviderSelect(m) {
+            if (!m.available) {
+                return `<select class="sec-cat-filter" disabled><option>— none —</option></select>`;
+            }
+            const opts = m.providers.map(p =>
+                `<option value="${p.key}"${p.key === m.active_provider ? ' selected' : ''}>${p.name}</option>`).join('');
+            return `<select class="sec-cat-filter" id="mdProvider" onchange="setMdProvider(this.value)">${opts}</select>`;
+        }
+
+        function selectMdMarket(market) {
+            mdActiveMarket = market;
+            mdInstrPage = 1;
+            mdInstrQuery = '';
+            renderMdTabs();
+            const m = mdMarkets.find(x => x.market === market);
+            const body = document.getElementById('mdBody');
+            if (!m) { body.innerHTML = ''; return; }
+            if (!m.available) {
+                body.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
+                        <label style="color:#7d8590;font-size:0.85rem;">Provider</label>
+                        ${renderMdProviderSelect(m)}
+                    </div>
+                    <div style="background:rgba(210,153,34, 0.08);border:1px solid rgba(210,153,34, 0.25);border-radius:10px;padding:1.25rem;color:#e3b341;font-size:0.9rem;line-height:1.6;">
+                        ⚠️ Market data for <b>${m.name}</b> is <b>not available yet</b> — no provider is registered for this market.
+                    </div>`;
+                return;
+            }
+            body.innerHTML = `
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+                    <label style="color:#7d8590;font-size:0.85rem;">Provider</label>
+                    ${renderMdProviderSelect(m)}
+                    <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;margin-left:auto;" onclick="rebuildMdCache()">🔄 Rebuild cache</button>
+                    <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;" onclick="clearMdCache()">🗑️ Clear cache</button>
+                </div>
+                <div id="mdRebuild" style="display:none;margin-bottom:1rem;background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:0.85rem 1.1rem;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#c9d1d9;margin-bottom:0.5rem;">
+                        <span id="mdRebuildLabel">Rebuilding…</span>
+                        <span id="mdRebuildCount" style="color:#7d8590;"></span>
+                    </div>
+                    <div style="height:8px;background:rgba(125,133,144, 0.15);border-radius:5px;overflow:hidden;">
+                        <div id="mdRebuildBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#58a6ff);transition:width 0.4s ease;"></div>
+                    </div>
+                </div>
+                <div id="mdStats" style="margin-bottom:0.5rem;color:#7d8590;font-size:0.85rem;">Loading statistics…</div>
+                <div style="margin-top:1.5rem;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
+                        <span style="font-weight:700;color:#c9d1d9;font-size:0.95rem;">Cached instruments</span>
+                        <input id="mdSearch" placeholder="Search symbol / id…" style="min-width:200px;" oninput="mdSearchInput(this.value)">
+                    </div>
+                    <div class="sec-table-wrap">
+                        <table class="sec-table">
+                            <thead><tr><th>Instrument (id)</th><th>Symbol</th><th>Periods</th><th>Rows</th><th>Data range</th><th>Last fetched</th><th>Latest record</th></tr></thead>
+                            <tbody id="mdInstrBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="sec-pagination">
+                        <button class="sec-page-btn" id="mdPrevBtn" onclick="changeMdPage(-1)">‹ Prev</button>
+                        <span class="sec-page-info" id="mdPageInfo"></span>
+                        <button class="sec-page-btn" id="mdNextBtn" onclick="changeMdPage(1)">Next ›</button>
+                    </div>
+                </div>
+                <div id="mdMsg" style="margin-top:0.75rem;font-size:0.85rem;color:#7d8590;"></div>`;
+            loadMdStatus();
+            loadMdInstruments();
+            pollMdRebuild(market);   // resume the progress bar if a rebuild is already running
+        }
+
+        async function loadMdStatus() {
+            const el = document.getElementById('mdStats');
+            if (!el) return;
+            try {
+                const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/status`);
+                const d = await res.json();
+                mdServerTime = d.server_time || null;
+                if (!d.available) { el.innerHTML = '<span style="color:#7d8590;">Not available.</span>'; return; }
+                const s = d.stats;
+                const stat = (label, val) =>
+                    `<div><span style="color:#6e7681;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">${label}</span><br><span style="color:#e6edf3;font-size:0.95rem;">${val}</span></div>`;
+                const pngs = s.extra && s.extra.rendered_pngs != null
+                    ? `${s.extra.rendered_pngs} (${mdFmtBytes(s.extra.rendered_png_bytes)})` : '—';
+                el.innerHTML = `
+                    <div style="display:flex;gap:1.75rem;flex-wrap:wrap;background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.12);border-radius:10px;padding:1rem 1.25rem;">
+                        ${stat('Provider', d.provider)}
+                        ${stat('Instruments', (s.instruments || 0).toLocaleString())}
+                        ${stat('OHLCV rows', (s.rows || 0).toLocaleString())}
+                        ${stat('Periods', s.periods.length ? s.periods.join(', ') : '—')}
+                        ${stat('Oldest fetch', mdFmtAge(s.oldest_fetched, d.server_time))}
+                        ${stat('Newest fetch', mdFmtAge(s.newest_fetched, d.server_time))}
+                        ${stat('Render cache', pngs)}
+                        ${stat('Freshness', (d.freshness_min ?? '—') + ' min')}
+                        ${stat('Server time', mdFmtTime(d.server_time))}
+                    </div>`;
+            } catch (e) {
+                el.innerHTML = `<span style="color:#f85149;">Error: ${e.message}</span>`;
+            }
+        }
+
+        async function loadMdInstruments() {
+            const body = document.getElementById('mdInstrBody');
+            if (!body) return;
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6e7681;padding:1.5rem;">Loading…</td></tr>';
+            try {
+                const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/instruments?q=${encodeURIComponent(mdInstrQuery)}&page=${mdInstrPage}&per_page=25`);
+                const d = await res.json();
+                const now = mdServerTime || new Date().toISOString();
+                if (!d.available) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7d8590;padding:1.5rem;">Not available.</td></tr>'; return; }
+                body.innerHTML = d.rows.length === 0
+                    ? '<tr><td colspan="7" style="text-align:center;color:#6e7681;padding:1.5rem;">No cached instruments.</td></tr>'
+                    : d.rows.map(r => `<tr>
+                        <td class="code">${escapeDbCell(r.coin_id)}</td>
+                        <td>${escapeDbCell(r.symbol || '—')}</td>
+                        <td class="cat">${(r.periods || []).join(', ')}</td>
+                        <td class="lot">${(r.rows || 0).toLocaleString()}</td>
+                        <td class="cat">${mdFmtRange(r.oldest_ts, r.latest_ts)}</td>
+                        <td class="cat" title="${escapeDbCell(r.newest_fetched || '')}">${mdFmtAge(r.newest_fetched, now)}</td>
+                        <td class="cat">${mdFmtEpoch(r.latest_ts)}</td>
+                    </tr>`).join('');
+                const info = document.getElementById('mdPageInfo');
+                if (info) info.textContent = `Page ${d.page} of ${d.pages} · ${(d.total || 0).toLocaleString()} item${d.total !== 1 ? 's' : ''}`;
+                const prev = document.getElementById('mdPrevBtn'), next = document.getElementById('mdNextBtn');
+                if (prev) prev.disabled = d.page <= 1;
+                if (next) next.disabled = d.page >= d.pages;
+            } catch (e) {
+                body.innerHTML = `<tr><td colspan="7" style="color:#f85149;padding:1rem;">Error: ${e.message}</td></tr>`;
+            }
+        }
+
+        function mdSearchInput(v) {
+            mdInstrQuery = v.trim();
+            mdInstrPage = 1;
+            clearTimeout(mdSearchTimer);
+            mdSearchTimer = setTimeout(loadMdInstruments, 300);
+        }
+        function changeMdPage(delta) {
+            mdInstrPage = Math.max(1, mdInstrPage + delta);
+            loadMdInstruments();
+        }
+
+        async function setMdProvider(provider) {
+            const msg = document.getElementById('mdMsg');
+            try {
+                const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/provider`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ provider })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    const m = mdMarkets.find(x => x.market === mdActiveMarket);
+                    if (m) m.active_provider = provider;
+                    if (msg) { msg.textContent = `✓ Active provider set to ${provider}.`; msg.style.color = '#56d364'; }
+                    loadMdStatus(); loadMdInstruments();
+                } else if (msg) { msg.textContent = `✗ ${d.error}`; msg.style.color = '#f85149'; }
+            } catch (e) { if (msg) { msg.textContent = '✗ ' + e.message; msg.style.color = '#f85149'; } }
+        }
+
+        async function clearMdCache() {
+            const m = mdMarkets.find(x => x.market === mdActiveMarket);
+            if (!m) return;
+            if (!confirm(`Clear all cached market data for ${m.name} (provider: ${m.active_provider})?\n\nThis deletes cached OHLCV rows and any rendered chart images. They will be re-fetched on demand.`)) return;
+            const msg = document.getElementById('mdMsg');
+            if (msg) { msg.textContent = '⏳ Clearing…'; msg.style.color = '#7d8590'; }
+            try {
+                const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/clear`, { method: 'POST' });
+                const d = await res.json();
+                if (d.success) {
+                    if (msg) { msg.textContent = `✓ Cleared ${(d.cleared_rows || 0).toLocaleString()} row(s) and ${d.cleared_files || 0} rendered image(s).`; msg.style.color = '#56d364'; }
+                    loadMdStatus(); loadMdInstruments();
+                } else if (msg) { msg.textContent = `✗ ${d.error}`; msg.style.color = '#f85149'; }
+            } catch (e) { if (msg) { msg.textContent = '✗ ' + e.message; msg.style.color = '#f85149'; } }
+        }
+
+        async function rebuildMdCache() {
+            const m = mdMarkets.find(x => x.market === mdActiveMarket);
+            if (!m) return;
+            const start = (document.getElementById('mdBackloadStart') || {}).value || '2024-01-01';
+            if (!confirm(`Rebuild the entire ${m.name} cache (provider: ${m.active_provider})?\n\n`
+                + `This CLEARS the cached data, then re-downloads daily history from ${start} to today for `
+                + `every ${m.name} instrument in your portfolio. The background worker does the work; it may `
+                + `take a while. You can keep using the app meanwhile.`)) return;
+            const msg = document.getElementById('mdMsg');
+            try {
+                const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/rebuild`, { method: 'POST' });
+                const d = await res.json();
+                if (d.success) {
+                    if (msg) { msg.textContent = `✓ Rebuild queued (from ${d.start_date}). Waiting for the worker…`; msg.style.color = '#56d364'; }
+                    pollMdRebuild(mdActiveMarket);
+                } else if (msg) { msg.textContent = `✗ ${d.error}`; msg.style.color = '#f85149'; }
+            } catch (e) { if (msg) { msg.textContent = '✗ ' + e.message; msg.style.color = '#f85149'; } }
+        }
+
+        // Poll a market's rebuild status ~every 2s and drive the progress bar until done/error.
+        function pollMdRebuild(market) {
+            clearInterval(mdRebuildTimer);
+            const box = document.getElementById('mdRebuild');
+            const tick = async () => {
+                // Stop polling if the user navigated to another market.
+                if (mdActiveMarket !== market) { clearInterval(mdRebuildTimer); return; }
+                let s;
+                try { s = await (await fetch(`/betelgeuse/api/admin/market-data/${market}/rebuild/status`)).json(); }
+                catch (e) { return; }
+                const bar = document.getElementById('mdRebuildBar');
+                const label = document.getElementById('mdRebuildLabel');
+                const count = document.getElementById('mdRebuildCount');
+                const msg = document.getElementById('mdMsg');
+                if (!box || !bar) return;
+                if (s.state === 'queued') {
+                    box.style.display = '';
+                    label.textContent = 'Queued — waiting for the worker…';
+                    count.textContent = '';
+                    bar.style.width = '5%';
+                } else if (s.state === 'running') {
+                    box.style.display = '';
+                    const total = s.total || 0, done = s.processed || 0;
+                    const pct = total ? Math.round(done / total * 100) : 8;
+                    bar.style.width = Math.max(pct, 5) + '%';
+                    label.textContent = s.current ? `Rebuilding ${s.current}…` : 'Rebuilding…';
+                    count.textContent = total ? `${done} / ${total}` : '';
+                } else if (s.state === 'done') {
+                    clearInterval(mdRebuildTimer);
+                    bar.style.width = '100%';
+                    label.textContent = 'Done';
+                    count.textContent = (s.total != null) ? `${s.processed} / ${s.total}` : '';
+                    if (msg) { msg.textContent = `✓ Rebuild complete — ${s.processed} instrument(s).`; msg.style.color = '#56d364'; }
+                    setTimeout(() => { if (box) box.style.display = 'none'; }, 2500);
+                    loadMdStatus(); loadMdInstruments();
+                } else if (s.state === 'error') {
+                    clearInterval(mdRebuildTimer);
+                    label.textContent = 'Failed';
+                    if (msg) { msg.textContent = `✗ Rebuild failed: ${s.error || 'unknown error'}`; msg.style.color = '#f85149'; }
+                    setTimeout(() => { if (box) box.style.display = 'none'; }, 4000);
+                    loadMdStatus(); loadMdInstruments();
+                } else { // idle — nothing running
+                    clearInterval(mdRebuildTimer);
+                    if (box) box.style.display = 'none';
+                }
+            };
+            tick();
+            mdRebuildTimer = setInterval(tick, 2000);
+        }
+
+        // Telegram helpers
+        function toggleTokenVisibility() {
+            const inp = document.getElementById('telegramToken');
+            const btn = event.target;
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                btn.textContent = '🙈 Hide';
+            } else {
+                inp.type = 'password';
+                btn.textContent = '👁 Show';
+            }
+        }
+
+        async function saveTelegramSettings() {
+            const token = document.getElementById('telegramToken').value.trim();
+            const chatId = document.getElementById('telegramChatId').value.trim();
+            const successEl = document.getElementById('telegramSuccessMsg');
+            const errorEl = document.getElementById('telegramErrorMsg');
+            successEl.classList.remove('show');
+            errorEl.style.display = 'none';
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telegram_bot_token: token, telegram_chat_id: chatId })
+                });
+                if (res.ok) {
+                    successEl.textContent = '✓ Telegram settings saved!';
+                    successEl.classList.add('show');
+                    setTimeout(() => successEl.classList.remove('show'), 3000);
+                } else {
+                    const d = await res.json();
+                    errorEl.textContent = '✗ ' + (d.error || 'Save failed');
+                    errorEl.style.display = 'block';
+                }
+            } catch (e) {
+                errorEl.textContent = '✗ Network error: ' + e.message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        async function detectChatId() {
+            const btn = document.getElementById('detectBtn');
+            const msg = document.getElementById('detectMsg');
+            btn.disabled = true;
+            msg.style.color = '#7d8590';
+            msg.textContent = '⏳ Checking Telegram for recent messages…';
+            try {
+                const res = await fetch('/betelgeuse/api/telegram/detect-chat-id', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    document.getElementById('telegramChatId').value = data.chat_id;
+                    msg.style.color = '#56d364';
+                    msg.textContent = '✓ Chat ID detected! Click Save to persist it.';
+                } else {
+                    msg.style.color = '#f85149';
+                    msg.textContent = '✗ ' + data.error;
+                }
+            } catch (e) {
+                msg.style.color = '#f85149';
+                msg.textContent = '✗ Network error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function testTelegram() {
+            const btn = document.getElementById('testTelegramBtn');
+            const errorEl = document.getElementById('telegramErrorMsg');
+            const successEl = document.getElementById('telegramSuccessMsg');
+            btn.disabled = true;
+            btn.textContent = '⏳ Sending…';
+            errorEl.style.display = 'none';
+            successEl.classList.remove('show');
+            try {
+                const res = await fetch('/betelgeuse/api/telegram/test', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    successEl.textContent = '✓ Test message sent! Check your Telegram.';
+                    successEl.classList.add('show');
+                    setTimeout(() => successEl.classList.remove('show'), 4000);
+                } else {
+                    errorEl.textContent = '✗ ' + (data.error || 'Test failed');
+                    errorEl.style.display = 'block';
+                }
+            } catch (e) {
+                errorEl.textContent = '✗ Network error: ' + e.message;
+                errorEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🧪 Test Connection';
+            }
+        }
+
+        async function downloadHkSecurities() {
+            const btn = document.getElementById('hkDownloadBtn');
+            const status = document.getElementById('hkStatus');
+            btn.disabled = true;
+            btn.textContent = '⏳ Downloading…';
+            status.textContent = 'Fetching from HKEX, this may take a few seconds…';
+            status.style.color = '#7d8590';
+            try {
+                const res = await fetch('/betelgeuse/api/admin/static-data/hk/download', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    status.textContent = `✓ ${data.message} (${data.updated_at})`;
+                    status.style.color = '#56d364';
+                    await loadHkStatus();
+                } else if (data.aborted) {
+                    status.textContent = `⚠️ ${data.error}`;
+                    status.style.color = '#d29922';
+                } else {
+                    status.textContent = `✗ Error: ${data.error}`;
+                    status.style.color = '#f85149';
+                }
+            } catch (e) {
+                status.textContent = `✗ Network error: ${e.message}`;
+                status.style.color = '#f85149';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '⬇️ Download / Refresh';
+            }
+        }
+    </script>
+</body>
+</html>

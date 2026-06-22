@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Betelgeuse</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bt-bg) 0%, var(--bt-surface) 50%, var(--bt-bg) 100%);
+            color: var(--bt-fg);
+            min-height: 100vh;
+        }
+
+        /* top bar (header + h1) is styled centrally in header.html */
+
+        .content { padding: 2rem; max-width: 1100px; margin: 0 auto; }
+
+        /* ── Layout ── */
+        .settings-shell { display: flex; gap: 1.5rem; align-items: flex-start; }
+
+        .settings-nav {
+            flex: 0 0 240px;
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 100px;
+        }
+
+        .nav-label {
+            padding: 0.4rem 0.875rem 0.2rem;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--bt-fg-subtle);
+            font-weight: 700;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.625rem 0.875rem;
+            border-radius: 8px;
+            color: var(--bt-fg-muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item:hover { background: rgba(var(--bt-accent-rgb), 0.1); color: var(--bt-fg-2); }
+        .nav-item.active { background: rgba(var(--bt-accent-rgb), 0.15); color: var(--bt-accent-2); border-left-color: var(--bt-accent); }
+
+        /*
+         * ── Reusable notification pattern ────────────────────────────────────
+         * .notif-dot        : status indicator dot in the left nav item
+         * .notif-header     : flex row — notification title + master toggle
+         * .notif-card-body  : everything below the header; dims when master off
+         * .notif-schedule   : schedule sub-section (no longer dims itself)
+         * To add a new notification type, copy the panel HTML and wire up
+         * a new onToggleMaster_X() that writes to notification_X_enabled.
+         * ────────────────────────────────────────────────────────────────────
+         */
+
+        /* Status dot: green = active, grey = paused */
+        .notif-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--bt-surface-3);
+            flex-shrink: 0;
+            margin-left: auto;
+            transition: background 0.25s;
+        }
+        .notif-dot.on { background: var(--bt-up-strong); box-shadow: 0 0 5px rgba(var(--bt-up-rgb), 0.45); }
+
+        /* Notification card header: title left, toggle right */
+        .notif-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .notif-header .settings-title { margin-bottom: 0; }
+
+        /* Card body dims entirely when master is off */
+        .notif-card-body {
+            transition: opacity 0.2s;
+        }
+        .notif-card-body.paused {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        /* ── Card ── */
+        .settings-detail { flex: 1; min-width: 0; }
+        .settings-panel { display: none; }
+        .settings-panel.active { display: block; }
+
+        .settings-section {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .settings-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--bt-accent-2) 0%, var(--bt-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .settings-icon {
+            font-size: 1.5rem;
+            -webkit-text-fill-color: initial;
+            background: none;
+            -webkit-background-clip: unset;
+            background-clip: unset;
+        }
+
+        /* Internal section divider within a card */
+        .card-divider {
+            margin: 1.75rem -2rem;
+            border: none;
+            border-top: 1px solid rgba(var(--bt-slate-rgb), 0.08);
+        }
+
+        .card-section-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: var(--bt-fg-faint);
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+        }
+
+        .section-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--bt-fg-subtle);
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+
+        /* ── Toggle switch ── */
+        .toggle-switch {
+            position: relative;
+            width: 42px; height: 24px;
+            flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background 0.25s;
+        }
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px; height: 18px;
+            left: 3px; top: 3px;
+            background: var(--bt-fg-muted);
+            border-radius: 50%;
+            transition: transform 0.25s, background 0.25s;
+        }
+        .toggle-switch input:checked + .toggle-slider { background: rgba(var(--bt-accent-rgb), 0.6); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); background: var(--bt-accent-2); }
+
+        /* ── Preview ── */
+        .preview-box {
+            background: var(--bt-bg-deep);
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.2);
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            font-size: 0.88rem;
+            line-height: 1.8;
+            color: var(--bt-fg-2);
+            margin-bottom: 1.25rem;
+            min-height: 80px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .preview-box .msg-bold { font-weight: 700; color: var(--bt-fg); }
+        .preview-box .msg-italic { font-style: italic; color: var(--bt-fg-muted); }
+        .preview-box .preview-empty { color: var(--bt-fg-faint); font-style: italic; }
+
+        /* ── Market toggles ── */
+        .market-toggles { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+        .market-toggle {
+            display: flex; align-items: center; gap: 0.4rem;
+            cursor: pointer; font-size: 0.88rem; color: var(--bt-fg-muted); user-select: none;
+        }
+        .market-toggle input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--bt-accent); cursor: pointer; }
+
+        /* ── Send row ── */
+        .send-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .last-sent-text { font-size: 0.8rem; color: var(--bt-fg-subtle); }
+        .last-sent-text span { color: var(--bt-fg-muted); }
+
+        /* ── Buttons ── */
+        /* Button styles (.btn / .btn-primary / .btn-secondary) are defined once in
+           header.html and inherited app-wide — do not redefine them here. */
+
+        /* ── Status messages ── */
+        .status-msg { display: none; padding: 0.6rem 1rem; border-radius: 8px; margin-top: 0.75rem; font-size: 0.85rem; text-align: center; }
+        .status-msg.success { display: block; background: rgba(var(--bt-up-rgb), 0.1); border: 1px solid rgba(var(--bt-up3-rgb), 0.3); color: var(--bt-up-soft); }
+        .status-msg.error   { display: block; background: rgba(var(--bt-down2-rgb), 0.1); border: 1px solid rgba(var(--bt-down-rgb), 0.3); color: var(--bt-down); }
+
+        /* ── Paused notice ── */
+        .paused-notice {
+            display: none;
+            background: rgba(var(--bt-slate-rgb), 0.06);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.12);
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.82rem;
+            color: var(--bt-fg-subtle);
+        }
+
+        /* ── Day buttons ── */
+        .day-btns { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+        .day-btn {
+            padding: 0.28rem 0.6rem;
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.18);
+            border-radius: 6px;
+            background: rgba(var(--bt-bg-rgb), 0.5);
+            color: var(--bt-line-strong);
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.18s;
+            user-select: none;
+        }
+        .day-btn.on { background: rgba(var(--bt-accent-rgb), 0.22); border-color: rgba(var(--bt-accent2-rgb), 0.5); color: var(--bt-accent-2); }
+        .day-presets { display: flex; gap: 0.4rem; margin-top: 0.45rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+
+        /* ── Time slots ── */
+        .time-slots { display: flex; flex-direction: column; gap: 0.55rem; margin-bottom: 1.25rem; }
+
+        .time-slot { display: flex; align-items: center; gap: 0.65rem; }
+
+        /* Slot 1 "required" label */
+        .time-req-label {
+            font-size: 0.74rem;
+            color: var(--bt-line-strong);
+            font-style: italic;
+        }
+
+        /* Slots 2 & 3: checkbox + label */
+        .time-enable-label {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.82rem;
+            color: var(--bt-fg-subtle);
+            cursor: pointer;
+            user-select: none;
+            min-width: 70px;
+        }
+        .time-enable-label input[type=checkbox] {
+            width: 14px; height: 14px;
+            accent-color: var(--bt-accent);
+            cursor: pointer;
+        }
+
+        .time-input {
+            padding: 0.38rem 0.6rem;
+            background: rgba(var(--bt-bg-rgb), 0.6);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 7px;
+            color: var(--bt-fg);
+            font-size: 0.88rem;
+            font-family: 'Courier New', monospace;
+            width: 110px;
+            transition: opacity 0.2s, border-color 0.2s;
+        }
+        .time-input:focus { outline: none; border-color: rgba(var(--bt-accent2-rgb), 0.5); }
+        .time-input:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── Timezone badge ── */
+        .tz-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .tz-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            color: var(--bt-accent-2);
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.2);
+            border-radius: 5px;
+            padding: 0.15rem 0.55rem;
+        }
+        .tz-hint {
+            font-size: 0.72rem;
+            color: var(--bt-surface-3);
+        }
+        .tz-hint a { color: var(--bt-fg-faint); text-decoration: none; }
+        .tz-hint a:hover { color: var(--bt-accent-2); }
+
+        /* ── Next runs ── */
+        .next-runs {
+            background: rgba(var(--bt-bg-rgb), 0.4);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.08);
+            border-radius: 8px;
+            padding: 0.7rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.82rem;
+        }
+        .next-runs-title { color: var(--bt-fg-faint); margin-bottom: 0.35rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; }
+        .next-run-item { color: var(--bt-fg-muted); padding: 0.12rem 0; }
+        .next-run-item::before { content: '▸ '; color: var(--bt-accent); }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.4rem; }
+            .content { padding: 1rem; }
+            .settings-shell { flex-direction: column; }
+            .settings-nav { flex: 1 1 auto; width: 100%; position: static; }
+            .settings-section { padding: 1.5rem; }
+            .card-divider { margin: 1.25rem -1.5rem; }
+            .send-row { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    {% include 'header.html' %}
+
+    <div class="content">
+        <div class="settings-shell">
+
+            <!-- Left nav -->
+            <nav class="settings-nav">
+                <div class="nav-label">Notifications</div>
+                <div class="nav-item active" data-panel="portfolio-summary" onclick="selectPanel('portfolio-summary', this)">
+                    <span>📊</span> Portfolio Summary
+                    <span class="notif-dot" id="portfolioDot"></span>
+                </div>
+                <!--
+                    Add future notification types here following the same pattern:
+                    <div class="nav-item" data-panel="price-alerts" onclick="selectPanel('price-alerts', this)">
+                        <span>🔔</span> Price Alerts
+                        <span class="notif-dot" id="priceAlertsDot"></span>
+                    </div>
+                -->
+            </nav>
+
+            <!-- Right detail -->
+            <div class="settings-detail">
+
+                <!-- ═══════════════════════════════════════════════
+                     Panel: Portfolio Summary
+                     Single card — send section + schedule section
+                     ═══════════════════════════════════════════════ -->
+                <div class="settings-panel active" data-panel-id="portfolio-summary">
+                    <div class="settings-section">
+
+                        <!-- ① Notification header: title + master on/off toggle -->
+                        <div class="notif-header">
+                            <div class="settings-title">
+                                <span class="settings-icon">📊</span>
+                                Portfolio Summary
+                            </div>
+                            <label class="toggle-switch" title="Enable or disable this notification">
+                                <input type="checkbox" id="notifEnabled" onchange="onToggleMaster()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Paused notice — shown when master toggle is off, always readable -->
+                        <div class="paused-notice" id="schedulePausedNotice">
+                            ⏸ Notification is paused — enable the toggle above to activate.
+                        </div>
+
+                        <!-- Card body: dims as a whole when master toggle is off -->
+                        <div class="notif-card-body" id="portfolioCardBody">
+
+                        <!-- ② Markets -->
+                        <div class="section-label">Markets to include</div>
+                        <div class="market-toggles" id="marketToggles">
+                            <label class="market-toggle"><input type="checkbox" value="hk"     checked onchange="loadPreview()"> 🇭🇰 Hong Kong</label>
+                            <label class="market-toggle"><input type="checkbox" value="jp"     checked onchange="loadPreview()"> 🇯🇵 Japan</label>
+                            <label class="market-toggle"><input type="checkbox" value="us"     checked onchange="loadPreview()"> 🇺🇸 United States</label>
+                            <label class="market-toggle"><input type="checkbox" value="crypto" checked onchange="loadPreview()"> 🟠 Cryptocurrency</label>
+                        </div>
+
+                        <!-- ③ Preview -->
+                        <div class="section-label">Preview</div>
+                        <div class="preview-box" id="previewBox">
+                            <span class="preview-empty">Loading preview…</span>
+                        </div>
+
+                        <!-- ④ Send now -->
+                        <div class="send-row">
+                            <div class="last-sent-text">Last sent: <span id="lastSent">—</span></div>
+                            <button class="btn btn-primary" id="sendBtn" onclick="sendPortfolioSummary()">📬 Send Now</button>
+                        </div>
+                        <div class="status-msg" id="sendStatus"></div>
+
+                        <!-- ═══ Schedule section ═══════════════════════════════ -->
+                        <hr class="card-divider">
+
+                        <div class="notif-schedule" id="portfolioSchedule">
+
+                            <div class="card-section-heading">
+                                <span>📅</span> Recurring Schedule
+                            </div>
+
+                            <!-- Days -->
+                            <div class="section-label">Notification Days</div>
+                            <div class="day-btns">
+                                <button class="day-btn" data-day="mon" onclick="toggleDay(this)">Mon</button>
+                                <button class="day-btn" data-day="tue" onclick="toggleDay(this)">Tue</button>
+                                <button class="day-btn" data-day="wed" onclick="toggleDay(this)">Wed</button>
+                                <button class="day-btn" data-day="thu" onclick="toggleDay(this)">Thu</button>
+                                <button class="day-btn" data-day="fri" onclick="toggleDay(this)">Fri</button>
+                                <button class="day-btn" data-day="sat" onclick="toggleDay(this)">Sat</button>
+                                <button class="day-btn" data-day="sun" onclick="toggleDay(this)">Sun</button>
+                            </div>
+                            <div class="day-presets">
+                                <button class="btn btn-secondary" onclick="setDayPreset('weekdays')">Weekdays</button>
+                                <button class="btn btn-secondary" onclick="setDayPreset('all')">Every day</button>
+                                <button class="btn btn-secondary" onclick="setDayPreset('none')">Clear</button>
+                            </div>
+
+                            <!-- Times -->
+                            <div class="tz-row">
+                                <div class="section-label" style="margin-bottom:0;">Notification Times</div>
+                                <span class="tz-badge">🕐 <span id="tzBadge">Australia/Sydney</span></span>
+                                <span class="tz-hint">(<a href="/betelgeuse/settings">change in Settings → Admin → General</a>)</span>
+                            </div>
+                            <div class="time-slots" style="margin-top:0.6rem;">
+                                <!-- Time 1: always visible, required when schedule is saved -->
+                                <div class="time-slot">
+                                    <input class="time-input" type="time" id="time1">
+                                    <span class="time-req-label">1st alert (required)</span>
+                                </div>
+                                <!-- Time 2: explicit checkbox to enable -->
+                                <div class="time-slot">
+                                    <label class="time-enable-label">
+                                        <input type="checkbox" id="time2Enable" onchange="toggleTimeSlot(2)">
+                                        2nd alert
+                                    </label>
+                                    <input class="time-input" type="time" id="time2" disabled>
+                                </div>
+                                <!-- Time 3: explicit checkbox to enable -->
+                                <div class="time-slot">
+                                    <label class="time-enable-label">
+                                        <input type="checkbox" id="time3Enable" onchange="toggleTimeSlot(3)">
+                                        3rd alert
+                                    </label>
+                                    <input class="time-input" type="time" id="time3" disabled>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="saveSchedule()">💾 Save Schedule</button>
+                            <div class="status-msg" id="scheduleStatus"></div>
+
+                            <!-- Next scheduled runs -->
+                            <div class="next-runs" id="nextRunsBox" style="display:none;">
+                                <div class="next-runs-title">Next scheduled runs</div>
+                                <div id="nextRunsList"></div>
+                            </div>
+
+                        </div><!-- /notif-schedule -->
+                        </div><!-- /notif-card-body -->
+                    </div><!-- /settings-section -->
+                </div><!-- /panel -->
+
+            </div><!-- /settings-detail -->
+        </div>
+    </div>
+
+    <script>
+        // ── Panel switching ───────────────────────────────────────────────────
+        function selectPanel(panelId, clickedEl) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if (clickedEl) clickedEl.classList.add('active');
+            document.querySelectorAll('.settings-panel').forEach(p => {
+                p.classList.toggle('active', p.dataset.panelId === panelId);
+            });
+        }
+
+        // ── Preview ───────────────────────────────────────────────────────────
+        function getCheckedMarkets() {
+            return [...document.querySelectorAll('#marketToggles input:checked')].map(el => el.value);
+        }
+
+        async function loadPreview() {
+            const box = document.getElementById('previewBox');
+            const markets = getCheckedMarkets();
+            if (!markets.length) {
+                box.innerHTML = '<span class="preview-empty">No markets selected.</span>';
+                return;
+            }
+            try {
+                const res = await fetch('/betelgeuse/api/portfolio');
+                const portfolio = await res.json();
+                const LABELS = { hk: '🇭🇰 Hong Kong', jp: '🇯🇵 Japan', us: '🇺🇸 United States', crypto: '🟠 Cryptocurrency' };
+                let total = 0, lines = [];
+                for (const m of ['hk', 'jp', 'us', 'crypto']) {
+                    if (!markets.includes(m)) continue;
+                    const items = portfolio[m] || [];
+                    if (!items.length) continue;
+                    total += items.length;
+                    lines.push(`${LABELS[m]}: ${items.map(i => `${i.symbol} (${i.group || 'Default'})`).join(', ')}`);
+                }
+                if (!total) {
+                    box.innerHTML = '<span class="preview-empty">No portfolio items in selected markets.</span>';
+                    return;
+                }
+                box.innerHTML = [
+                    '<span class="msg-bold">📊 Your Betelgeuse Portfolio</span>',
+                    '',
+                    ...lines,
+                    '',
+                    `<span class="msg-italic">Total: ${total} position${total !== 1 ? 's' : ''}</span>`
+                ].join('\n');
+            } catch (e) {
+                box.innerHTML = `<span class="preview-empty">Error: ${e.message}</span>`;
+            }
+        }
+
+        // ── Send now ──────────────────────────────────────────────────────────
+        async function sendPortfolioSummary() {
+            const markets = getCheckedMarkets();
+            const statusEl = document.getElementById('sendStatus');
+            const btn = document.getElementById('sendBtn');
+            if (!markets.length) {
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = '✗ Select at least one market.';
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '⏳ Sending…';
+            statusEl.className = 'status-msg';
+            try {
+                const res = await fetch('/betelgeuse/api/notifications/portfolio/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ markets })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    statusEl.className = 'status-msg success';
+                    statusEl.textContent = '✓ Portfolio sent to Telegram!';
+                    loadLastSent();
+                    setTimeout(() => { statusEl.className = 'status-msg'; }, 5000);
+                } else {
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = '✗ ' + (data.error || 'Send failed');
+                }
+            } catch (e) {
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = '✗ Network error: ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📬 Send Now';
+            }
+        }
+
+        async function loadLastSent() {
+            try {
+                const s = await (await fetch('/betelgeuse/api/settings')).json();
+                const ts = s.notification_portfolio_last_sent;
+                document.getElementById('lastSent').textContent = ts
+                    ? new Date(ts).toLocaleString()
+                    : 'Never';
+            } catch (_) {
+                document.getElementById('lastSent').textContent = '—';
+            }
+        }
+
+        // ── Master toggle ─────────────────────────────────────────────────────
+        /*
+         * Reusable pattern for any notification type:
+         *   1. Read checkbox state
+         *   2. Update UI (dot + schedule dim)
+         *   3. Persist to /api/settings immediately (no extra Save button)
+         */
+        async function onToggleMaster() {
+            const enabled = document.getElementById('notifEnabled').checked;
+            applyMasterToggleUI(enabled);
+            await fetch('/betelgeuse/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notification_portfolio_enabled: enabled ? 'true' : 'false' })
+            });
+        }
+
+        function applyMasterToggleUI(enabled) {
+            // Nav dot: green when active
+            document.getElementById('portfolioDot').classList.toggle('on', enabled);
+            // Whole card body dims when off; paused notice shown above it
+            document.getElementById('portfolioCardBody').classList.toggle('paused', !enabled);
+            document.getElementById('schedulePausedNotice').style.display = enabled ? 'none' : 'block';
+        }
+
+        // ── Schedule: days ────────────────────────────────────────────────────
+        function toggleDay(btn) { btn.classList.toggle('on'); }
+
+        function setDayPreset(preset) {
+            const btns = document.querySelectorAll('.day-btn');
+            if (preset === 'weekdays') {
+                btns.forEach(b => b.classList.toggle('on', ['mon','tue','wed','thu','fri'].includes(b.dataset.day)));
+            } else if (preset === 'all') {
+                btns.forEach(b => b.classList.add('on'));
+            } else {
+                btns.forEach(b => b.classList.remove('on'));
+            }
+        }
+
+        function getSelectedDays() {
+            return [...document.querySelectorAll('.day-btn.on')].map(b => b.dataset.day).join(',');
+        }
+
+        // ── Schedule: time slots ──────────────────────────────────────────────
+        /*
+         * Time 1 is always active (required).
+         * Times 2 & 3 require their checkbox to be ticked.
+         * Unticking clears and disables the input.
+         */
+        function toggleTimeSlot(n) {
+            const cb  = document.getElementById(`time${n}Enable`);
+            const inp = document.getElementById(`time${n}`);
+            inp.disabled = !cb.checked;
+            if (!cb.checked) inp.value = '';
+        }
+
+        function getSelectedTimes() {
+            const t1 = document.getElementById('time1').value.trim();
+            const result = t1 ? [t1] : [];
+            for (const n of [2, 3]) {
+                if (document.getElementById(`time${n}Enable`).checked) {
+                    const v = document.getElementById(`time${n}`).value.trim();
+                    if (v) result.push(v);
+                }
+            }
+            return result.join(',');
+        }
+
+        // ── Schedule: save ────────────────────────────────────────────────────
+        async function saveSchedule() {
+            const days    = getSelectedDays();
+            const times   = getSelectedTimes();
+            const markets = getCheckedMarkets().join(',');
+            const statusEl = document.getElementById('scheduleStatus');
+
+            if (!days) {
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = '✗ Select at least one day.';
+                return;
+            }
+            if (!times) {
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = '✗ Set at least one notification time (Time 1).';
+                return;
+            }
+
+            statusEl.className = 'status-msg';
+            try {
+                const res = await fetch('/betelgeuse/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        notification_portfolio_days:    days,
+                        notification_portfolio_times:   times,
+                        notification_portfolio_markets: markets
+                    })
+                });
+                if (res.ok) {
+                    statusEl.className = 'status-msg success';
+                    statusEl.textContent = '✓ Schedule saved!';
+                    setTimeout(() => { statusEl.className = 'status-msg'; }, 4000);
+                    loadSchedule(); // refresh next-run display
+                } else {
+                    const d = await res.json();
+                    statusEl.className = 'status-msg error';
+                    statusEl.textContent = '✗ ' + (d.error || 'Save failed');
+                }
+            } catch (e) {
+                statusEl.className = 'status-msg error';
+                statusEl.textContent = '✗ Network error: ' + e.message;
+            }
+        }
+
+        // ── Schedule: load ────────────────────────────────────────────────────
+        async function loadSchedule() {
+            try {
+                const s = await (await fetch('/betelgeuse/api/notifications/portfolio/schedule')).json();
+
+                // Master toggle — also drives dot + schedule dim
+                document.getElementById('notifEnabled').checked = s.enabled;
+                applyMasterToggleUI(s.enabled);
+
+                // Days
+                const activeDays = s.days ? s.days.split(',').map(d => d.trim()) : [];
+                document.querySelectorAll('.day-btn').forEach(btn => {
+                    btn.classList.toggle('on', activeDays.includes(btn.dataset.day));
+                });
+
+                // Times:
+                //   time1 always shown; times 2 & 3 check their checkbox if a value exists
+                const times = s.times ? s.times.split(',').map(t => t.trim()) : [];
+                document.getElementById('time1').value = times[0] || '';
+                for (const n of [2, 3]) {
+                    const val = times[n - 1] || '';
+                    const cb  = document.getElementById(`time${n}Enable`);
+                    const inp = document.getElementById(`time${n}`);
+                    cb.checked   = !!val;
+                    inp.disabled = !val;
+                    inp.value    = val;
+                }
+
+                // Timezone badge — sourced from Settings → Admin → General → default_timezone
+                document.getElementById('tzBadge').textContent = s.timezone || 'Australia/Sydney';
+
+                // Restore saved market selection
+                if (s.markets) {
+                    const saved = s.markets.split(',').map(m => m.trim());
+                    document.querySelectorAll('#marketToggles input').forEach(cb => {
+                        cb.checked = saved.includes(cb.value);
+                    });
+                    loadPreview();
+                }
+
+                // Next runs
+                renderNextRuns(s.next_runs || [], s.timezone);
+            } catch (e) {
+                console.error('loadSchedule error:', e);
+            }
+        }
+
+        function renderNextRuns(runs, tz) {
+            const box  = document.getElementById('nextRunsBox');
+            const list = document.getElementById('nextRunsList');
+            if (!runs.length) { box.style.display = 'none'; return; }
+            box.style.display = 'block';
+            const tzName = tz || 'Australia/Sydney';
+            list.innerHTML = runs.slice(0, 5).map(iso => {
+                const d = new Date(iso);
+                return `<div class="next-run-item">${d.toLocaleString('en-AU', {
+                    timeZone: tzName, weekday: 'short', month: 'short',
+                    day: 'numeric', hour: '2-digit', minute: '2-digit'
+                })}</div>`;
+            }).join('');
+        }
+
+        // ── Init ──────────────────────────────────────────────────────────────
+        loadPreview();
+        loadLastSent();
+        loadSchedule();
+    </script>
+</body>
+</html>

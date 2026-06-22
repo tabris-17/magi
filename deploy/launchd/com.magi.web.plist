@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Placeholders __PYTHON__ / __ROOT__ / __ENV__ are filled in by deploy/setup-mini.sh
+     (__ENV__ from MAGI_ENV in deploy/config.sh, default prod).
+     Serves the whole unified app (host + every mounted function). Calls serve.py
+     directly (the launcher engine, so launchd supervises the real server process);
+     serve.py picks waitress for --env prod / werkzeug for dev. Humans use ./magi run. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.magi.web</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>__ROOT__/serve.py</string>
+        <string>--env</string>
+        <string>__ENV__</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__ROOT__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>__ROOT__/data/logs/web.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__ROOT__/data/logs/web.err.log</string>
+</dict>
+</plist>

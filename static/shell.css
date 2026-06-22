@@ -1,0 +1,144 @@
+/* =====================================================================
+   magi shared chrome — theme tokens + the sidebar/topbar shell.
+   Loaded by the host AND by mounted function apps (e.g. betelgeuse) so the
+   sidebar is identical everywhere. Every shell class is `magi-` prefixed and
+   there are NO body/element-wide rules here, so this stylesheet can be dropped
+   onto a function app without disturbing its own styles.
+   ===================================================================== */
+
+/* ---- theme tokens (single source of truth) -------------------------- */
+:root, [data-theme="dark"] {
+  --canvas: #0d1117;
+  --surface: #161b22;
+  --surface-2: #21262d;
+  --surface-hover: #1f242c;
+  --border: #30363d;
+  --border-muted: #21262d;
+  --fg: #e6edf3;
+  --fg-muted: #7d8590;
+  --fg-subtle: #6e7681;
+  --accent: #2f81f7;
+  --accent-emphasis: #1f6feb;
+  --primary-bg: #238636;
+  --primary-bg-hover: #2ea043;
+  --primary-fg: #ffffff;
+  --success-fg: #3fb950; --success-bg: #12261a; --success-border: #2ea04366;
+  --danger-fg: #f85149;  --danger-bg: #2d1416;  --danger-border: #6e2329;
+  --warn-fg: #d29922;    --warn-bg: #2d2410;    --warn-border: #6b4a16;
+  --tag-both-bg:#12261a;  --tag-both-bd:#238636;  --tag-both-fg:#56d364;
+  --tag-video-bg:#0d2440; --tag-video-bd:#1f6feb; --tag-video-fg:#79c0ff;
+  --tag-audio-bg:#221033; --tag-audio-bd:#8957e5; --tag-audio-fg:#d2a8ff;
+  --shadow: 0 8px 24px rgba(1,4,9,.6);
+}
+[data-theme="light"] {
+  --canvas: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f6f8fa;
+  --surface-hover: #eaeef2;
+  --border: #d0d7de;
+  --border-muted: #d8dee4;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --fg-subtle: #818b98;
+  --accent: #0969da;
+  --accent-emphasis: #0969da;
+  --primary-bg: #1f883d;
+  --primary-bg-hover: #1a7f37;
+  --primary-fg: #ffffff;
+  --success-fg: #1a7f37; --success-bg: #dafbe1; --success-border: #aceebb;
+  --danger-fg: #cf222e;  --danger-bg: #ffebe9;  --danger-border: #ffced0;
+  --warn-fg: #9a6700;    --warn-bg: #fff8c5;    --warn-border: #eac54f;
+  --tag-both-bg:#dafbe1;  --tag-both-bd:#aceebb;  --tag-both-fg:#1a7f37;
+  --tag-video-bg:#ddf4ff; --tag-video-bd:#b6e3ff; --tag-video-fg:#0969da;
+  --tag-audio-bg:#fbefff; --tag-audio-bd:#e8c9ff; --tag-audio-fg:#8250df;
+  --shadow: 0 8px 24px rgba(140,149,159,.2);
+}
+
+/* ---- top bar (mobile only) ------------------------------------------ */
+.magi-topbar { display: none; }
+.magi-hamburger {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  width: 36px; height: 36px; padding: 0; display: grid; place-items: center;
+  color: var(--fg); cursor: pointer;
+}
+.magi-topbar .magi-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--fg); }
+
+/* ---- avatar / brand ------------------------------------------------- */
+.magi-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #2f81f7, #8957e5);
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 16px;
+}
+.magi-avatar.lg { width: 44px; height: 44px; font-size: 22px; }
+
+/* ---- dev/prod mode chip + dev brand --------------------------------- */
+.magi-env {
+  margin-top: 2px; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--fg-muted); text-transform: uppercase;
+  letter-spacing: .04em; font-weight: 600;
+}
+/* DEV: a distinctive red brand on the left panel (vs the blue prod brand). */
+[data-env="dev"] .magi-avatar { background: linear-gradient(135deg, #f85149, #db61a2); }
+[data-env="dev"] .magi-env { color: var(--danger-fg); }
+[data-env="dev"] .magi-ver { color: var(--danger-fg); }
+[data-env="dev"] .magi-sidebar { border-right-color: var(--danger-border); }
+
+/* ---- sidebar -------------------------------------------------------- */
+.magi-sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 260px;
+  background: var(--canvas); border-right: 1px solid var(--border);
+  padding: 18px 12px; overflow-y: auto; z-index: 50;
+}
+.magi-account { display: flex; align-items: center; gap: 11px; padding: 4px 8px 14px; }
+.magi-account .magi-name { font-weight: 600; font-size: 15px; line-height: 1.2; color: var(--fg); }
+.magi-account .magi-role { color: var(--fg-muted); font-size: 12px; }
+
+.magi-nav { display: flex; flex-direction: column; gap: 2px; }
+.magi-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px 7px 8px; border-radius: 6px;
+  color: var(--fg); text-decoration: none; font-size: 14px;
+  border-left: 2px solid transparent;
+}
+.magi-nav-item:hover { background: var(--surface-2); text-decoration: none; }
+.magi-nav-item.active { background: var(--surface-2); font-weight: 600; border-left-color: var(--accent); }
+.magi-nav-item svg { fill: var(--fg-muted); flex-shrink: 0; }
+.magi-nav-item.active svg { fill: var(--fg); }
+.magi-nav-item.disabled { color: var(--fg-subtle); cursor: default; }
+.magi-nav-item.disabled svg { fill: var(--fg-subtle); }
+.magi-nav-item .magi-badge {
+  margin-left: auto; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--fg-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px;
+}
+.magi-nav-section {
+  margin-top: 10px; padding: 14px 10px 8px;
+  border-top: 1px solid var(--border);
+  font-size: 13px; font-weight: 600; color: var(--fg-muted);
+}
+
+/* ---- sub-navigation (a function's own pages, shown under it) -------- */
+.magi-nav-sub { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.magi-nav-sub .magi-nav-item { padding-left: 34px; font-size: 13.5px; }
+
+/* ---- version label (bottom of sidebar) ----------------------------- */
+.magi-ver {
+  margin-top: 14px; padding: 10px 10px 0; border-top: 1px solid var(--border);
+  color: var(--fg-subtle); font-size: 12px; font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+/* ---- backdrop (mobile drawer) -------------------------------------- */
+.magi-backdrop { display: none; position: fixed; inset: 0; background: rgba(1,4,9,.5); z-index: 40; }
+
+/* ---- responsive (chrome only) -------------------------------------- */
+@media (max-width: 860px) {
+  .magi-topbar {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 30;
+    background: var(--canvas); border-bottom: 1px solid var(--border);
+    padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top));
+  }
+  .magi-sidebar { transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow); width: 280px; }
+  .magi-sidebar.open { transform: translateX(0); }
+  .magi-backdrop.open { display: block; }
+}

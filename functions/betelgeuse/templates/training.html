@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betelgeuse - Training</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bt-bg) 0%, var(--bt-surface) 50%, var(--bt-bg) 100%);
+            color: var(--bt-fg);
+            min-height: 100vh;
+        }
+
+        /* top bar (header + h1) is styled centrally in header.html */
+
+        .tabs-container {
+            background: linear-gradient(90deg, rgba(var(--bt-bg-rgb), 0.5) 0%, rgba(var(--bt-surface-rgb), 0.5) 100%);
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            overflow-x: auto;
+            position: sticky;
+            top: 76px;
+            z-index: 99;
+        }
+
+        .tab-button {
+            flex: 1;
+            min-width: 120px;
+            padding: 1rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--bt-fg-muted);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button:hover {
+            color: var(--bt-accent-2);
+            background: rgba(var(--bt-accent-rgb), 0.05);
+        }
+
+        .tab-button.active {
+            color: var(--bt-accent-2);
+            border-bottom-color: var(--bt-accent);
+        }
+
+        .content {
+            padding: 2rem 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .search-box-section {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .search-box-section h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--bt-fg-2);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .search-input-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 0.625rem 0.875rem;
+            background-color: rgba(var(--bt-bg-rgb), 0.5);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 8px;
+            color: var(--bt-fg);
+            font-size: 0.9rem;
+            line-height: 1.2;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+            background-color: rgba(var(--bt-bg-rgb), 0.7);
+            box-shadow: 0 0 0 3px rgba(var(--bt-accent-rgb), 0.1);
+        }
+
+        .search-input::placeholder {
+            color: var(--bt-fg-subtle);
+        }
+
+        .pattern-select {
+            min-width: 160px;
+            padding: 0.625rem 2rem 0.625rem 0.875rem;
+            background-color: rgba(var(--bt-bg-rgb), 0.5);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 8px;
+            color: var(--bt-fg);
+            font-size: 0.9rem;
+            line-height: 1.2;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.65rem center;
+        }
+
+        .pattern-select:focus {
+            outline: none;
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+        }
+
+        .pattern-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--bt-fg-2);
+        }
+
+        /* Action buttons use the shared .btn / .btn-primary / .btn-success classes
+           from header.html (single source of truth). */
+
+        .market-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--bt-fg);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--bt-fg-subtle);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--bt-fg-muted);
+        }
+
+        .empty-state-subtext {
+            font-size: 0.9rem;
+            color: var(--bt-fg-subtle);
+        }
+
+        /* Chart Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.95) 0%, rgba(var(--bt-bg-rgb), 0.95) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 98%;
+            max-height: 98%;
+            width: 1600px;
+            overflow: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            padding-bottom: 1rem;
+        }
+
+        .modal-header h2 {
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, var(--bt-accent-2) 0%, var(--bt-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--bt-fg-muted);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: var(--bt-accent-2);
+        }
+
+        .chart-container {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .chart-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-check {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--bt-fg);
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .chart-check input {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--bt-accent);
+            cursor: pointer;
+        }
+
+        .chart-period-label {
+            font-weight: 600;
+            color: var(--bt-accent-2);
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .chart-item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+
+        .chart-item-head .chart-period-label {
+            margin-bottom: 0;
+        }
+
+        .copy-btn {
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            color: var(--bt-accent-2);
+            border-radius: 6px;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(var(--bt-accent-rgb), 0.2);
+            border-color: rgba(var(--bt-accent2-rgb), 0.4);
+        }
+
+        .period-chart {
+            max-width: 100%;
+            height: auto;
+            min-height: 400px;
+            border-radius: 8px;
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .period-chart:hover {
+            border-color: rgba(var(--bt-accent2-rgb), 0.4);
+            box-shadow: 0 4px 12px rgba(var(--bt-accent-rgb), 0.1);
+        }
+
+        .chart-loading {
+            padding: 2rem;
+            color: var(--bt-fg-muted);
+            font-size: 1.1rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            border-top: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            padding-top: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.4rem;
+            }
+
+            .content {
+                padding: 1rem;
+            }
+
+            .tab-button {
+                min-width: 100px;
+                padding: 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% include 'header.html' %}
+
+    <div class="tabs-container" id="tabsContainer"></div>
+
+    <div class="content" id="content"></div>
+
+    <!-- Chart Modal -->
+    <div class="modal" id="chartModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="chartTitle">Pattern</h2>
+                <button class="close-btn" onclick="closeChart()">&times;</button>
+            </div>
+            <div class="chart-container" id="chartContainer"></div>
+            <div class="modal-footer">
+                <button class="btn btn-success" onclick="saveBacktestCharts()">💾 Save Selected Charts</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MARKETS = {
+            'hk': { name: 'Hong Kong', flag: '🇭🇰' },
+            'jp': { name: 'Japan', flag: '🇯🇵' },
+            'us': { name: 'United States', flag: '🇺🇸' },
+            'crypto': { name: 'Cryptocurrency', flag: '🟠' }
+        };
+
+        const chartPeriods = [
+            { name: '3 Months', key: 'url_template_3m', type: '3m' },
+            { name: '6 Months', key: 'url_template_6m', type: '6m' },
+            { name: '1 Year', key: 'url_template_1y', type: '1y' },
+            { name: '1 Year (Monthly)', key: 'url_template_1y_monthly', type: '1y_monthly' }
+        ];
+
+        let currentMarket = 'hk';
+        let currentStockId = null;
+
+        function initTabs() {
+            const tabsContainer = document.getElementById('tabsContainer');
+            Object.entries(MARKETS).forEach(([key, market]) => {
+                const button = document.createElement('button');
+                button.className = `tab-button ${key === currentMarket ? 'active' : ''}`;
+                button.textContent = `${market.flag} ${market.name}`;
+                button.onclick = () => switchMarket(key);
+                tabsContainer.appendChild(button);
+            });
+        }
+
+        function switchMarket(market) {
+            currentMarket = market;
+            document.querySelectorAll('.tab-button').forEach((btn, idx) => {
+                btn.classList.remove('active');
+                if (Object.keys(MARKETS)[idx] === market) {
+                    btn.classList.add('active');
+                }
+            });
+            renderMarket(market);
+        }
+
+        function renderMarket(market) {
+            const content = document.getElementById('content');
+
+            if (market === 'hk') {
+                content.innerHTML = `
+                    <div class="search-box-section">
+                        <h3>🧪 Pattern Tester</h3>
+                        <div class="search-input-group">
+                            <span class="pattern-label">Pattern</span>
+                            <select id="patternSelect" class="pattern-select">
+                                <option value="Breakthrough">Breakthrough</option>
+                                <option value="Triangle">Triangle</option>
+                            </select>
+                            <input type="text" id="stockSearch" class="search-input" placeholder="Enter stock code (e.g., 0700) - .HK will be added automatically" />
+                            <button class="btn btn-primary" onclick="searchStock()">View Charts</button>
+                        </div>
+                    </div>
+                `;
+                const searchInput = document.getElementById('stockSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            searchStock();
+                        }
+                    });
+                }
+            } else {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🚧</div>
+                        <div class="empty-state-text">No test tools available for this market yet</div>
+                        <div class="empty-state-subtext">Training tools are currently only available for Hong Kong</div>
+                    </div>
+                `;
+            }
+        }
+
+        function normalizeHK(code) {
+            let s = code.trim().toUpperCase();
+            if (s.endsWith('.HK')) s = s.slice(0, -3);
+            s = s.replace(/\.+$/, '');
+            if (/^\d+$/.test(s)) s = s.padStart(5, '0');
+            return s + '.HK';
+        }
+
+        function searchStock() {
+            const input = document.getElementById('stockSearch');
+            const stockCode = input.value.trim();
+
+            if (!stockCode) {
+                alert('Please enter a stock code');
+                return;
+            }
+
+            openTestChart(normalizeHK(stockCode));
+        }
+
+        async function openTestChart(stockid) {
+            const modal = document.getElementById('chartModal');
+            const chartContainer = document.getElementById('chartContainer');
+            const pattern = document.getElementById('patternSelect').value;
+
+            currentStockId = stockid;
+            document.getElementById('chartTitle').textContent = `${pattern} — ${stockid}`;
+            chartContainer.innerHTML = '<div class="chart-loading">Loading charts...</div>';
+            modal.classList.add('active');
+
+            try {
+                const settingsResponse = await fetch('/betelgeuse/api/settings');
+                const settings = await settingsResponse.json();
+
+                let chartsHTML = '<div class="charts-grid">';
+                for (const period of chartPeriods) {
+                    const template = settings[period.key];
+                    if (template) {
+                        const url = template.replace('{stockid}', stockid);
+                        chartsHTML += `
+                            <div class="chart-item">
+                                <label class="chart-check">
+                                    <input type="checkbox" class="chart-select" data-type="${period.type}" checked>
+                                    ${period.name}
+                                </label>
+                                <div class="chart-item-head">
+                                    <div class="chart-period-label">${pattern}</div>
+                                    <button class="copy-btn" onclick="copyChartUrl(this)" title="Copy image URL">📋 Copy URL</button>
+                                </div>
+                                <img src="${url}" alt="${period.name} chart" class="period-chart">
+                            </div>
+                        `;
+                    }
+                }
+                chartsHTML += '</div>';
+                chartContainer.innerHTML = chartsHTML;
+            } catch (error) {
+                console.error('Error loading charts:', error);
+                chartContainer.innerHTML = '<div class="chart-loading">Error loading charts</div>';
+            }
+        }
+
+        async function saveBacktestCharts() {
+            if (!currentStockId) return;
+            const pattern = document.getElementById('patternSelect').value;
+            const chartTypes = Array.from(document.querySelectorAll('.chart-select:checked'))
+                .map(cb => cb.dataset.type);
+
+            if (chartTypes.length === 0) {
+                alert('Please select at least one chart to save');
+                return;
+            }
+
+            try {
+                const response = await fetch('/betelgeuse/api/backtest/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        market: 'hk',
+                        pattern: pattern,
+                        stockid: currentStockId,
+                        chart_types: chartTypes
+                    })
+                });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    let msg = `Saved ${result.saved.length} chart(s) to backtest/training/hk/${pattern}/`;
+                    if (result.failed && result.failed.length > 0) {
+                        msg += `\n\nFailed: ${result.failed.join(', ')}`;
+                    }
+                    alert(msg);
+                } else {
+                    alert('Error: ' + (result.error || 'Could not save charts'));
+                }
+            } catch (error) {
+                console.error('Error saving charts:', error);
+                alert('Error saving charts');
+            }
+        }
+
+        async function copyChartUrl(btn) {
+            const item = btn.closest('.chart-item');
+            const img = item ? item.querySelector('.period-chart') : null;
+            if (!img) return;
+            const url = img.src;
+            const original = btn.textContent;
+            try {
+                await navigator.clipboard.writeText(url);
+            } catch (e) {
+                const ta = document.createElement('textarea');
+                ta.value = url;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            btn.textContent = '✓ Copied';
+            setTimeout(() => { btn.textContent = original; }, 1500);
+        }
+
+        function closeChart() {
+            document.getElementById('chartModal').classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('chartModal');
+            if (event.target === modal) {
+                closeChart();
+            }
+        };
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeChart();
+            }
+        });
+
+        // Initialize
+        initTabs();
+        renderMarket(currentMarket);
+    </script>
+</body>
+</html>

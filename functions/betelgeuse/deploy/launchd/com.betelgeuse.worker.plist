@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Placeholders __PYTHON__ / __ROOT__ are filled in by deploy/setup-mini.sh. -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.betelgeuse.worker</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>__ROOT__/worker.py</string>
+        <string>--env</string>
+        <string>prod</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__ROOT__</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>__ROOT__/data/logs/worker.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__ROOT__/data/logs/worker.err.log</string>
+</dict>
+</plist>

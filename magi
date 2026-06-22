@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# magi — the single CLI for the magi control panel. One front door that wraps the
+# underlying tools, for both the low-level steps and the high-level dev<->prod
+# workflow. (The app itself is the importable WSGI module magi.py — same dir.)
+#
+# High-level (dev = this machine, prod = the Mac mini):
+#   ./magi upgrade dev     copy ALL prod DBs down to local dev (local backed up first)
+#   ./magi upgrade prod    deploy local code to the mini, no DB touched (= deploy all)
+#   ./magi launch dev      run the app locally, foreground (werkzeug, 127.0.0.1)
+#   ./magi launch prod     start/(re)start the app on the mini (ssh; no deploy)
+#   ./magi stop dev        stop the local dev server
+#   ./magi stop prod       stop the app on the mini (bootout its LaunchAgents)
+#   ./magi workflow        the whole chain: upgrade dev -> upgrade prod -> launch dev
+#
+# Low-level:
+#   ./magi run     [--env dev|prod]                   the launcher (serve.py)
+#   ./magi deploy  [all|host|youtube|betelgeuse] [--env dev|prod]   (deploy/deploy.sh)
+#   ./magi migrate {status|up|down} [--env dev|prod] [--dry-run] [--to N]  (migrate_all.py)
+#
+# Each subcommand passes its remaining args straight through to the tool it wraps.
+#
+set -euo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+
+# Resolve a dev|prod sub-verb for `upgrade`/`launch`/`stop`; errors clearly otherwise.
+need_env() {
+  case "${1:-}" in
+    dev|prod) printf '%s' "$1" ;;
+    *) echo "magi $2: expected 'dev' or 'prod' (got '${1:-}')" >&2; exit 2 ;;
+  esac
+}
+
+cmd="${1:-}"
+[[ $# -gt 0 ]] && shift || true
+
+case "$cmd" in
+  run)     exec python3 "$HERE/serve.py" "$@" ;;
+  deploy)  exec "$HERE/deploy/deploy.sh" "$@" ;;
+  migrate) exec python3 "$HERE/migrate_all.py" "$@" ;;
+
+  upgrade)
+    sub="$(need_env "${1:-}" upgrade)"; shift || true
+    case "$sub" in
+      dev)  exec "$HERE/deploy/pull-prod-dbs.sh" "$@" ;;
+      prod) exec "$HERE/deploy/deploy.sh" all --env prod "$@" ;;
+    esac ;;
+
+  launch)
+    sub="$(need_env "${1:-}" launch)"; shift || true
+    case "$sub" in
+      dev)  exec python3 "$HERE/serve.py" --env dev "$@" ;;
+      prod) exec "$HERE/deploy/kickstart-mini.sh" "$@" ;;
+    esac ;;
+
+  stop)
+    sub="$(need_env "${1:-}" stop)"; shift || true
+    case "$sub" in
+      dev)
+        if pkill -f "serve.py --env dev" 2>/dev/null; then
+          echo "magi: stopped the local dev server"
+        else
+          echo "magi: no local dev server was running"
+        fi ;;
+      prod) exec "$HERE/deploy/stop-mini.sh" "$@" ;;
+    esac ;;
+
+  workflow) exec "$HERE/deploy/workflow.sh" "$@" ;;
+
+  ""|-h|--help|help) usage ;;
+  *) echo "magi: unknown command '$cmd' (try: upgrade | launch | stop | workflow | run | deploy | migrate | --help)" >&2; exit 2 ;;
+esac

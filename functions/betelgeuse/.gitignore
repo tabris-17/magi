@@ -1,0 +1,22 @@
+.DS_Store
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Virtualenvs
+.venv/
+venv/
+
+# Deploy: machine-specific config (never commit / never rsync)
+deploy/config.sh
+
+# Runtime data root (config.DATA_DIR / BETELGEUSE_DATA_DIR default = <repo>/data):
+# the live DB + backups, the chart render-cache, backtest snapshots, and logs.
+# Source of truth on the mini, never in git; also rsync-excluded from deploys.
+/data/
+
+# Legacy locations (pre data/ relocation) — kept ignored for safety/back-compat.
+deploy/logs/
+portfolio.db*
+static/chart_*

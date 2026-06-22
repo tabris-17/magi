@@ -1,0 +1,11 @@
+downloads/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# deploy secrets + runtime data (the mini is the source of truth)
+deploy/config.sh
+data/
+functions/*/data/

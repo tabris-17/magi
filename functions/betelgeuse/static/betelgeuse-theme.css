@@ -1,0 +1,107 @@
+/* =====================================================================
+   betelgeuse content theme tokens.
+   Dark values mirror the magi shell's GitHub-dark palette (static/shell.css:
+   --canvas/--surface/--accent/...) so betelgeuse content blends with the shell
+   instead of using its old slate-blue theme. Light values are chosen
+   equivalents. The templates' <style> blocks were tokenized to reference these
+   (see scripts/tokenize_betelgeuse.py). rgba overlays use the *-rgb base triples
+   with the alpha kept inline, e.g. rgba(var(--bt-slate-rgb), 0.1).
+   ===================================================================== */
+
+:root, [data-theme="dark"] {
+  /* surfaces — magi shell GitHub-dark */
+  --bt-bg:          #0d1117;
+  --bt-surface:     #161b22;
+  --bt-bg-deep:     #010409;
+  --bt-surface-3:   #21262d;
+  /* text */
+  --bt-fg-bright:   #f0f6fc;
+  --bt-fg:          #e6edf3;
+  --bt-fg-2:        #c9d1d9;
+  --bt-fg-muted:    #7d8590;
+  --bt-fg-subtle:   #6e7681;
+  --bt-fg-faint:    #484f58;
+  --bt-line-strong: #30363d;
+  /* accent (blue) */
+  --bt-accent:      #2f81f7;
+  --bt-accent-2:    #58a6ff;
+  --bt-accent-3:    #79c0ff;
+  --bt-accent-4:    #a5d6ff;
+  /* status — up / down / warn */
+  --bt-up:          #3fb950;
+  --bt-up-strong:   #2ea043;
+  --bt-up-soft:     #56d364;
+  --bt-up-teal:     #3fb950;
+  --bt-green:       #2ea043;
+  --bt-green-deep:  #238636;
+  --bt-down:        #f85149;
+  --bt-down-strong: #da3633;
+  --bt-down-soft:   #ff7b72;
+  --bt-warn:        #d29922;
+  --bt-warn-strong: #bb8009;
+  --bt-warn-soft:   #e3b341;
+  --bt-warn-2:      #d29922;
+  /* base rgb triples for rgba() overlays (alpha kept inline) */
+  --bt-slate-rgb:   125,133,144;
+  --bt-bg-rgb:      13,17,23;
+  --bt-surface-rgb: 22,27,34;
+  --bt-accent-rgb:  47,129,247;
+  --bt-accent2-rgb: 88,166,255;
+  --bt-up-rgb:      46,160,67;
+  --bt-up2-rgb:     63,185,80;
+  --bt-up3-rgb:     86,211,100;
+  --bt-down-rgb:    248,81,73;
+  --bt-down2-rgb:   218,54,51;
+  --bt-warn-rgb:    187,128,9;
+  --bt-warn2-rgb:   210,153,34;
+  --bt-subtle-rgb:  110,118,129;
+}
+
+[data-theme="light"] {
+  /* surfaces */
+  --bt-bg:          #f6f8fa;
+  --bt-surface:     #ffffff;
+  --bt-bg-deep:     #eaeef2;
+  --bt-surface-3:   #e3e8ee;
+  /* text */
+  --bt-fg-bright:   #1f2328;
+  --bt-fg:          #1f2328;
+  --bt-fg-2:        #59636e;
+  --bt-fg-muted:    #6e7781;
+  --bt-fg-subtle:   #818b98;
+  --bt-fg-faint:    #8a93a0;
+  --bt-line-strong: #d0d7de;
+  /* accent (blue) */
+  --bt-accent:      #0969da;
+  --bt-accent-2:    #0969da;
+  --bt-accent-3:    #218bff;
+  --bt-accent-4:    #b6e3ff;
+  /* status — up / down / warn */
+  --bt-up:          #1a7f37;
+  --bt-up-strong:   #1a7f37;
+  --bt-up-soft:     #2da44e;
+  --bt-up-teal:     #1a7f37;
+  --bt-green:       #1a7f37;
+  --bt-green-deep:  #116329;
+  --bt-down:        #cf222e;
+  --bt-down-strong: #cf222e;
+  --bt-down-soft:   #d1242f;
+  --bt-warn:        #9a6700;
+  --bt-warn-strong: #9a6700;
+  --bt-warn-soft:   #bf8700;
+  --bt-warn-2:      #9a6700;
+  /* base rgb triples for rgba() overlays */
+  --bt-slate-rgb:   130,138,148;
+  --bt-bg-rgb:      255,255,255;
+  --bt-surface-rgb: 246,248,250;
+  --bt-accent-rgb:  9,105,218;
+  --bt-accent2-rgb: 9,105,218;
+  --bt-up-rgb:      26,127,55;
+  --bt-up2-rgb:     45,164,78;
+  --bt-up3-rgb:     45,164,78;
+  --bt-down-rgb:    207,34,46;
+  --bt-down2-rgb:   207,34,46;
+  --bt-warn-rgb:    154,103,0;
+  --bt-warn2-rgb:   154,103,0;
+  --bt-subtle-rgb:  130,138,148;
+}

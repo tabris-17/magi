@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Overview · Betelgeuse</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bt-bg) 0%, var(--bt-surface) 100%);
+            color: var(--bt-fg);
+            min-height: 100vh;
+            position: relative;
+        }
+        /* top bar (header + h1) is styled centrally in header.html */
+
+        /* ── Page shell ── */
+        .wrap { max-width: 1180px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+
+        .page-head { margin-bottom: 1.5rem; }
+        .page-head h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--bt-fg) 0%, var(--bt-fg-muted) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .page-head .subtitle { color: var(--bt-fg-subtle); font-size: 0.9rem; margin-top: 0.25rem; }
+
+        /* ── KPI cards ── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 1.5rem;
+        }
+        .kpi-card {
+            background: rgba(var(--bt-surface-rgb), 0.45);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: var(--accent, var(--bt-accent));
+        }
+        .kpi-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--bt-fg-subtle);
+            font-weight: 600;
+        }
+        .kpi-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            margin-top: 0.3rem;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .kpi-sub { font-size: 0.74rem; color: var(--bt-fg-faint); margin-top: 0.35rem; }
+
+        /* ── Tabs (Watch List / My Portfolio) ── */
+        .ov-tabs {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.12);
+        }
+        .ov-tab {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--bt-fg-muted);
+            font-family: inherit;
+            font-size: 0.92rem;
+            font-weight: 600;
+            padding: 0.6rem 0.95rem;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+            margin-bottom: -1px;
+        }
+        .ov-tab:hover { color: var(--bt-fg-2); }
+        .ov-tab.active { color: var(--bt-fg); border-bottom-color: var(--bt-accent); }
+        .ov-tab-panel[hidden] { display: none; }
+
+        /* aggregate PnL pill in a My Portfolio market header */
+        .pnl-pill {
+            font-size: 0.8rem;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.18rem 0.65rem;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .pnl-pill.up   { color: var(--bt-up); background: rgba(var(--bt-up2-rgb), 0.13); }
+        .pnl-pill.down { color: var(--bt-down); background: rgba(var(--bt-down-rgb), 0.13); }
+        .pnl-pill.flat { color: var(--bt-fg-2); background: rgba(var(--bt-slate-rgb), 0.12); }
+        .mk-value { font-size: 0.74rem; color: var(--bt-fg-subtle); white-space: nowrap; }
+        .mk-weight { font-size: 0.74rem; font-weight: 700; color: var(--bt-fg-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        /* Qty column for the My Portfolio holdings table */
+        th.col-qty, td.col-qty { width: 5.5rem; text-align: right; }
+        td.col-qty { font-variant-numeric: tabular-nums; color: var(--bt-fg-2); vertical-align: middle; }
+
+        /* ── My Portfolio analytics charts ── */
+        .pnl-charts-head { display: flex; justify-content: flex-end; margin-bottom: 0.75rem; }
+        .pnl-chart-toggle {
+            display: inline-flex;
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .pct-btn {
+            background: rgba(var(--bt-surface-rgb), 0.5);
+            border: none;
+            color: var(--bt-fg-muted);
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 0.4rem 0.85rem;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s;
+        }
+        .pct-btn:hover { color: var(--bt-fg-2); }
+        .pct-btn.active { background: var(--bt-accent); color: #fff; }
+        .pct-btn + .pct-btn { border-left: 1px solid rgba(var(--bt-slate-rgb), 0.2); }
+        .pnl-charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 760px) { .pnl-charts-grid { grid-template-columns: 1fr; } }
+        .pnl-chart-card {
+            background: rgba(var(--bt-surface-rgb), 0.35);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            border-radius: 14px;
+            padding: 1rem 1.1rem;
+            min-width: 0;
+        }
+        .pnl-chart-title {
+            font-size: 0.74rem; font-weight: 700; color: var(--bt-fg-2); margin-bottom: 0.85rem;
+            text-transform: uppercase; letter-spacing: 0.04em;
+        }
+        .pnl-chart-ccy { color: var(--bt-fg-subtle); font-weight: 600; }
+        .pchart-empty { color: var(--bt-fg-faint); font-size: 0.82rem; font-style: italic; padding: 1.5rem 0; text-align: center; }
+        /* allocation pie + legend */
+        .pchart-wrap { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+        .pchart-svg { width: 170px; height: 170px; flex: 0 0 auto; }
+        .pie-lab { fill: #fff; font-size: 11px; font-weight: 700; font-family: -apple-system, system-ui, sans-serif; }
+        .pleg { flex: 1 1 160px; min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; }
+        .pleg-row { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 0.5rem; font-size: 0.74rem; }
+        .pleg-sw { width: 10px; height: 10px; border-radius: 2px; }
+        .pleg-lab { color: var(--bt-fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        .pleg-val { color: var(--bt-fg-muted); font-variant-numeric: tabular-nums; text-align: right; }
+        .pleg-pct { color: var(--bt-fg); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; min-width: 3.2em; }
+        /* diverging P&L bar */
+        .dbar-wrap { display: flex; flex-direction: column; gap: 0.4rem; padding-top: 0.2rem; }
+        /* label · bar track · value — value in its OWN column so it never overlaps the axis label */
+        .dbar-row { display: grid; grid-template-columns: 92px 1fr 118px; align-items: center; gap: 0.5rem; }
+        .dbar-label { text-align: right; font-size: 0.72rem; color: var(--bt-fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dbar-track { position: relative; height: 18px; }
+        .dbar-mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(var(--bt-slate-rgb), 0.25); }
+        .dbar-fill { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; min-width: 1px; }
+        .dbar-fill.pos { left: 50%; background: var(--bt-up-strong); }
+        .dbar-fill.neg { right: 50%; background: var(--bt-down-strong); }
+        .dbar-amt { text-align: right; font-size: 0.68rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .dbar-amt.pos { color: var(--bt-up); }
+        .dbar-amt.neg { color: var(--bt-down); }
+        .dbar-amt-pct { font-weight: 600; opacity: 0.75; }
+
+        /* ── Toolbar ── */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: linear-gradient(180deg, rgba(var(--bt-bg-rgb), 0.95) 70%, rgba(var(--bt-bg-rgb), 0));
+            padding: 0.75rem 0 0.85rem;
+        }
+        .refresh-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            color: var(--bt-accent-2);
+            white-space: nowrap;
+        }
+        .refresh-status[hidden] { display: none; }
+        .rs-spin {
+            width: 0.7rem;
+            height: 0.7rem;
+            border: 2px solid rgba(var(--bt-accent2-rgb), 0.3);
+            border-top-color: var(--bt-accent-2);
+            border-radius: 50%;
+            animation: rs-spin 0.7s linear infinite;
+        }
+        @keyframes rs-spin { to { transform: rotate(360deg); } }
+        .search-box {
+            flex: 1 1 240px;
+            min-width: 200px;
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            background: rgba(var(--bt-bg-rgb), 0.7);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.18);
+            border-radius: 10px;
+            color: var(--bt-fg);
+            padding: 0.55rem 0.75rem 0.55rem 2.1rem;
+            font-size: 0.875rem;
+            transition: border-color 0.2s;
+        }
+        .search-box input:focus { outline: none; border-color: var(--bt-accent); }
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 0.65rem; top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+
+        .chip-group { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .chip {
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            background: rgba(var(--bt-surface-rgb), 0.5);
+            color: var(--bt-fg-muted);
+            border-radius: 999px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.18s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .chip:hover { border-color: rgba(var(--bt-slate-rgb), 0.4); color: var(--bt-fg-2); }
+        .chip.active {
+            color: #fff;
+            border-color: transparent;
+            background: var(--chip-accent, var(--bt-accent));
+        }
+        .chip .chip-n {
+            font-size: 0.68rem;
+            opacity: 0.85;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Market sections ── */
+        .market-section {
+            background: rgba(var(--bt-surface-rgb), 0.35);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            border-left: 3px solid var(--accent, var(--bt-accent));
+            border-radius: 14px;
+            margin-bottom: 1.1rem;
+            overflow: hidden;
+        }
+        .market-head {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.85rem 1.1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .market-head:hover { background: rgba(var(--bt-slate-rgb), 0.04); }
+        .market-flag { font-size: 1.3rem; line-height: 1; }
+        .market-name { font-size: 1.05rem; font-weight: 700; color: var(--bt-fg-bright); }
+        .pill {
+            font-size: 0.72rem;
+            font-weight: 600;
+            border-radius: 999px;
+            padding: 0.18rem 0.6rem;
+            background: var(--accent-soft, rgba(var(--bt-accent-rgb), 0.15));
+            color: var(--accent, var(--bt-accent-2));
+            font-variant-numeric: tabular-nums;
+        }
+        .pill.ghost {
+            background: rgba(var(--bt-slate-rgb), 0.1);
+            color: var(--bt-fg-muted);
+        }
+        .market-head .spacer { flex: 1; }
+        /* per-market search box (context-aware SymbolField) in the section header.
+           position:relative + absolute hint/suggest keeps the box itself exactly the
+           input's height, so it stays vertically centred on the header row. */
+        .market-search { position: relative; margin-left: 0.4rem; cursor: default; }
+        .market-search input {
+            display: block;
+            width: 150px;
+            background: rgba(var(--bt-bg-rgb), 0.7);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 8px;
+            color: var(--bt-fg);
+            padding: 0.35rem 0.6rem;
+            font-size: 0.78rem;
+            transition: border-color 0.2s;
+        }
+        .market-search input:focus { outline: none; border-color: var(--accent, var(--bt-accent)); }
+        .market-search input::placeholder { color: var(--bt-fg-faint); }
+        /* float the SymbolField hint / suggestion rows just below the input, out of
+           the header's vertical flow (they otherwise reserve height and shove the box up) */
+        .market-search .sf-hint,
+        .market-search .sf-suggest {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 0.2rem;
+            z-index: 30;
+        }
+        .market-search .sf-suggest:not(:empty) {
+            background: rgba(var(--bt-bg-rgb), 0.96);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.15);
+            border-radius: 8px;
+            padding: 0.4rem 0.5rem;
+        }
+        /* Disclosure chevron (collapse/expand) — a thin chevron, NOT a solid ▼ triangle,
+           which reads like a "down / negative" signal sitting next to P&L. Muted grey so it
+           never looks like a gain/loss arrow. Shared by Watch List + My Portfolio headers,
+           so both stay consistent. Open → points down; collapsed → points right. */
+        .caret {
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid var(--bt-fg-subtle);
+            border-bottom: 2px solid var(--bt-fg-subtle);
+            border-radius: 1px;
+            transform: rotate(45deg);
+            transition: transform 0.2s, border-color 0.2s;
+            margin: 0 0.25rem 2px 0;
+        }
+        .market-head:hover .caret { border-color: var(--bt-fg-muted); }
+        .market-section.collapsed .market-body { display: none; }
+        .market-section.collapsed .caret { transform: rotate(-45deg); }
+
+        .market-body { padding: 0 0.4rem 0.5rem; }
+
+        /* ── Table ── */
+        /* One canonical grid font (primary values) + a sub size (second lines). These
+           are THE default sizes for every cell — keep new cells on these variables. */
+        table {
+            width: 100%; border-collapse: collapse; table-layout: fixed;
+            --grid-font: 0.78rem;   /* price, instrument name, %, bought, monitor, trigger, added */
+            --grid-sub: 0.66rem;    /* second-line values: 1D price, hist price, P/L, "x ago" */
+        }
+        /* Fixed column widths so every per-section table lines up identically
+           (auto layout sized each section to its own content). col-inst is left
+           flexible and absorbs the remaining width (it carries the long names). */
+        th.col-price, td.col-price  { width: 7rem; }
+        th.col-bought,td.col-bought { width: 6rem; }
+        th.col-perf,  td.col-perf   { width: 5.6rem; }
+        th.col-level, td.col-level  { width: 5rem; }
+        th.col-added, td.col-added  { width: 8.5rem; }
+        thead th {
+            text-align: left;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--bt-fg-subtle);
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            white-space: nowrap;
+        }
+        thead th.sortable { cursor: pointer; }
+        thead th.sortable:hover { color: var(--bt-fg-muted); }
+        thead th .arrow { opacity: 0; font-size: 0.6rem; margin-left: 0.2rem; }
+        thead th.sorted .arrow { opacity: 1; color: var(--bt-accent-2); }
+        th.col-idx, td.col-idx { width: 2.5rem; text-align: right; color: var(--bt-fg-faint); font-variant-numeric: tabular-nums; }
+        th.col-added, td.col-added { white-space: nowrap; }
+
+        tbody tr.inst-row { transition: background 0.12s; cursor: pointer; }
+        /* Zebra striping: alternate rows get a faint NEUTRAL slate tint (a hair of "lighter
+           blue-grey"), kept desaturated and distinct from the blue :hover so a striped row
+           never looks "already selected" and the red/green %s stay clean on top of it. Parity
+           is set per-group via the .alt class in instRowHtml (not :nth-child) so it RESETS at
+           each group. Listed before :hover (equal specificity) so hover still wins. */
+        tbody tr.inst-row.alt { background: rgba(var(--bt-slate-rgb), 0.05); }
+        tbody tr.inst-row:hover { background: rgba(var(--bt-accent-rgb), 0.15); }
+        /* "Held" markers for instruments you've actually bought (bought flag or a derived
+           cost): a gold left rail on the row (inset shadow on the first cell — reliable under
+           border-collapse) + a gold HELD pill by the symbol. Painted over zebra/hover. */
+        tbody tr.inst-row.held td.col-idx { box-shadow: inset 3px 0 0 0 var(--bt-warn); }
+
+        /* expander chevron (in the Symbol cell) + inline mini-chart row */
+        .row-expander {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 0.4rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            line-height: 1;
+            color: var(--bt-fg-muted);
+            cursor: pointer;
+            user-select: none;
+            vertical-align: middle;
+            transition: transform 0.15s ease, color 0.15s, background 0.15s;
+        }
+        .row-expander:hover { color: var(--bt-accent-4); background: rgba(var(--bt-accent-rgb), 0.16); }
+        .row-expander.expanded { transform: rotate(90deg); color: var(--bt-accent-2); background: rgba(var(--bt-accent-rgb), 0.12); }
+        tr.chart-row > td {
+            padding: 0 0.75rem 0.9rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.06);
+            background: rgba(2,6,23,0.35);
+        }
+        /* expansion body: free-text notes (left-aligned) above the centered chart */
+        .expand-body { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.4rem; }
+        .expand-notes {
+            display: flex; align-items: baseline; gap: 0.6rem;
+            padding: 0.5rem 0.75rem; border-radius: 8px;
+            background: rgba(var(--bt-slate-rgb), 0.06); border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+        }
+        .expand-notes-label {
+            flex: none; font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--bt-fg-subtle);
+        }
+        .expand-notes-text { font-size: 0.82rem; color: var(--bt-fg-2); line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .expand-notes.empty .expand-notes-text { color: var(--bt-fg-faint); font-style: italic; }
+        .chart-host { display: flex; justify-content: center; align-items: center; min-height: 80px; padding: 0.6rem 0; }
+        .chart-host .mini-chart {
+            max-width: 480px; width: 100%; height: auto;
+            border-radius: 8px; border: 1px solid rgba(var(--bt-slate-rgb), 0.18); background: var(--bt-bg-deep);
+        }
+        .chart-none { color: var(--bt-fg-faint); font-size: 0.82rem; font-style: italic; }
+        .chart-loading { display: flex; align-items: center; gap: 0.5rem; color: var(--bt-fg-subtle); font-size: 0.82rem; }
+        .chart-loading .spin {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(var(--bt-accent2-rgb), 0.2); border-top-color: var(--bt-accent);
+            border-radius: 50%; animation: ovSpin 0.8s linear infinite;
+        }
+        @keyframes ovSpin { to { transform: rotate(360deg); } }
+        tbody td {
+            padding: 0.6rem 0.75rem;
+            font-size: var(--grid-font);
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.06);
+            vertical-align: top;
+        }
+        /* Instrument cell: name (line 1) over (symbol) (line 2). The name is truncated
+           with an ellipsis when it can't fit — min-width:0 on the flex chain lets it
+           shrink below content width so text-overflow can kick in (a long name no longer
+           wraps to extra lines and shoves the row taller). */
+        td.col-inst { overflow: hidden; }
+        .inst-cell { display: flex; align-items: center; gap: 0.15rem; min-width: 0; }
+        .inst { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; flex: 1; }
+        .inst-name {
+            font-size: var(--grid-font);
+            color: var(--bt-fg-2);
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .inst-sym {
+            font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
+            font-size: var(--grid-font);
+            font-weight: 600;
+            color: var(--bt-accent-2);
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+        }
+        .inst-sym.solo { color: var(--bt-fg); }
+        .held-pill {
+            display: inline-block;
+            margin-left: 0.4rem;
+            padding: 0.02rem 0.3rem;
+            border-radius: 4px;
+            font-family: -apple-system, system-ui, sans-serif;
+            font-size: 0.6rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--bt-warn);
+            background: rgba(var(--bt-warn2-rgb), 0.14);
+            border: 1px solid rgba(var(--bt-warn2-rgb), 0.35);
+            vertical-align: middle;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+        .group-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.18rem 0.55rem;
+            border-radius: 6px;
+            background: rgba(var(--bt-slate-rgb), 0.12);
+            color: var(--bt-fg-2);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.15);
+            white-space: nowrap;
+        }
+        .added { color: var(--bt-fg-muted); font-size: var(--grid-font); }
+        .added .ago { color: var(--bt-fg-subtle); font-size: var(--grid-sub); display: block; }
+
+        /* last-price cell — current price + smaller 1D price/% second line */
+        th.col-price { text-align: right; }
+        td.col-price { text-align: right; vertical-align: middle; }
+        .price-wrap { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 0.05rem; }
+        .price {
+            font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
+            font-size: var(--grid-font);
+            font-weight: 600;
+            color: var(--bt-fg);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+        td.col-price.price.na { color: var(--bt-fg-faint); font-weight: 500; font-family: inherit; }
+        /* line 1: today price + 1D % side by side */
+        .price-line { display: inline-flex; align-items: baseline; gap: 0.35rem; white-space: nowrap; line-height: 1.2; }
+        .price-line .pd-pct { font-size: var(--grid-sub); font-weight: 600; font-variant-numeric: tabular-nums; }
+        .price-line.up .pd-pct { color: var(--bt-up); }
+        .price-line.down .pd-pct { color: var(--bt-down); }
+        .price-line.flat .pd-pct { color: var(--bt-fg-2); }
+        /* line 2: 1D (prior-day) price, muted */
+        .price-wrap .pd-price {
+            font-size: var(--grid-sub); font-weight: 500; color: var(--bt-fg-faint);
+            font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
+            font-variant-numeric: tabular-nums; line-height: 1.2;
+        }
+
+        /* bought cell — avg cost + unrealized P/L % */
+        th.col-bought { text-align: right; }
+        td.col-bought { text-align: right; vertical-align: middle; }
+        /* Bought reuses the .perf / .perf-pct / .perf-hist structure (P/L % primary,
+           cost secondary) so it renders identically to the 7D / 30D / 1Y cells. */
+
+        /* monitor / trigger watch-level cells — reuse the .perf / .perf-pct / .perf-hist
+           structure (% distance from the current price primary, level price secondary) so
+           they render identically to the 7D / 30D / 1Y and Bought cells. */
+        th.col-level { text-align: right; }
+        td.col-level { text-align: right; vertical-align: middle; }
+
+        /* performance cells (1D / 7D / 30D / 1Y) */
+        th.col-perf { text-align: right; }
+        td.col-perf { text-align: right; vertical-align: middle; }
+        .perf {
+            font-variant-numeric: tabular-nums;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.05rem;
+        }
+        .perf-pct {
+            font-size: var(--grid-font);
+            font-weight: 600;
+            white-space: nowrap;
+            line-height: 1.2;
+        }
+        .perf-hist {
+            font-size: var(--grid-sub);
+            font-weight: 500;
+            color: var(--bt-fg-faint);
+            white-space: nowrap;
+            line-height: 1.2;
+            font-family: 'SF Mono', 'Roboto Mono', Menlo, monospace;
+        }
+        .perf.up .perf-pct { color: var(--bt-up); }
+        .perf.down .perf-pct { color: var(--bt-down); }
+        .perf.flat .perf-pct { color: var(--bt-fg-2); }
+        .perf.na { color: var(--bt-fg-faint); font-weight: 500; font-style: italic; font-size: var(--grid-font); }
+        .perf.warmable { cursor: help; }
+        .perf.warmable .perf-pct { text-decoration: underline dotted rgba(var(--bt-slate-rgb), 0.4); text-underline-offset: 2px; }
+        .perf .perf-flag { color: var(--bt-warn-strong); font-style: normal; margin-left: 1px; font-weight: 700; }
+
+        /* legend shown only when ≥1 cell is N/A because its cache isn't warmed */
+        .perf-footnote {
+            margin-top: 0.4rem;
+            font-size: 0.76rem;
+            color: var(--bt-fg-subtle);
+            line-height: 1.5;
+        }
+        .perf-footnote .pf-mark { color: var(--bt-warn-strong); font-weight: 700; }
+        .perf-footnote b { color: var(--bt-fg-muted); font-weight: 600; }
+
+        /* group sub-header rows (when grouping by market › group) */
+        tr.group-row td {
+            padding: 0.55rem 0.75rem 0.3rem;
+            border-bottom: none;
+        }
+        .group-head {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--bt-fg-muted);
+        }
+        .group-head .gn { font-variant-numeric: tabular-nums; color: var(--bt-fg-subtle); font-weight: 600; }
+        .group-head::before {
+            content: '';
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent, var(--bt-accent-2));
+        }
+
+        /* ── Empty / loading ── */
+        .state {
+            text-align: center;
+            padding: 3.5rem 1rem;
+            color: var(--bt-fg-subtle);
+        }
+        .state .big { font-size: 2.5rem; margin-bottom: 0.6rem; opacity: 0.5; }
+        .state .msg { font-size: 0.95rem; }
+        .state .hint { font-size: 0.8rem; margin-top: 0.4rem; color: var(--bt-fg-faint); }
+        .section-empty { padding: 1.2rem 0.9rem; color: var(--bt-fg-faint); font-size: 0.82rem; font-style: italic; }
+
+        @media (max-width: 640px) {
+            .kpi-value { font-size: 1.5rem; }
+            td.col-idx, th.col-idx { display: none; }
+        }
+    </style>
+</head>
+<body>
+    {% include 'header.html' %}
+
+    <div class="wrap">
+        <div class="page-head">
+            <h2>Portfolio Overview</h2>
+            <p class="subtitle">A consolidated register of every instrument across all markets.</p>
+        </div>
+
+        <div class="kpi-row" id="kpiRow"></div>
+
+        <div class="ov-tabs">
+            <button class="ov-tab active" data-tab="watchlist">Watch List</button>
+            <button class="ov-tab" data-tab="portfolio">My Portfolio</button>
+        </div>
+
+        <div class="ov-tab-panel" id="tab-watchlist">
+            <div class="toolbar">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search symbol, name or notes…" autocomplete="off">
+                </div>
+                <div class="chip-group" id="marketChips"></div>
+                <div class="refresh-status" id="refreshStatus" hidden><span class="rs-spin"></span><span id="refreshStatusText">Refreshing market data…</span></div>
+            </div>
+
+            <div id="sections"></div>
+
+            <div class="perf-footnote" id="perfFootnote" style="display:none">
+                <span class="pf-mark">*</span> 1D / 7D / 30D / 1Y show <b>N/A</b> until that instrument's market data is cached —
+                open it (or expand its ▸ chart) to warm the cache, then it fills in.
+            </div>
+        </div>
+
+        <div class="ov-tab-panel" id="tab-portfolio" hidden>
+            <div id="pnlCharts"></div>
+            <div id="pnlSections"></div>
+        </div>
+    </div>
+
+    <script src="/betelgeuse/static/symbol-field.js"></script>
+    <script src="/betelgeuse/static/instrument-detail.js"></script>
+    <script>
+        // Market presentation metadata — accent colour + flag per market.
+        const MARKET_META = {
+            hk:     { name: 'Hong Kong',     flag: '🇭🇰', accent: '#2f81f7' },
+            jp:     { name: 'Japan',         flag: '🇯🇵', accent: '#da3633' },
+            us:     { name: 'United States', flag: '🇺🇸', accent: '#2ea043' },
+            crypto: { name: 'Cryptocurrency',flag: '🪙', accent: '#bb8009' }
+        };
+        const MARKET_ORDER = ['hk', 'jp', 'us', 'crypto'];
+
+        const state = {
+            data: {},            // market -> [items]
+            perf: {},            // "market:symbol" -> {available, performance:{'1','7','30','365'}}
+            pnl: null,           // /api/portfolio/pnl result {base, totals, markets, missing}
+            groupOrder: {},      // market -> [group names] in the Groups-page order
+            search: '',
+            activeMarkets: new Set(MARKET_ORDER),
+            sortKey: 'symbol',   // symbol | name | group | added
+            sortDir: 1,          // 1 asc, -1 desc
+            collapsed: new Set(),
+            pnlCollapsed: new Set(), // collapsed market sections on the My Portfolio tab
+            activeTab: 'watchlist',
+            pnlChartMode: 'instrument', // 'instrument' | 'market' — drives both analytics charts
+            searchFields: {},    // market -> SymbolField instance (per-header search box)
+            expanded: new Set(), // keys "market|symbol" of rows showing their inline chart
+            chartHtmlCache: {}   // "market|symbol" -> resolved chart HTML (no refetch on re-render)
+        };
+
+        // Currency symbols for money formatting (HKD/USD → $, AUD → A$, JPY → ¥).
+        const CCY_SYMBOL = { HKD: '$', USD: '$', AUD: 'A$', JPY: '¥' };
+        // Native currency per market — used to label/format local-currency P&L columns.
+        const MARKET_CCY = { hk: 'HKD', jp: 'JPY', us: 'USD', crypto: 'USD' };
+
+        // Format a money amount: symbol + thousands, sign-aware. `opts.signed` forces a
+        // leading +/- (for P&L); `opts.dp` pins the decimal places (P&L/values pass dp:0 to
+        // round off); `opts.bare` omits the currency symbol (chart labels); otherwise it
+        // adapts (0 dp for ≥1000, else 2).
+        function fmtMoney(v, ccy, opts) {
+            if (v == null || isNaN(v)) return '—';
+            const sym = (opts && opts.bare) ? '' : (CCY_SYMBOL[(ccy || '').toUpperCase()] || '');
+            const abs = Math.abs(v);
+            const dp = (opts && opts.dp != null) ? opts.dp : (abs >= 1000 ? 0 : 2);
+            const num = abs.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+            const sign = v < 0 ? '-' : ((opts && opts.signed && v > 0) ? '+' : '');
+            return sign + sym + num;
+        }
+
+        // HK aastocks small-gif template (url_template_3m_small); fetched once in load().
+        let smallChartTemplate = null;
+        let hkChartProvider = 'aastocks';   // configurable HK chart provider (Settings → Markets → HK)
+        // Guards stale async crypto-chart loads against a newer render().
+        let chartRenderToken = 0;
+
+        function searchPlaceholderFor(market) {
+            if (market === 'crypto') return 'BTC — Enter';
+            if (market === 'jp') return '7203 — Enter';
+            if (market === 'us') return 'AAPL — Enter';
+            return '0700 — Enter';
+        }
+
+        function hexToSoft(hex, a) {
+            const n = parseInt(hex.slice(1), 16);
+            const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+            return `rgba(${r},${g},${b},${a})`;
+        }
+
+        function relativeDate(dateStr) {
+            if (!dateStr) return null;
+            const t = Date.parse(String(dateStr).replace(' ', 'T'));
+            if (isNaN(t)) return null;
+            const days = Math.floor((Date.now() - t) / 86400000);
+            if (days < 0) return 'in the future';
+            if (days === 0) return 'today';
+            if (days === 1) return 'yesterday';
+            if (days < 30) return days + ' days ago';
+            if (days < 365) { const m = Math.floor(days / 30); return m + (m === 1 ? ' month ago' : ' months ago'); }
+            const y = Math.floor(days / 365); return y + (y === 1 ? ' year ago' : ' years ago');
+        }
+
+        // Relative time from an epoch-ms timestamp (used for the price "as of" hint).
+        function relativeFromTs(ms) {
+            const n = Number(ms);
+            if (!Number.isFinite(n) || n <= 0) return null;
+            const sec = Math.floor((Date.now() - n) / 1000);
+            if (sec < 0) return 'just now';
+            if (sec < 60) return sec + 's ago';
+            const min = Math.floor(sec / 60);
+            if (min < 60) return min + 'm ago';
+            const hr = Math.floor(min / 60);
+            if (hr < 24) return hr + 'h ago';
+            const days = Math.floor(hr / 24);
+            if (days < 30) return days + 'd ago';
+            const mo = Math.floor(days / 30);
+            return mo < 12 ? mo + 'mo ago' : Math.floor(mo / 12) + 'y ago';
+        }
+
+        function esc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        // Format a price for display, adapting precision to magnitude (crypto spans
+        // $100k → $0.0000001). USD only for now (the sole market-data provider).
+        function fmtPrice(v, currency) {
+            if (v == null || isNaN(v)) return null;
+            const abs = Math.abs(v);
+            let opts;
+            if (abs >= 1)        opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+            else if (abs >= 0.01) opts = { minimumFractionDigits: 2, maximumFractionDigits: 4 };
+            else                  opts = { maximumSignificantDigits: 4 };
+            const sym = (currency || 'usd').toLowerCase() === 'usd' ? '$' : '';
+            return sym + v.toLocaleString('en-US', opts);
+        }
+
+        async function load() {
+            try {
+                const [portfolio, settings, ...groupLists] = await Promise.all([
+                    fetch('/betelgeuse/api/portfolio').then(r => r.json()),
+                    fetch('/betelgeuse/api/settings').then(r => r.json()).catch(() => ({})),
+                    ...MARKET_ORDER.map(m => fetch(`/betelgeuse/api/groups/${m}`).then(r => r.json()).catch(() => []))
+                ]);
+                state.data = portfolio;
+                smallChartTemplate = settings.url_template_3m_small || null;   // HK thumbnail template
+                hkChartProvider = (settings.hk_chart_provider === 'yfinance') ? 'yfinance' : 'aastocks';
+                // per-market group order, mirroring the Groups page
+                MARKET_ORDER.forEach((m, i) => {
+                    state.groupOrder[m] = Array.isArray(groupLists[i]) ? groupLists[i] : [];
+                });
+            } catch (e) {
+                state.data = {};
+            }
+            render();
+            loadPerformance();   // fills the 1D/7D cells once cached market data resolves
+        }
+
+        // Fill the price / 1D / 7D / Bought / PnL cells — stale-while-revalidate so the
+        // page is useful immediately instead of blocking ~10s on the network:
+        //   1) cache-only read (instant) → paint whatever's already stored + P&L
+        //   2) ?refresh=1 (slow — warms stale instruments upstream) → re-paint with fresh
+        // The page HTML already painted before this runs; a spinner marks the background pass.
+        async function loadPerformance() {
+            const status = document.getElementById('refreshStatus');
+            // 1) Instant pass — show last-cached values right away (no network).
+            try {
+                state.perf = await fetch('/betelgeuse/api/portfolio/performance').then(r => r.json());
+            } catch (e) {
+                state.perf = {};
+            }
+            render();
+            loadPnl();   // P&L reads cache-only snapshots — cheap, uses the values we just got
+
+            // 2) Background pass — warm the market-data cache, then re-paint with fresh data.
+            if (status) status.hidden = false;
+            try {
+                state.perf = await fetch('/betelgeuse/api/portfolio/performance?refresh=1').then(r => r.json());
+            } catch (e) {
+                /* keep the cached values painted in step 1 */
+            }
+            if (status) status.hidden = true;
+            render();
+            loadPnl();
+        }
+
+        // Pull base-currency P&L (KPI card + My Portfolio tab). Cache-only server-side, so
+        // it's cheap; called after loadPerformance() has warmed the market-data cache.
+        async function loadPnl() {
+            try {
+                state.pnl = await fetch('/betelgeuse/api/portfolio/pnl').then(r => r.json());
+            } catch (e) {
+                state.pnl = null;
+            }
+            renderKpis();
+            renderPortfolioTab();
+        }
+
+        function allItems() {
+            const out = [];
+            for (const m of MARKET_ORDER) (state.data[m] || []).forEach(it => out.push(it));
+            return out;
+        }
+
+        function matchesSearch(it) {
+            if (!state.search) return true;
+            const q = state.search.toLowerCase();
+            return (it.symbol || '').toLowerCase().includes(q)
+                || (it.name || '').toLowerCase().includes(q)
+                || (it.comment || '').toLowerCase().includes(q)
+                || (it.group || '').toLowerCase().includes(q);
+        }
+
+        function compare(a, b) {
+            let av, bv;
+            switch (state.sortKey) {
+                case 'name':  av = (a.name || '').toLowerCase();  bv = (b.name || '').toLowerCase(); break;
+                case 'group': av = (a.group || '').toLowerCase(); bv = (b.group || '').toLowerCase(); break;
+                case 'added': av = a.added_date || ''; bv = b.added_date || ''; break;
+                default:      av = (a.symbol || '').toLowerCase(); bv = (b.symbol || '').toLowerCase();
+            }
+            if (av < bv) return -1 * state.sortDir;
+            if (av > bv) return  1 * state.sortDir;
+            return 0;
+        }
+
+        function renderKpis() {
+            const items = allItems();
+            const total = items.length;
+            const activeMarketCount = MARKET_ORDER.filter(m => (state.data[m] || []).length).length;
+            const groupSet = new Set(items.map(i => i.group || 'Default'));
+
+            const cards = [
+                { label: 'Total Instruments', value: total, sub: `${activeMarketCount} of ${MARKET_ORDER.length} markets active`, accent: '#2f81f7' },
+                { label: 'Markets', value: activeMarketCount, sub: MARKET_ORDER.filter(m => (state.data[m]||[]).length).map(m => MARKET_META[m].flag).join(' ') || '—', accent: '#2ea043' },
+                { label: 'Groups Used', value: groupSet.size, sub: [...groupSet].slice(0,3).join(', ') + (groupSet.size > 3 ? '…' : ''), accent: '#a855f7' },
+                investedKpiCard(),
+                pnlKpiCard()
+            ];
+            document.getElementById('kpiRow').innerHTML = cards.map(c => `
+                <div class="kpi-card" style="--accent:${c.accent}">
+                    <div class="kpi-label">${esc(c.label)}</div>
+                    <div class="kpi-value"${c.color ? ` style="color:${c.color}"` : ''}>${esc(c.value)}</div>
+                    <div class="kpi-sub">${esc(c.sub)}</div>
+                </div>`).join('');
+        }
+
+        // Total invested (cost basis) across all current holdings, base-normalized — "how much
+        // have I put in". '—' until /api/portfolio/pnl resolves; the sub line shows what it's
+        // worth now so Invested → Now → PnL read across the strip as one story.
+        function investedKpiCard() {
+            const p = state.pnl;
+            if (!p || !p.totals) {
+                return { label: 'Invested', value: '—', sub: 'calculating…', accent: '#0ea5e9' };
+            }
+            const base = p.base, t = p.totals;
+            if (!t.count) {
+                return { label: `Invested (${base})`, value: '—', sub: 'no holdings yet', accent: '#0ea5e9' };
+            }
+            return {
+                label: `Invested (${base})`,
+                value: fmtMoney(t.cost, base, { dp: 0 }),
+                sub: `Now ${fmtMoney(t.value, base, { dp: 0 })} · ${t.count} holding${t.count === 1 ? '' : 's'}`,
+                accent: '#0ea5e9'
+            };
+        }
+
+        // The PnL KPI card (replaces the old "Latest Addition" card) — total unrealized P&L
+        // across all holdings, normalized to the base currency. '—' until /api/portfolio/pnl
+        // resolves; colored by sign once it does.
+        function pnlKpiCard() {
+            const p = state.pnl;
+            if (!p || !p.totals) {
+                return { label: 'PnL', value: '—', sub: 'calculating…', accent: '#bb8009' };
+            }
+            const base = p.base, t = p.totals, v = t.pnl;
+            const color = v > 0 ? '#3fb950' : (v < 0 ? '#f85149' : '#c9d1d9');
+            const pct = t.pnl_pct != null ? `${t.pnl_pct > 0 ? '+' : ''}${t.pnl_pct.toFixed(2)}%` : '—';
+            const pending = t.incomplete ? ` · ${t.incomplete} pending` : '';
+            const holdings = t.count ? `${t.count} holding${t.count === 1 ? '' : 's'}` : 'no holdings';
+            return {
+                label: `PnL (${base})`,
+                value: t.count ? fmtMoney(v, base, { signed: true }) : '—',
+                sub: t.count ? `${pct} · ${holdings}${pending}` : 'no holdings yet',
+                accent: v >= 0 ? '#2ea043' : '#da3633',
+                color: t.count ? color : null
+            };
+        }
+
+        function renderChips() {
+            const el = document.getElementById('marketChips');
+            const parts = MARKET_ORDER.map(m => {
+                const meta = MARKET_META[m];
+                const n = (state.data[m] || []).length;
+                const active = state.activeMarkets.has(m);
+                return `<div class="chip ${active ? 'active' : ''}" data-market="${m}"
+                        style="--chip-accent:${meta.accent}">
+                        <span>${meta.flag}</span><span>${esc(meta.name)}</span>
+                        <span class="chip-n">${n}</span></div>`;
+            });
+            el.innerHTML = parts.join('');
+            el.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
+                const m = ch.dataset.market;
+                if (state.activeMarkets.has(m)) state.activeMarkets.delete(m);
+                else state.activeMarkets.add(m);
+                render();
+            }));
+        }
+
+        const COLS = [
+            { key: null,     label: '#',          cls: 'col-idx',   sortable: false },
+            { key: 'symbol', label: 'Instrument', cls: 'col-inst',  sortable: true },
+            { key: null,     label: 'Price',      cls: 'col-price', sortable: false },
+            { key: null,     label: 'Bought',     cls: 'col-bought',sortable: false },
+            { key: null,     label: '7D',         cls: 'col-perf',  sortable: false },
+            { key: null,     label: '30D',        cls: 'col-perf',  sortable: false },
+            { key: null,     label: '1Y',         cls: 'col-perf',  sortable: false },
+            { key: null,     label: 'Monitor',    cls: 'col-level', sortable: false },
+            { key: null,     label: 'Trigger',    cls: 'col-level', sortable: false },
+            { key: 'added',  label: 'Added',      cls: 'col-added', sortable: true }
+        ];
+
+        function theadHtml() {
+            return '<thead><tr>' + COLS.map(c => {
+                const sorted = c.sortable && state.sortKey === c.key;
+                const arrow = sorted ? (state.sortDir === 1 ? '▲' : '▼') : '';
+                return `<th class="${c.cls} ${c.sortable ? 'sortable' : ''} ${sorted ? 'sorted' : ''}"
+                        ${c.sortable ? `data-sort="${c.key}"` : ''}>${esc(c.label)}<span class="arrow">${arrow}</span></th>`;
+            }).join('') + '</tr></thead>';
+        }
+
+        // Last-price cell. Line 1: today's price + the 1D % change (colored) side by side.
+        // Line 2: the 1D (prior-day) price, derived from the cached 1D performance
+        // (prev = current / (1 + pct/100)). Muted N/A when no provider / cache not warmed.
+        function priceCellHtml(market, symbol) {
+            const rec = state.perf[`${market}:${symbol}`];
+            const p = rec ? fmtPrice(rec.price, rec.currency) : null;
+            if (p == null) {
+                const why = rec && !rec.available
+                    ? 'No market-data provider for this market yet'
+                    : 'Cache not warmed yet — open this instrument or expand its ▸ chart';
+                return `<td class="col-price price na" title="${esc(why)}">—</td>`;
+            }
+            const ago = rec.as_of ? relativeFromTs(rec.as_of) : null;
+            const v = rec.performance ? rec.performance['1'] : undefined;
+            let line1, line2 = '';
+            if (v != null) {
+                const cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
+                const pct = (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+                const prev = v !== 0 ? fmtPrice(rec.price / (1 + v / 100), rec.currency) : null;
+                line1 = `<span class="price-line ${cls}"><span class="price">${esc(p)}</span><span class="pd-pct">${esc(pct)}</span></span>`;
+                if (prev) line2 = `<span class="pd-price">${esc(prev)}</span>`;
+            } else {
+                line1 = `<span class="price-line"><span class="price">${esc(p)}</span></span>`;
+            }
+            return `<td class="col-price"${ago ? ` title="as of ${esc(ago)}"` : ''}><span class="price-wrap">${line1}${line2}</span></td>`;
+        }
+
+        // Bought cell — unrealized P/L % vs current price (primary, colored) over the
+        // weighted-avg cost (secondary, muted). Same layout/format as the 7D/30D/1Y perf
+        // cells. Muted N/A when the position isn't bought / has no buy transactions; a
+        // neutral '—' on the % line while current price isn't cached yet (cost still shown).
+        function boughtCellHtml(it, market, symbol) {
+            const rec = state.perf[`${market}:${symbol}`];
+            const cost = it.bought_price;
+            const costFmt = cost != null ? fmtPrice(cost, rec ? rec.currency : null) : null;
+            if (costFmt == null) {
+                return `<td class="col-bought"><span class="perf na" title="${it.bought ? 'Tagged bought — add a buy transaction on the Portfolio page' : 'Not bought'}">N/A</span></td>`;
+            }
+            let cls = 'flat', pctTxt = '—';
+            if (rec && rec.price != null && cost > 0) {
+                const pl = (rec.price - cost) / cost * 100;
+                cls = pl > 0 ? 'up' : (pl < 0 ? 'down' : 'flat');
+                pctTxt = (pl > 0 ? '+' : '') + pl.toFixed(2) + '%';
+            }
+            return `<td class="col-bought"><span class="perf ${cls}"><span class="perf-pct">${esc(pctTxt)}</span><span class="perf-hist">${esc(costFmt)}</span></span></td>`;
+        }
+
+        // Monitor / Trigger watch-level cell — % distance of the current price from the
+        // target level (primary, colored) over the level price (secondary, muted). Same
+        // layout/format as the 7D/30D/1Y perf cells. Muted N/A when the level is unset; a
+        // neutral '—' on the % line while the current price isn't cached yet (level still shown).
+        function levelCellHtml(value, market, symbol) {
+            const rec = state.perf[`${market}:${symbol}`];
+            const fmt = value != null ? fmtPrice(value, rec ? rec.currency : null) : null;
+            if (fmt == null) return `<td class="col-level"><span class="perf na">N/A</span></td>`;
+            let cls = 'flat', pctTxt = '—';
+            if (rec && rec.price != null && value > 0) {
+                const d = (rec.price - value) / value * 100;
+                cls = d > 0 ? 'up' : (d < 0 ? 'down' : 'flat');
+                pctTxt = (d > 0 ? '+' : '') + d.toFixed(2) + '%';
+            }
+            return `<td class="col-level"><span class="perf ${cls}"><span class="perf-pct">${esc(pctTxt)}</span><span class="perf-hist">${esc(fmt)}</span></span></td>`;
+        }
+
+        // One performance cell (1D / 7D / 30D / 1Y). Shows percentage change (primary)
+        // and the historical price derived from current price + pct (secondary, smaller).
+        function perfCellHtml(market, symbol, periodKey) {
+            const rec = state.perf[`${market}:${symbol}`];
+            const v = rec && rec.performance ? rec.performance[periodKey] : undefined;
+            if (v == null) {
+                if (rec && !rec.available) {
+                    return `<td class="col-perf"><span class="perf na" title="No market-data provider for this market yet">N/A</span></td>`;
+                }
+                return `<td class="col-perf"><span class="perf na warmable" title="Cache not warmed yet — open this instrument or expand its ▸ chart to load market data">N/A<span class="perf-flag">*</span></span></td>`;
+            }
+            const cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
+            const pctTxt = (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+            // Derive the historical price: price_ago = current / (1 + pct/100)
+            let histHtml = '';
+            if (rec && rec.price != null && v !== 0) {
+                const histPrice = rec.price / (1 + v / 100);
+                const histFmt = fmtPrice(histPrice, rec.currency);
+                if (histFmt) histHtml = `<span class="perf-hist">${esc(histFmt)}</span>`;
+            }
+            return `<td class="col-perf"><span class="perf ${cls}"><span class="perf-pct">${esc(pctTxt)}</span>${histHtml}</span></td>`;
+        }
+
+        function instRowHtml(it, idx, market, alt) {
+            const key = `${market}|${it.symbol}`;
+            const expanded = state.expanded.has(key);
+            const hasName = it.name && it.name.trim() && it.name.trim() !== it.symbol;
+            const rel = relativeDate(it.added_date);
+            // "Held" = a current net position (buys − sells > 0), or tagged bought with no
+            // transactions yet → gold rail + pill. The pill shows the net position with
+            // thousand separators ("Held 4,000"); no number when there's nothing to count.
+            const netQty = it.net_qty;
+            const held = (netQty != null && netQty > 0) || (netQty == null && !!it.bought);
+            const qtyTxt = (netQty != null && netQty > 0)
+                ? ': ' + Number(netQty).toLocaleString('en-US', { maximumFractionDigits: 8 })
+                : '';
+            const heldPill = held ? ` <span class="held-pill">Held${qtyTxt}</span>` : '';
+            // Instrument cell: name (line 1, ellipsised when long) over (symbol) (line 2).
+            // When there's no distinct name, just show the symbol prominently.
+            const instHtml = hasName
+                ? `<span class="inst"><span class="inst-name" title="${esc(it.name)}">${esc(it.name)}</span><span class="inst-sym">(${esc(it.symbol)})${heldPill}</span></span>`
+                : `<span class="inst"><span class="inst-sym solo">${esc(it.symbol)}${heldPill}</span></span>`;
+            const row = `<tr class="inst-row${alt ? ' alt' : ''}${held ? ' held' : ''}" data-market="${esc(market)}" data-symbol="${esc(it.symbol)}" title="Open instrument detail">
+                <td class="col-idx">${idx}</td>
+                <td class="col-inst"><div class="inst-cell"><span class="row-expander${expanded ? ' expanded' : ''}" data-key="${esc(key)}" title="${expanded ? 'Hide' : 'Show'} chart & notes">▸</span>${instHtml}</div></td>
+                ${priceCellHtml(market, it.symbol)}
+                ${boughtCellHtml(it, market, it.symbol)}
+                ${perfCellHtml(market, it.symbol, '7')}
+                ${perfCellHtml(market, it.symbol, '30')}
+                ${perfCellHtml(market, it.symbol, '365')}
+                ${levelCellHtml(it.monitor_price, market, it.symbol)}
+                ${levelCellHtml(it.trigger_price, market, it.symbol)}
+                <td class="col-added"><span class="added">${esc(it.added_date || '—')}${rel ? `<span class="ago">${esc(rel)}</span>` : ''}</span></td>
+            </tr>`;
+            return row + (expanded ? chartRowHtml(key, it.comment) : '');
+        }
+
+        // Inline expansion row beneath an expanded instrument row: the free-text Notes
+        // (moved out of its own column) plus the lazily-loaded chart. Chart HTML is cached
+        // in state.chartHtmlCache so re-renders don't refetch.
+        function chartRowHtml(key, notes, colspan) {
+            const inner = state.chartHtmlCache[key]
+                || `<div class="chart-loading"><div class="spin"></div><span>Loading chart…</span></div>`;
+            const hasNotes = notes && notes.trim();
+            const notesHtml = `<div class="expand-notes${hasNotes ? '' : ' empty'}">
+                <span class="expand-notes-label">Notes</span>
+                <span class="expand-notes-text">${hasNotes ? esc(notes) : 'No notes yet.'}</span>
+            </div>`;
+            return `<tr class="chart-row"><td colspan="${colspan || COLS.length}"><div class="expand-body">${notesHtml}<div class="chart-host" data-key="${esc(key)}">${inner}</div></div></td></tr>`;
+        }
+
+        // Lazy-load the provider thumbnail for each expanded row, dispatching on the same
+        // chart provider map the Tracker uses (via InstrumentDetail.PROVIDERS). Results are
+        // cached in state.chartHtmlCache; a render token guards against stale async paints.
+        async function loadExpandedCharts(host) {
+            const token = ++chartRenderToken;
+            for (const el of host.querySelectorAll('.chart-host')) {
+                const key = el.dataset.key;
+                if (state.chartHtmlCache[key]) { el.innerHTML = state.chartHtmlCache[key]; continue; }
+                const [market, symbol] = key.split('|');
+                const provider = (market === 'hk')
+                    ? hkChartProvider
+                    : ((window.InstrumentDetail && InstrumentDetail.PROVIDERS[market]) || null);
+
+                if (provider === 'aastocks') {
+                    const html = smallChartTemplate
+                        ? `<img class="mini-chart" src="${esc(smallChartTemplate.replace('{stockid}', symbol))}" alt="${esc(symbol)} chart">`
+                        : `<div class="chart-none">No chart URL configured (Settings → Tracker → HK).</div>`;
+                    state.chartHtmlCache[key] = html;
+                    el.innerHTML = html;
+                } else if (provider === 'coingecko') {
+                    try {
+                        let coinId = symbol.toLowerCase();
+                        const tr = await fetch(`/betelgeuse/api/crypto/translate?symbol=${encodeURIComponent(symbol)}`);
+                        if (tr.ok) { const d = await tr.json(); if (d.coin_id) coinId = d.coin_id; }
+                        const res = await fetch(`/betelgeuse/api/crypto/${encodeURIComponent(coinId)}/chart/30`);
+                        if (token !== chartRenderToken || !el.isConnected) return;   // superseded
+                        if (!res.ok) { el.innerHTML = `<div class="chart-none">Chart unavailable.</div>`; continue; }
+                        const data = await res.json();
+                        const html = `<img class="mini-chart" src="${esc(data.url)}?t=${Date.now()}" alt="${esc(symbol)} 30d chart">`;
+                        state.chartHtmlCache[key] = html;
+                        if (token === chartRenderToken) el.innerHTML = html;
+                    } catch (e) {
+                        if (token === chartRenderToken && el.isConnected) el.innerHTML = `<div class="chart-none">Chart error.</div>`;
+                    }
+                } else if (provider === 'yfinance') {
+                    try {
+                        // Stock expanders show a 3-month (90d) chart; crypto stays 30d above.
+                        const res = await fetch(`/betelgeuse/api/stock/${encodeURIComponent(market)}/${encodeURIComponent(symbol)}/chart/90`);
+                        if (token !== chartRenderToken || !el.isConnected) return;   // superseded
+                        if (!res.ok) { el.innerHTML = `<div class="chart-none">Chart unavailable.</div>`; continue; }
+                        const data = await res.json();
+                        const html = `<img class="mini-chart" src="${esc(data.url)}?t=${Date.now()}" alt="${esc(symbol)} 90d chart">`;
+                        state.chartHtmlCache[key] = html;
+                        if (token === chartRenderToken) el.innerHTML = html;
+                    } catch (e) {
+                        if (token === chartRenderToken && el.isConnected) el.innerHTML = `<div class="chart-none">Chart error.</div>`;
+                    }
+                } else {
+                    const html = `<div class="chart-none">No chart for this market yet.</div>`;
+                    state.chartHtmlCache[key] = html;
+                    el.innerHTML = html;
+                }
+            }
+        }
+
+        // Order a market's present group names by the Groups-page order
+        // (state.groupOrder). Any group not in that list (e.g. legacy/ad-hoc) sorts to
+        // the end alphabetically, so nothing ever disappears.
+        function orderGroups(market, names) {
+            const order = state.groupOrder[market] || [];
+            const rank = new Map(order.map((g, i) => [g, i]));
+            return names.slice().sort((a, b) => {
+                const ra = rank.has(a) ? rank.get(a) : Infinity;
+                const rb = rank.has(b) ? rank.get(b) : Infinity;
+                if (ra !== rb) return ra - rb;
+                return a.localeCompare(b);
+            });
+        }
+
+        function sectionHtml(market) {
+            const meta = MARKET_META[market];
+            let items = (state.data[market] || []).filter(matchesSearch);
+            const totalForMarket = (state.data[market] || []).length;
+            const groupSet = new Set(items.map(i => i.group || 'Default'));
+            const collapsed = state.collapsed.has(market);
+
+            let body;
+            if (!items.length) {
+                body = `<div class="section-empty">${totalForMarket ? 'No instruments match your search.' : 'No instruments in this market yet.'}</div>`;
+            } else {
+                // Always grouped Market › Group. Bucket by group, order groups (Groups-page
+                // order), items by the current sort key. The # column uses a continuous idx;
+                // the zebra .alt class uses the WITHIN-group index i so striping resets per group.
+                const buckets = {};
+                items.forEach(it => { (buckets[it.group || 'Default'] ||= []).push(it); });
+                const groupNames = orderGroups(market, Object.keys(buckets));
+                let idx = 0;
+                const rows = groupNames.map(gn => {
+                    const list = buckets[gn].slice().sort(compare);
+                    const head = `<tr class="group-row"><td colspan="${COLS.length}">
+                        <span class="group-head" style="--accent:${meta.accent}">${esc(gn)}<span class="gn">· ${list.length}</span></span></td></tr>`;
+                    return head + list.map((it, i) => instRowHtml(it, ++idx, market, i % 2 === 1)).join('');
+                }).join('');
+                body = `<table>${theadHtml()}<tbody>${rows}</tbody></table>`;
+            }
+
+            return `<section class="market-section ${collapsed ? 'collapsed' : ''}"
+                    style="--accent:${meta.accent}; --accent-soft:${hexToSoft(meta.accent, 0.15)}" data-market="${market}">
+                <div class="market-head">
+                    <span class="market-flag">${meta.flag}</span>
+                    <span class="market-name">${esc(meta.name)}</span>
+                    <span class="pill">${items.length}${items.length !== totalForMarket ? ` / ${totalForMarket}` : ''} instrument${items.length === 1 ? '' : 's'}</span>
+                    <span class="pill ghost">${groupSet.size} group${groupSet.size === 1 ? '' : 's'}</span>
+                    <div class="market-search" onclick="event.stopPropagation()">
+                        <input type="text" id="market-search-${market}" autocomplete="off" placeholder="Search…">
+                    </div>
+                    <span class="spacer"></span>
+                    <span class="caret"></span>
+                </div>
+                <div class="market-body">${body}</div>
+            </section>`;
+        }
+
+        function render() {
+            renderKpis();
+            renderChips();
+            const host = document.getElementById('sections');
+
+            const visibleMarkets = MARKET_ORDER.filter(m => state.activeMarkets.has(m));
+            const fn = document.getElementById('perfFootnote');
+            if (fn) fn.style.display = 'none';   // re-shown by updatePerfFootnote when relevant
+            if (!allItems().length) {
+                host.innerHTML = `<div class="state"><div class="big">📭</div>
+                    <div class="msg">Your portfolio is empty.</div>
+                    <div class="hint">Add instruments from the <a href="/betelgeuse/portfolio" style="color:#58a6ff">Portfolio</a> page.</div></div>`;
+                return;
+            }
+            if (!visibleMarkets.length) {
+                host.innerHTML = `<div class="state"><div class="big">🫥</div>
+                    <div class="msg">No markets selected.</div>
+                    <div class="hint">Toggle a market chip above to show its instruments.</div></div>`;
+                return;
+            }
+
+            host.innerHTML = visibleMarkets.map(sectionHtml).join('');
+
+            // wire collapse toggles
+            host.querySelectorAll('.market-head').forEach(h => h.addEventListener('click', () => {
+                const m = h.parentElement.dataset.market;
+                if (state.collapsed.has(m)) state.collapsed.delete(m);
+                else state.collapsed.add(m);
+                render();
+            }));
+            // wire column sort
+            host.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const k = th.dataset.sort;
+                if (state.sortKey === k) state.sortDir *= -1;
+                else { state.sortKey = k; state.sortDir = 1; }
+                render();
+            }));
+            // wire row click → shared instrument detail view (ignore the expander chevron)
+            host.querySelectorAll('tr.inst-row').forEach(tr => tr.addEventListener('click', (e) => {
+                if (e.target.closest('.row-expander')) return;
+                if (window.InstrumentDetail) InstrumentDetail.open(tr.dataset.market, tr.dataset.symbol);
+            }));
+            // wire expander chevrons → toggle the inline mini-chart row
+            host.querySelectorAll('.row-expander').forEach(ex => ex.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = ex.dataset.key;
+                if (state.expanded.has(key)) state.expanded.delete(key);
+                else state.expanded.add(key);
+                render();
+            }));
+
+            // per-market header search box — the shared context-aware SymbolField.
+            // On Enter it opens the same InstrumentDetail view for that market.
+            Object.values(state.searchFields).forEach(f => { try { f.destroy(); } catch (e) {} });
+            state.searchFields = {};
+            if (window.SymbolField) {
+                visibleMarkets.forEach(m => {
+                    const input = document.getElementById(`market-search-${m}`);
+                    if (!input) return;
+                    state.searchFields[m] = new SymbolField(input, {
+                        getMarket: () => m,
+                        placeholder: () => searchPlaceholderFor(m),
+                        selectOnFocus: true,   // select-all on Enter / refocus → quick retype
+                        onEnter: (symbol) => { if (symbol && window.InstrumentDetail) InstrumentDetail.open(m, symbol); }
+                    });
+                });
+            }
+
+            // lazy-load inline mini-charts for any expanded rows (cached across re-renders)
+            loadExpandedCharts(host);
+
+            updatePerfFootnote();
+        }
+
+        // Show the "*" legend only when at least one visible instrument is N/A because
+        // its cache hasn't been warmed (a provider exists but no cached value) — not for
+        // markets that simply have no provider yet.
+        function updatePerfFootnote() {
+            const fn = document.getElementById('perfFootnote');
+            if (!fn) return;
+            const anyWarmable = MARKET_ORDER.some(m =>
+                state.activeMarkets.has(m) &&
+                (state.data[m] || []).filter(matchesSearch).some(it => {
+                    const rec = state.perf[`${m}:${it.symbol}`];
+                    return rec && rec.available && rec.performance &&
+                        ['1','7','30','365'].some(k => rec.performance[k] == null);
+                })
+            );
+            fn.style.display = anyWarmable ? '' : 'none';
+        }
+
+        // ── My Portfolio (P&L) tab ──────────────────────────────────────────
+        // Two P&L columns: native (local) currency and the base currency. Both labelled
+        // with their currency code. Value is shown in the base currency, rounded.
+        function pnlTheadHtml(localCcy, base) {
+            return `<thead><tr>
+                <th class="col-idx">#</th>
+                <th class="col-inst">Instrument</th>
+                <th class="col-qty">Qty</th>
+                <th class="col-price">Avg Cost</th>
+                <th class="col-price">Price</th>
+                <th class="col-price">Value (${esc(base)})</th>
+                <th class="col-perf">PnL (${esc(localCcy)})</th>
+                <th class="col-perf">PnL (${esc(base)})</th>
+            </tr></thead>`;
+        }
+
+        // One P&L cell: rounded money amount (primary, colored) over the % return
+        // (secondary), reusing the .perf structure. amount/ccy are local OR base.
+        function pnlAmtCellHtml(amount, pct, ccy) {
+            if (amount == null) {
+                return `<td class="col-perf"><span class="perf na" title="Price not cached yet — open the instrument to warm it">N/A</span></td>`;
+            }
+            const cls = amount > 0 ? 'up' : (amount < 0 ? 'down' : 'flat');
+            const amt = fmtMoney(amount, ccy, { signed: true, dp: 0 });
+            const pctTxt = pct != null ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%` : '';
+            return `<td class="col-perf"><span class="perf ${cls}"><span class="perf-pct">${esc(amt)}</span>${pctTxt ? `<span class="perf-hist">${esc(pctTxt)}</span>` : ''}</span></td>`;
+        }
+
+        const PNL_COLS = 8;   // column count of the My Portfolio holdings table (for chart-row colspan)
+
+        function pnlRowHtml(h, idx, market, base, alt) {
+            const localCcy = h.currency || MARKET_CCY[market];
+            const key = `${market}|${h.symbol}`;
+            const expanded = state.expanded.has(key);
+            const hasName = h.name && h.name.trim() && h.name.trim() !== h.symbol;
+            const instHtml = hasName
+                ? `<span class="inst"><span class="inst-name" title="${esc(h.name)}">${esc(h.name)}</span><span class="inst-sym">(${esc(h.symbol)})</span></span>`
+                : `<span class="inst"><span class="inst-sym solo">${esc(h.symbol)}</span></span>`;
+            const qty = h.qty != null ? Number(h.qty).toLocaleString('en-US', { maximumFractionDigits: 8 }) : '—';
+            const avgCost = h.avg_cost != null ? fmtPrice(h.avg_cost, localCcy) : '—';
+            const price = h.price != null ? fmtPrice(h.price, localCcy) : 'N/A';
+            // Value (base) over this instrument's % of total portfolio value (allocation weight).
+            const valueCell = h.complete
+                ? `<span class="price-wrap"><span class="price">${esc(fmtMoney(h.value, base, { dp: 0 }))}</span>${h.weight != null ? `<span class="pd-price">${h.weight.toFixed(1)}%</span>` : ''}</span>`
+                : `<span class="price">N/A</span>`;
+            // No gold "held" rail here — every My Portfolio row is a held position by definition.
+            // ▸ expander reveals the same inline notes + mini-chart as the Watch List.
+            const row = `<tr class="inst-row${alt ? ' alt' : ''}" data-market="${esc(market)}" data-symbol="${esc(h.symbol)}" title="Open instrument detail">
+                <td class="col-idx">${idx}</td>
+                <td class="col-inst"><div class="inst-cell"><span class="row-expander${expanded ? ' expanded' : ''}" data-key="${esc(key)}" title="${expanded ? 'Hide' : 'Show'} chart & notes">▸</span>${instHtml}</div></td>
+                <td class="col-qty">${esc(qty)}</td>
+                <td class="col-price"><span class="price">${esc(avgCost)}</span></td>
+                <td class="col-price"><span class="price">${esc(price)}</span></td>
+                <td class="col-price">${valueCell}</td>
+                ${pnlAmtCellHtml(h.complete ? h.pnl_local : null, h.pnl_pct, localCcy)}
+                ${pnlAmtCellHtml(h.complete ? h.pnl : null, h.pnl_pct, base)}
+            </tr>`;
+            return row + (expanded ? chartRowHtml(key, h.comment, PNL_COLS) : '');
+        }
+
+        function pnlMarketSectionHtml(market, mk, base) {
+            const meta = MARKET_META[market];
+            const localCcy = mk.currency || MARKET_CCY[market];
+            const collapsed = state.pnlCollapsed.has(market);
+            const v = mk.pnl;
+            const cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
+            const amt = fmtMoney(v, base, { signed: true, dp: 0 });
+            const pct = mk.pnl_pct != null ? ` (${mk.pnl_pct > 0 ? '+' : ''}${mk.pnl_pct.toFixed(2)}%)` : '';
+            const pending = mk.incomplete ? `<span class="pill ghost">${mk.incomplete} pending</span>` : '';
+            const rows = mk.holdings.map((h, i) => pnlRowHtml(h, i + 1, market, base, i % 2 === 1)).join('');
+            // Invested (cost basis) → current value in base currency, rounded, with the base
+            // code bracketed + this market's % of total portfolio value (allocation weight).
+            const totalTxt = `Invested ${esc(fmtMoney(mk.cost, base, { dp: 0 }))} → ${esc(fmtMoney(mk.value, base, { dp: 0 }))} (${esc(base)})`;
+            const wtBadge = mk.weight != null ? `<span class="mk-weight">${mk.weight.toFixed(1)}%</span>` : '';
+            return `<section class="market-section ${collapsed ? 'collapsed' : ''}"
+                    style="--accent:${meta.accent}; --accent-soft:${hexToSoft(meta.accent, 0.15)}" data-market="${market}">
+                <div class="market-head">
+                    <span class="market-flag">${meta.flag}</span>
+                    <span class="market-name">${esc(meta.name)}</span>
+                    <span class="pnl-pill ${cls}">${esc(amt)}${esc(pct)}</span>
+                    <span class="pill">${mk.count} holding${mk.count === 1 ? '' : 's'}</span>
+                    ${pending}
+                    <span class="spacer"></span>
+                    <span class="mk-value">${totalTxt}</span>${wtBadge}
+                    <span class="caret"></span>
+                </div>
+                <div class="market-body"><table>${pnlTheadHtml(localCcy, base)}<tbody>${rows}</tbody></table></div>
+            </section>`;
+        }
+
+        function renderPnlSections() {
+            const host = document.getElementById('pnlSections');
+            if (!host) return;
+            if (!state.pnl || !state.pnl.markets) {
+                host.innerHTML = `<div class="state"><div class="big">⏳</div><div class="msg">Calculating P&amp;L…</div></div>`;
+                return;
+            }
+            const base = state.pnl.base;
+            const markets = state.pnl.markets;
+            const present = MARKET_ORDER.filter(m => markets[m]);
+            if (!present.length) {
+                host.innerHTML = `<div class="state"><div class="big">💼</div>
+                    <div class="msg">You don't hold any positions yet.</div>
+                    <div class="hint">Record buy transactions on the <a href="/betelgeuse/portfolio" style="color:#58a6ff">Portfolio</a> page and they'll appear here.</div></div>`;
+                return;
+            }
+            host.innerHTML = present.map(m => pnlMarketSectionHtml(m, markets[m], base)).join('');
+            host.querySelectorAll('.market-head').forEach(h => h.addEventListener('click', () => {
+                const m = h.parentElement.dataset.market;
+                if (state.pnlCollapsed.has(m)) state.pnlCollapsed.delete(m); else state.pnlCollapsed.add(m);
+                renderPnlSections();
+            }));
+            host.querySelectorAll('tr.inst-row').forEach(tr => tr.addEventListener('click', (e) => {
+                if (e.target.closest('.row-expander')) return;   // chevron handled below
+                if (window.InstrumentDetail) InstrumentDetail.open(tr.dataset.market, tr.dataset.symbol);
+            }));
+            // ▸ expander → toggle the inline notes + mini-chart row (shared state + cache + loader)
+            host.querySelectorAll('.row-expander').forEach(ex => ex.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = ex.dataset.key;
+                if (state.expanded.has(key)) state.expanded.delete(key); else state.expanded.add(key);
+                renderPnlSections();
+            }));
+            loadExpandedCharts(host);
+        }
+
+        // ── My Portfolio analytics charts (allocation pie + diverging P&L bar) ──────
+        // Distinct slice colors for per-instrument mode (per-market mode uses MARKET_META).
+        const PIE_PALETTE = ['#2f81f7','#2ea043','#bb8009','#a855f7','#da3633','#14b8a6',
+                             '#ec4899','#d29922','#6366f1','#2ea043','#f97316','#06b6d4'];
+
+        // Flatten state.pnl into chart rows for the chosen granularity. Only COMPLETE
+        // holdings (cached price → real value/pnl) are charted. Each row: {label, color,
+        // value, pnl, weight}. Per-market rows use the market accent + name.
+        function pnlChartData(mode) {
+            const p = state.pnl;
+            if (!p || !p.markets) return [];
+            const present = MARKET_ORDER.filter(m => p.markets[m]);
+            const out = [];
+            if (mode === 'market') {
+                present.forEach(m => {
+                    const mk = p.markets[m];
+                    if (mk.value == null) return;
+                    out.push({ label: MARKET_META[m].name, color: MARKET_META[m].accent,
+                               value: mk.value, pnl: mk.pnl, pnl_pct: mk.pnl_pct, weight: mk.weight });
+                });
+            } else {
+                let i = 0;
+                present.forEach(m => p.markets[m].holdings.forEach(h => {
+                    if (!h.complete) return;
+                    out.push({ label: h.symbol, color: PIE_PALETTE[i++ % PIE_PALETTE.length],
+                               value: h.value, pnl: h.pnl, pnl_pct: h.pnl_pct, weight: h.weight });
+                }));
+            }
+            return out;
+        }
+
+        // SVG path for a pie slice (center → arc → close), angles in radians.
+        function arcPath(cx, cy, r, a0, a1) {
+            const x1 = cx + r * Math.cos(a0), y1 = cy + r * Math.sin(a0);
+            const x2 = cx + r * Math.cos(a1), y2 = cy + r * Math.sin(a1);
+            const large = (a1 - a0) > Math.PI ? 1 : 0;
+            return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+        }
+
+        // Allocation pie: each slice = value / total; % label on slices ≥ 6%; legend lists
+        // label · notional (base, no symbol) · weight%.
+        function renderPieChart(data, base) {
+            const total = data.reduce((s, d) => s + (d.value || 0), 0);
+            if (!data.length || total <= 0) return '<div class="pchart-empty">No valued holdings yet.</div>';
+            const cx = 85, cy = 85, r = 80;
+            let slices = '', labels = '';
+            if (data.length === 1) {
+                slices = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${data[0].color}" stroke="#0d1117" stroke-width="1.5"/>`;
+                labels = `<text x="${cx}" y="${cy}" class="pie-lab" text-anchor="middle" dominant-baseline="middle">100%</text>`;
+            } else {
+                let ang = -Math.PI / 2;
+                data.forEach(d => {
+                    const frac = d.value / total;
+                    const end = ang + frac * 2 * Math.PI;
+                    slices += `<path d="${arcPath(cx, cy, r, ang, end)}" fill="${d.color}" stroke="#0d1117" stroke-width="1.5"/>`;
+                    if (frac >= 0.06) {
+                        const mid = (ang + end) / 2, lr = r * 0.62;
+                        labels += `<text x="${(cx + lr * Math.cos(mid)).toFixed(1)}" y="${(cy + lr * Math.sin(mid)).toFixed(1)}" class="pie-lab" text-anchor="middle" dominant-baseline="middle">${(frac * 100).toFixed(0)}%</text>`;
+                    }
+                    ang = end;
+                });
+            }
+            const legend = data.map(d => {
+                const pct = d.weight != null ? d.weight : (d.value / total * 100);
+                return `<div class="pleg-row">
+                    <span class="pleg-sw" style="background:${d.color}"></span>
+                    <span class="pleg-lab" title="${esc(d.label)}">${esc(d.label)}</span>
+                    <span class="pleg-val">${esc(fmtMoney(d.value, base, { dp: 0, bare: true }))}</span>
+                    <span class="pleg-pct">${pct.toFixed(1)}%</span>
+                </div>`;
+            }).join('');
+            return `<div class="pchart-wrap">
+                <svg viewBox="0 0 170 170" class="pchart-svg">${slices}${labels}</svg>
+                <div class="pleg">${legend}</div>
+            </div>`;
+        }
+
+        // Diverging P&L bar: gains green to the right, losses red to the left, length ∝ |pnl|.
+        // Sorted gain→loss. Each bar labelled with the signed amount (base, no symbol) over the
+        // gain/loss % (return on cost — NOT the allocation weight).
+        function renderDivergingBar(data, base) {
+            const items = data.filter(d => d.pnl != null).slice().sort((a, b) => b.pnl - a.pnl);
+            if (!items.length) return '<div class="pchart-empty">No P&amp;L yet.</div>';
+            const maxAbs = Math.max(...items.map(d => Math.abs(d.pnl)), 1);
+            const rows = items.map(d => {
+                const pos = d.pnl >= 0;
+                const barPct = (Math.abs(d.pnl) / maxAbs * 50).toFixed(2);   // up to the full half-track
+                const amt = fmtMoney(d.pnl, base, { signed: true, dp: 0, bare: true });
+                const gainPct = d.pnl_pct != null ? ` (${d.pnl_pct > 0 ? '+' : ''}${d.pnl_pct.toFixed(0)}%)` : '';
+                // amount + gain/loss % live in their own grid column (right), so they never collide with the axis label
+                return `<div class="dbar-row">
+                    <span class="dbar-label" title="${esc(d.label)}">${esc(d.label)}</span>
+                    <div class="dbar-track">
+                        <span class="dbar-mid"></span>
+                        <span class="dbar-fill ${pos ? 'pos' : 'neg'}" style="width:${barPct}%"></span>
+                    </div>
+                    <span class="dbar-amt ${pos ? 'pos' : 'neg'}">${esc(amt)}${gainPct ? `<span class="dbar-amt-pct">${esc(gainPct)}</span>` : ''}</span>
+                </div>`;
+            }).join('');
+            return `<div class="dbar-wrap">${rows}</div>`;
+        }
+
+        // Render the toggle + both charts for the current granularity.
+        function renderPnlCharts() {
+            const host = document.getElementById('pnlCharts');
+            if (!host) return;
+            if (!state.pnl || !state.pnl.markets || !Object.keys(state.pnl.markets).length) {
+                host.innerHTML = '';
+                return;
+            }
+            const base = state.pnl.base, mode = state.pnlChartMode;
+            const data = pnlChartData(mode);
+            host.innerHTML = `
+                <div class="pnl-charts-head">
+                    <div class="pnl-chart-toggle">
+                        <button class="pct-btn ${mode === 'instrument' ? 'active' : ''}" data-mode="instrument">By Instrument</button>
+                        <button class="pct-btn ${mode === 'market' ? 'active' : ''}" data-mode="market">By Market</button>
+                    </div>
+                </div>
+                <div class="pnl-charts-grid">
+                    <div class="pnl-chart-card">
+                        <div class="pnl-chart-title">Allocation by value <span class="pnl-chart-ccy">(${esc(base)})</span></div>
+                        ${renderPieChart(data, base)}
+                    </div>
+                    <div class="pnl-chart-card">
+                        <div class="pnl-chart-title">Unrealized P&amp;L <span class="pnl-chart-ccy">(${esc(base)})</span></div>
+                        ${renderDivergingBar(data, base)}
+                    </div>
+                </div>`;
+            host.querySelectorAll('.pct-btn').forEach(b => b.addEventListener('click', () => {
+                state.pnlChartMode = b.dataset.mode;
+                try { sessionStorage.setItem('pnlChartMode', b.dataset.mode); } catch (e) {}
+                renderPnlCharts();   // both charts re-render together
+            }));
+        }
+
+        // Render the whole My Portfolio tab (charts + market-grouped holdings).
+        function renderPortfolioTab() {
+            renderPnlCharts();
+            renderPnlSections();
+        }
+
+        // ── Tabs ──
+        function setTab(name) {
+            state.activeTab = name;
+            try { sessionStorage.setItem('ovTab', name); } catch (e) {}
+            document.querySelectorAll('.ov-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+            const wl = document.getElementById('tab-watchlist'), pf = document.getElementById('tab-portfolio');
+            if (wl) wl.hidden = name !== 'watchlist';
+            if (pf) pf.hidden = name !== 'portfolio';
+            if (name === 'portfolio') renderPortfolioTab();
+        }
+        document.querySelectorAll('.ov-tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+        (function initTab() {
+            let saved = null, savedMode = null;
+            try { saved = sessionStorage.getItem('ovTab'); savedMode = sessionStorage.getItem('pnlChartMode'); } catch (e) {}
+            if (savedMode === 'instrument' || savedMode === 'market') state.pnlChartMode = savedMode;
+            setTab(saved === 'portfolio' ? 'portfolio' : 'watchlist');
+        })();
+
+        // ── Toolbar wiring ──
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            state.search = e.target.value.trim();
+            render();
+        });
+
+        load();
+    </script>
+</body>
+</html>

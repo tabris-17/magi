@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" data-env="{{ app_env }}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>{% block title %}magi{% endblock %}</title>
+<meta name="theme-color" content="#0d1117" />
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  (function () {
+    try {
+      var pref = localStorage.getItem("magi-theme") || "dark";
+      var resolved = pref === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : pref;
+      document.documentElement.setAttribute("data-theme", resolved);
+    } catch (e) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+  })();
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='shell.css') }}" />
+<link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}" />
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<header class="magi-topbar">
+  <button class="magi-hamburger" id="magiMenuBtn" aria-label="Open menu">
+    <svg width="18" height="18" viewBox="0 0 16 16"><path fill="currentColor" d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"/></svg>
+  </button>
+  <span class="magi-brand"><span class="magi-avatar">M</span> magi</span>
+</header>
+
+<div class="magi-backdrop" id="magiBackdrop"></div>
+
+<aside class="magi-sidebar" id="magiSidebar">
+  <div class="magi-account">
+    <span class="magi-avatar lg">M</span>
+    <div>
+      <div class="magi-name">magi</div>
+      <div class="magi-role">Control panel</div>
+      <div class="magi-env" title="Running mode">🐱 {{ app_env }}</div>
+    </div>
+  </div>
+  <nav class="magi-nav">
+    <a class="magi-nav-item {{ 'active' if active == 'home' }}" href="{{ url_for('home') }}">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.656-1.366l5.25-4.2Z"/></svg>
+      Home
+    </a>
+    {% for f in nav_functions %}
+      {% if f.coming_soon %}
+        <span class="magi-nav-item disabled" title="Coming soon">{{ f.icon | safe }} {{ f.label }} <span class="magi-badge">soon</span></span>
+      {% else %}
+        <a class="magi-nav-item {{ 'active' if active == f.key }}" href="{{ f.url }}">{{ f.icon | safe }} {{ f.label }}</a>
+      {% endif %}
+    {% endfor %}
+
+    <div class="magi-nav-section">Settings</div>
+    <a class="magi-nav-item {{ 'active' if active == 'settings' }}" href="{{ url_for('settings') }}">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.06a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l1.06-1.06a.75.75 0 0 1 1.06 0Zm-9.193 9.193a.75.75 0 0 1 0 1.06l-1.06 1.061a.75.75 0 1 1-1.061-1.06l1.06-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.06 1.061a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-1.06-1.06a.75.75 0 0 1 0-1.061Zm9.193 9.193a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061Z"/></svg>
+      Appearance
+    </a>
+  </nav>
+  <div class="magi-ver" id="magiVersion">{{ app_version }}</div>
+</aside>
+
+<main>
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<script src="{{ url_for('static', filename='shell.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

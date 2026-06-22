@@ -1,0 +1,6 @@
+# magi host + functions
+Flask==3.0.0
+waitress==3.0.0          # prod web server; serve.py picks it for --env prod (dev uses werkzeug)
+yt-dlp>=2024.1.0
+# Each function brings its own deps. betelgeuse's are in
+# functions/betelgeuse/requirements.txt — deploy/setup-mini.sh installs both.

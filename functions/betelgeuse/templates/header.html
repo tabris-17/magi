@@ -1,0 +1,153 @@
+{#  magi shell for betelgeuse pages.
+    Replaces the old top-bar with the unified magi sidebar (betelgeuse's own pages
+    become a sub-nav under the "Betelgeuse" function). Included near the top of
+    every page's <body>. The chrome styles come from the host-served /static/shell.css;
+    this file keeps only betelgeuse-specific bits: the body offset for the fixed
+    sidebar, the app-wide .btn base, and the static-data freshness nudge. #}
+<script>
+  // Apply the saved magi theme to <html> before the sidebar paints.
+  (function () {
+    try {
+      var pref = localStorage.getItem("magi-theme") || "dark";
+      var resolved = pref === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : pref;
+      document.documentElement.setAttribute("data-theme", resolved);
+    } catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+    // dev/prod mode → drives the sidebar mode chip + dev red brand (see shell.css).
+    document.documentElement.setAttribute("data-env", "{{ app_env }}");
+  })();
+</script>
+<link rel="stylesheet" href="/static/shell.css" />
+<link rel="stylesheet" href="{{ request.script_root }}/static/betelgeuse-theme.css" />
+{% if app_env == 'dev' %}
+<script>document.title = document.title.replace(/Betelgeuse(?!-Dev)/g, 'Betelgeuse-Dev');</script>
+{% endif %}
+
+{% set p = request.path %}
+{% set base = request.script_root %}
+
+<header class="magi-topbar">
+  <button class="magi-hamburger" id="magiMenuBtn" aria-label="Open menu">
+    <svg width="18" height="18" viewBox="0 0 16 16"><path fill="currentColor" d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"/></svg>
+  </button>
+  <span class="magi-brand"><span class="magi-avatar">M</span> magi</span>
+</header>
+
+<div class="magi-backdrop" id="magiBackdrop"></div>
+
+<aside class="magi-sidebar" id="magiSidebar">
+  <div class="magi-account">
+    <span class="magi-avatar lg">M</span>
+    <div>
+      <div class="magi-name">magi</div>
+      <div class="magi-role">Control panel</div>
+      <div class="magi-env" title="Running mode">🐱 {{ app_env }}</div>
+    </div>
+  </div>
+  <nav class="magi-nav">
+    <a class="magi-nav-item" href="/">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M6.906.664a1.749 1.749 0 0 1 2.187 0l5.25 4.2c.415.332.657.835.657 1.367v7.019A1.75 1.75 0 0 1 13.25 15h-3.5a.75.75 0 0 1-.75-.75V9H7v5.25a.75.75 0 0 1-.75.75h-3.5A1.75 1.75 0 0 1 1 13.25V6.23c0-.531.242-1.034.656-1.366l5.25-4.2Z"/></svg>
+      Home
+    </a>
+    <a class="magi-nav-item" href="/youtube/">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M16 3.75v8.5a.75.75 0 0 1-1.136.643L11 10.575v.675A1.75 1.75 0 0 1 9.25 13h-7.5A1.75 1.75 0 0 1 0 11.25v-6.5C0 3.784.784 3 1.75 3h7.5c.966 0 1.75.784 1.75 1.75v.675l3.864-2.318A.75.75 0 0 1 16 3.75Z"/></svg>
+      YouTube Downloader
+    </a>
+    <a class="magi-nav-item" href="{{ base }}/">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L10 7.94l4.72-4.72a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"/></svg>
+      Betelgeuse
+    </a>
+    <div class="magi-nav-sub">
+      <a class="magi-nav-item {{ 'active' if p == '/' }}" href="{{ base }}/">Overview</a>
+      <a class="magi-nav-item {{ 'active' if p == '/portfolio' }}" href="{{ base }}/portfolio">My Portfolio</a>
+      <a class="magi-nav-item {{ 'active' if p == '/groups' }}" href="{{ base }}/groups">Groups</a>
+      <a class="magi-nav-item {{ 'active' if p == '/notifications' }}" href="{{ base }}/notifications">Notifications</a>
+      <a class="magi-nav-item {{ 'active' if p == '/settings' }}" href="{{ base }}/settings">Settings</a>
+      <a class="magi-nav-item {{ 'active' if p == '/training' }}" href="{{ base }}/training">Training</a>
+      <a class="magi-nav-item {{ 'active' if p in ['/tracker', '/crypto'] }}" href="{{ base }}/tracker">Tracker <span style="opacity:.6">(legacy)</span></a>
+    </div>
+
+    <div class="magi-nav-section">Settings</div>
+    <a class="magi-nav-item" href="/settings">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.06a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l1.06-1.06a.75.75 0 0 1 1.06 0Zm-9.193 9.193a.75.75 0 0 1 0 1.06l-1.06 1.061a.75.75 0 1 1-1.061-1.06l1.06-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.06 1.061a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-1.06-1.06a.75.75 0 0 1 0-1.061Zm9.193 9.193a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061Z"/></svg>
+      Appearance
+    </a>
+  </nav>
+  <div class="magi-ver" id="magiVersion">magi</div>
+</aside>
+
+<style>
+  /* Offset page content for the fixed magi sidebar (desktop only). */
+  @media (min-width: 861px) { body { padding-left: 260px; } }
+
+  /* ───────────────────────────────────────────────────────────────────────
+     App-wide button base. Included on EVERY betelgeuse page — the SINGLE
+     SOURCE OF TRUTH for button sizing/shape. Mark up `class="btn btn-primary"`
+     (etc.) and it inherits. Do NOT redefine `.btn` per page.
+     ─────────────────────────────────────────────────────────────────────── */
+  .btn {
+    padding: 0.5rem 1.25rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  /* button hues aligned to the magi shell GitHub-dark palette (see betelgeuse-theme.css) */
+  .btn-primary { background: linear-gradient(135deg, #2f81f7 0%, #58a6ff 100%); color: #fff; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(47,129,247,0.4); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-secondary { background: rgba(47,129,247,0.1); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
+  .btn-secondary:hover { background: rgba(47,129,247,0.2); border-color: rgba(88,166,255,0.5); }
+  .btn-danger { background: rgba(218,54,51,0.1); color: #f85149; border: 1px solid rgba(248,81,73,0.3); }
+  .btn-danger:hover { background: rgba(218,54,51,0.2); border-color: rgba(248,81,73,0.5); }
+  .btn-success { background: linear-gradient(135deg, #2ea043 0%, #238636 100%); color: #fff; }
+  .btn-success:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(46,160,67,0.4); }
+</style>
+
+<script src="/static/shell.js"></script>
+<script>
+  // ── Static-data freshness nudge ──
+  // Once per session, if HK/CoinGecko/US static data is >30 days stale, offer to
+  // jump to Settings → Admin → Static Data. Skipped on the Settings page itself.
+  (function () {
+    const MAX_AGE_DAYS = 30;
+    const base = "{{ base }}";
+    if (location.pathname.startsWith(base + '/settings')) return;
+    if (sessionStorage.getItem('staticStaleSnoozed')) return;
+
+    function ageDays(ts) {
+      if (!ts) return Infinity;
+      const t = Date.parse(String(ts).replace(' ', 'T'));
+      return isNaN(t) ? Infinity : (Date.now() - t) / 86400000;
+    }
+    function describe(label, status) {
+      const age = ageDays(status && status.updated_at);
+      if (age <= MAX_AGE_DAYS) return null;
+      return `• ${label} — ${status && status.updated_at ? Math.floor(age) + ' days ago' : 'never downloaded'}`;
+    }
+
+    window.addEventListener('load', async function () {
+      try {
+        const [hk, cg, us] = await Promise.all([
+          fetch(base + '/api/admin/static-data/hk/status').then(r => r.json()),
+          fetch(base + '/api/admin/static-data/coingecko/status').then(r => r.json()),
+          fetch(base + '/api/admin/static-data/us/status').then(r => r.json())
+        ]);
+        const stale = [
+          describe('HK securities', hk),
+          describe('CoinGecko catalog', cg),
+          describe('US securities', us)
+        ].filter(Boolean);
+        if (!stale.length) return;
+        sessionStorage.setItem('staticStaleSnoozed', '1');
+        const msg = "Your static reference data hasn't been refreshed in over a month:\n\n"
+          + stale.join('\n')
+          + "\n\nReload it now? (opens Settings → Admin → Static Data)";
+        if (confirm(msg)) { window.location.href = base + '/settings#static-data'; }
+      } catch (e) { /* offline / endpoint missing — skip silently */ }
+    });
+  })();
+</script>

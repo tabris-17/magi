@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betelgeuse - Stock Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bt-bg) 0%, var(--bt-surface) 50%, var(--bt-bg) 100%);
+            color: var(--bt-fg);
+            min-height: 100vh;
+        }
+
+        /* top bar (header + h1) is styled centrally in header.html */
+
+        .tabs-container {
+            background: linear-gradient(90deg, rgba(var(--bt-bg-rgb), 0.5) 0%, rgba(var(--bt-surface-rgb), 0.5) 100%);
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            overflow-x: auto;
+            position: sticky;
+            top: 76px; /* Offset for header height */
+            z-index: 99;
+        }
+
+        .tab-button {
+            flex: 1;
+            min-width: 120px;
+            padding: 1rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--bt-fg-muted);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button:hover {
+            color: var(--bt-accent-2);
+            background: rgba(var(--bt-accent-rgb), 0.05);
+        }
+
+        .tab-button.active {
+            color: var(--bt-accent-2);
+            border-bottom-color: var(--bt-accent);
+        }
+
+        .content {
+            padding: 2rem 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .tracker-layout {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+        }
+
+        .tracker-left {
+            flex: 0 0 150px;
+            position: sticky;
+            top: 140px;
+        }
+
+        .tracker-right {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .search-box-section {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        }
+
+        .search-box-section h3 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--bt-fg-2);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .search-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .search-label {
+            font-weight: 600;
+            color: var(--bt-fg-muted);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 0;
+            padding: 0.4rem 0.6rem;
+            background-color: rgba(var(--bt-bg-rgb), 0.5);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            border-radius: 6px;
+            color: var(--bt-fg);
+            font-size: 0.8rem;
+            line-height: 1.2;
+            transition: all 0.3s ease;
+        }
+
+        select.search-input {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 2rem;
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.65rem center;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+            background-color: rgba(var(--bt-bg-rgb), 0.7);
+            box-shadow: 0 0 0 3px rgba(var(--bt-accent-rgb), 0.1);
+        }
+
+        .search-input::placeholder {
+            color: var(--bt-fg-subtle);
+        }
+
+        .search-btn {
+            padding: 0.875rem 1.5rem;
+            background: linear-gradient(135deg, var(--bt-accent) 0%, var(--bt-accent-2) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(var(--bt-accent-rgb), 0.4);
+        }
+
+        .market-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--bt-fg);
+        }
+
+        .stocks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stock-card {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            border-radius: 10px;
+            padding: 0.6rem 0.875rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stock-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(var(--bt-accent2-rgb), 0.3);
+            box-shadow: 0 8px 24px rgba(var(--bt-accent-rgb), 0.2);
+        }
+
+        .stock-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .stock-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .stock-symbol {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--bt-fg-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stock-group {
+            font-weight: 500;
+            font-size: 0.72rem;
+            color: var(--bt-fg-subtle);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .stock-name {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--bt-fg-2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stock-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-shrink: 0;
+        }
+
+        .stock-change {
+            padding: 0.2rem 0.5rem;
+            border-radius: 5px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: inline-block;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+        }
+
+        .chart-btn {
+            color: var(--bt-accent-2);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0.2rem 0.5rem;
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-accent2-rgb), 0.3);
+            border-radius: 5px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .stock-card:hover .chart-btn {
+            background: rgba(var(--bt-accent-rgb), 0.2);
+            border-color: rgba(var(--bt-accent2-rgb), 0.5);
+        }
+
+        .stock-change.positive {
+            background: rgba(var(--bt-up-rgb), 0.1);
+            color: var(--bt-up-soft);
+            border: 1px solid rgba(var(--bt-up-rgb), 0.3);
+        }
+
+        .stock-change.negative {
+            background: rgba(var(--bt-down2-rgb), 0.1);
+            color: var(--bt-down);
+            border: 1px solid rgba(var(--bt-down2-rgb), 0.3);
+        }
+
+        .stock-change.neutral {
+            background: rgba(var(--bt-subtle-rgb), 0.1);
+            color: var(--bt-fg-2);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+        }
+
+        .stock-comment {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            font-size: 0.78rem;
+            color: var(--bt-fg-muted);
+            line-height: 1.4;
+        }
+
+        .stock-comment-title {
+            font-weight: 600;
+            color: var(--bt-fg-2);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+        }
+
+        .stock-comment-text {
+            color: var(--bt-fg-muted);
+        }
+
+        .stock-comment-text.stock-comment-empty {
+            color: var(--bt-fg-faint);
+            font-style: italic;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--bt-fg-subtle);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: var(--bt-fg-muted);
+        }
+
+        .empty-state-subtext {
+            font-size: 0.9rem;
+            color: var(--bt-fg-subtle);
+        }
+
+        /* Chart Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.95) 0%, rgba(var(--bt-bg-rgb), 0.95) 100%);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 98%;
+            max-height: 98%;
+            width: 1600px;
+            overflow: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+            padding-bottom: 1rem;
+        }
+
+        .modal-header h2 {
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, var(--bt-accent-2) 0%, var(--bt-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--bt-fg-muted);
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: var(--bt-accent-2);
+        }
+
+        .chart-container {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.1);
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+        }
+
+        .chart-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-period-label {
+            font-weight: 600;
+            color: var(--bt-accent-2);
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .chart-item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+        }
+
+        .chart-item-head .chart-period-label {
+            margin-bottom: 0;
+        }
+
+        .copy-btn {
+            background: rgba(var(--bt-accent-rgb), 0.1);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            color: var(--bt-accent-2);
+            border-radius: 6px;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(var(--bt-accent-rgb), 0.2);
+            border-color: rgba(var(--bt-accent2-rgb), 0.4);
+        }
+
+        .copy-btn:disabled,
+        .copy-btn.disabled {
+            background: rgba(var(--bt-subtle-rgb), 0.08);
+            border-color: rgba(var(--bt-slate-rgb), 0.15);
+            color: var(--bt-fg-faint);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .copy-btn:disabled:hover,
+        .copy-btn.disabled:hover {
+            background: rgba(var(--bt-subtle-rgb), 0.08);
+            border-color: rgba(var(--bt-slate-rgb), 0.15);
+        }
+
+        .period-chart {
+            max-width: 100%;
+            height: auto;
+            min-height: 400px;
+            border-radius: 8px;
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .period-chart:hover {
+            border-color: rgba(var(--bt-accent2-rgb), 0.4);
+            box-shadow: 0 4px 12px rgba(var(--bt-accent-rgb), 0.1);
+        }
+
+        .chart-loading {
+            padding: 2rem;
+            color: var(--bt-fg-muted);
+            font-size: 1.1rem;
+        }
+
+        /* ── Crypto chart cells (modal 2×2 grid + card thumbnail) ── */
+        .crypto-chart-area {
+            background: var(--bt-bg-deep); border: 1px solid rgba(var(--bt-accent2-rgb), 0.1); border-radius: 8px;
+            overflow: hidden; min-height: 360px; display: flex; align-items: center; justify-content: center;
+        }
+        .crypto-chart-area img { width: 100%; height: auto; display: block; }
+        .crypto-chart-loading {
+            color: var(--bt-fg-faint); font-size: 0.9rem; display: flex; flex-direction: column;
+            align-items: center; gap: 0.6rem; padding: 2rem;
+        }
+        .crypto-spinner {
+            width: 28px; height: 28px; border: 3px solid rgba(var(--bt-accent2-rgb), 0.15);
+            border-top-color: var(--bt-accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Small in-card thumbnail (shared by HK aastocks gif + crypto 30d png) */
+        .small-chart-container { margin-top: 0.4rem; text-align: center; min-height: 0; }
+        .small-chart-container img { max-width: 100%; height: auto; border-radius: 4px; display: block; }
+        .small-chart-loading {
+            display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+            color: var(--bt-fg-faint); font-size: 0.7rem; padding: 1.5rem 0;
+        }
+        .small-chart-loading .crypto-spinner { width: 16px; height: 16px; border-width: 2px; }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.4rem;
+            }
+
+            .content {
+                padding: 1rem;
+            }
+
+            .tracker-layout {
+                flex-direction: column;
+            }
+
+            .tracker-left {
+                position: static;
+                flex: 1 1 auto;
+                width: 100%;
+            }
+
+            .stocks-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .tab-button {
+                min-width: 100px;
+                padding: 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .modal-content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    {% include 'header.html' %}
+
+    <div class="tabs-container" id="tabsContainer"></div>
+
+    <div class="content" id="content"></div>
+
+    <script src="/betelgeuse/static/symbol-field.js"></script>
+    <script src="/betelgeuse/static/instrument-detail.js"></script>
+    <script>
+        const MARKETS = {
+            'hk': { name: 'Hong Kong', flag: '🇭🇰' },
+            'jp': { name: 'Japan', flag: '🇯🇵' },
+            'us': { name: 'United States', flag: '🇺🇸' },
+            'crypto': { name: 'Cryptocurrency', flag: '🟠' }
+        };
+
+        let currentMarket = '{{ initial_market | default('hk') }}';
+
+        // Each market's chart data comes from a provider. The card thumbnail and the
+        // modal grid both dispatch on this map. Adding JP/US later = give it a provider
+        // here and implement that provider's two render paths — see CLAUDE.md.
+        const MARKET_CHART_PROVIDER = {
+            hk: 'aastocks',
+            jp: 'yfinance',
+            us: 'yfinance',
+            crypto: 'coingecko'
+        };
+
+        // HK's chart provider is runtime-configurable (Settings → Markets → HK):
+        // 'aastocks' live GIF (default) or 'yfinance' app-generated candlestick.
+        // Refreshed from /api/settings on each loadMarketData().
+        let hkChartProvider = 'aastocks';
+
+        function marketProvider(market) {
+            if (market === 'hk') return hkChartProvider;
+            return MARKET_CHART_PROVIDER[market] || null;
+        }
+
+        function initTabs() {
+            const tabsContainer = document.getElementById('tabsContainer');
+
+            Object.entries(MARKETS).forEach(([key, market]) => {
+                const button = document.createElement('button');
+                button.className = `tab-button ${key === currentMarket ? 'active' : ''}`;
+                button.textContent = `${market.flag} ${market.name}`;
+                button.onclick = () => switchMarket(key);
+                tabsContainer.appendChild(button);
+            });
+        }
+
+        async function switchMarket(market) {
+            currentMarket = market;
+
+            document.querySelectorAll('.tab-button').forEach((btn, idx) => {
+                btn.classList.remove('active');
+                if (Object.keys(MARKETS)[idx] === market) {
+                    btn.classList.add('active');
+                }
+            });
+
+            await loadMarketData(market);
+        }
+
+        let currentStocks = [];
+        let smallChartTemplate = null;
+        let searchField = null;   // SymbolField bound to the per-market search box
+
+        async function loadMarketData(market) {
+            try {
+                const response = await fetch(`/betelgeuse/api/market/${market}`);
+                const data = await response.json();
+
+                // Cache the small-chart template before rendering so it's ready for any re-render
+                const settingsResponse = await fetch('/betelgeuse/api/settings');
+                const settings = await settingsResponse.json();
+                smallChartTemplate = settings.url_template_3m_small || null;
+                hkChartProvider = (settings.hk_chart_provider === 'yfinance') ? 'yfinance' : 'aastocks';
+
+                // Every market shares the same layout: group dropdown + search + cards
+                const groupsResponse = await fetch(`/betelgeuse/api/groups/${market}`);
+                const groupsList = await groupsResponse.json();
+
+                renderMarketPanel(data, groupsList);
+            } catch (error) {
+                console.error('Error loading market data:', error);
+                renderError(market);
+            }
+        }
+
+        function buildStockCard(stock) {
+            const provider = marketProvider(currentMarket);
+            const isCrypto = provider === 'coingecko';
+            const hasChange = !isCrypto && stock.change !== null && stock.change !== undefined;
+            const changeClass = stock.change > 0 ? 'positive' : stock.change < 0 ? 'negative' : 'neutral';
+            const changeSign = stock.change > 0 ? '+' : '';
+            const hasComment = stock.comment && stock.comment.trim();
+            const commentText = hasComment ? stock.comment : 'N/A';
+            // Every market opens the same shared InstrumentDetail view (header + reference
+            // facts + notes + charts); the detail component dispatches charts per provider.
+            const onClick = `InstrumentDetail.open('${currentMarket}', '${(stock.symbol || '').replace(/'/g, "\\'")}')`;
+            // Every market with a chart provider gets an in-card thumbnail container.
+            const showThumb = provider !== null;
+            return `
+                <div class="stock-card" onclick="${onClick}">
+                    <div class="stock-row">
+                        <div class="stock-info">
+                            <span class="stock-symbol">${stock.symbol} <span class="stock-group">(${stock.group || 'Default'})</span></span>
+                            <span class="stock-name">${stock.name}</span>
+                        </div>
+                        <div class="stock-actions">
+                            ${hasChange ? `<span class="stock-change ${changeClass}">${changeSign}${stock.change}%</span>` : ''}
+                            <span class="chart-btn">📈 View</span>
+                        </div>
+                    </div>
+                    ${showThumb ? `<div id="small-chart-${stock.stockid}" class="small-chart-container"></div>` : ''}
+                    <div class="stock-comment">
+                        <div class="stock-comment-title">📝 Notes</div>
+                        <div class="stock-comment-text${hasComment ? '' : ' stock-comment-empty'}">${commentText}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function buildPortfolioHtml(stocks) {
+            if (!stocks || stocks.length === 0) {
+                return `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <div class="empty-state-text">No instruments to display</div>
+                        <div class="empty-state-subtext">Add stocks from the Portfolio page or pick another group</div>
+                    </div>
+                `;
+            }
+            return '<div class="stocks-grid">' + stocks.map(buildStockCard).join('') + '</div>';
+        }
+
+        // Provider-aware in-card thumbnail dispatch.
+        function applySmallCharts(stocks) {
+            const provider = marketProvider(currentMarket);
+            if (provider === 'aastocks') applyAastocksSmallCharts(stocks);
+            else if (provider === 'coingecko') applyCryptoSmallCharts(stocks);
+            else if (provider === 'yfinance') applyYfSmallCharts(stocks);
+        }
+
+        function applyAastocksSmallCharts(stocks) {
+            if (!smallChartTemplate) return;
+            stocks.forEach(stock => {
+                const container = document.getElementById(`small-chart-${stock.stockid}`);
+                if (container) {
+                    const url = smallChartTemplate.replace('{stockid}', stock.stockid);
+                    container.innerHTML = `<img src="${url}" alt="Small chart">`;
+                }
+            });
+        }
+
+        // 30d CoinGecko candlestick thumbnail per crypto card — same 30d render the
+        // modal grid shows, just scaled into the card. Sequential to be gentle on the API.
+        async function applyCryptoSmallCharts(stocks) {
+            for (const stock of stocks) {
+                const container = document.getElementById(`small-chart-${stock.stockid}`);
+                if (!container) continue;
+                container.innerHTML = '<div class="small-chart-loading"><div class="crypto-spinner"></div></div>';
+                try {
+                    const coinId = await resolveCryptoId(stock.symbol);
+                    const res = await fetch(`/betelgeuse/api/crypto/${encodeURIComponent(coinId)}/chart/30`);
+                    if (!res.ok) { container.innerHTML = ''; continue; }
+                    const data = await res.json();
+                    container.innerHTML = `<img src="${data.url}?t=${Date.now()}" alt="30d chart">`;
+                } catch (e) {
+                    container.innerHTML = '';
+                }
+            }
+        }
+
+        // 30d yfinance candlestick thumbnail per stock card (JP/US).
+        async function applyYfSmallCharts(stocks) {
+            for (const stock of stocks) {
+                const container = document.getElementById(`small-chart-${stock.stockid}`);
+                if (!container) continue;
+                container.innerHTML = '<div class="small-chart-loading"><div class="crypto-spinner"></div></div>';
+                try {
+                    const res = await fetch(`/betelgeuse/api/stock/${encodeURIComponent(currentMarket)}/${encodeURIComponent(stock.symbol)}/chart/30`);
+                    if (!res.ok) { container.innerHTML = ''; continue; }
+                    const data = await res.json();
+                    container.innerHTML = `<img src="${data.url}?t=${Date.now()}" alt="30d chart">`;
+                } catch (e) {
+                    container.innerHTML = '';
+                }
+            }
+        }
+
+        function applyGroupFilter(group) {
+            const right = document.getElementById('tracker-right');
+            if (!right) return;
+            const filtered = currentStocks.filter(s => (s.group || 'Default') === group);
+            right.innerHTML = buildPortfolioHtml(filtered);
+            applySmallCharts(filtered);
+        }
+
+        // Every market (HK / JP / US / crypto) uses this identical layout — see CLAUDE.md.
+        function renderMarketPanel(marketData, groupsList = []) {
+            const content = document.getElementById('content');
+            currentStocks = marketData.stocks || [];
+
+            const opts = groupsList.length ? groupsList : ['Default'];
+            const groupOptions = opts.map(g => {
+                const count = currentStocks.filter(s => (s.group || 'Default') === g).length;
+                return `<option value="${g}">${g} (${count})</option>`;
+            }).join('');
+
+            content.innerHTML = `
+                <div class="tracker-layout">
+                    <div class="tracker-left">
+                        <div class="search-box-section">
+                            <div class="search-input-group">
+                                <span class="search-label">Group:</span>
+                                <select id="groupFilter" class="search-input">${groupOptions}</select>
+                            </div>
+                            <div class="search-input-group" style="margin-top: 0.75rem;">
+                                <span class="search-label">Search:</span>
+                                <input type="text" id="stockSearch" class="search-input" placeholder="${searchPlaceholder(currentMarket)}" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tracker-right" id="tracker-right"></div>
+                </div>
+            `;
+
+            const groupFilter = document.getElementById('groupFilter');
+            applyGroupFilter(groupFilter.value || (opts[0] || 'Default'));
+            groupFilter.addEventListener('change', (e) => applyGroupFilter(e.target.value));
+
+            // The search box is the shared context-aware SymbolField: per-market live
+            // formatting + hints, normalizing on Enter before dispatching the chart.
+            const searchInput = document.getElementById('stockSearch');
+            if (searchInput && window.SymbolField) {
+                if (searchField) searchField.destroy();
+                searchField = new SymbolField(searchInput, {
+                    getMarket: () => currentMarket,
+                    placeholder: (mkt) => searchPlaceholder(mkt),
+                    selectOnFocus: true,   // select-all on Enter / refocus → quick retype
+                    onEnter: (symbol, market) => dispatchSearch(symbol, market)
+                });
+            }
+        }
+
+        function searchPlaceholder(market) {
+            if (market === 'crypto') return 'Symbol or id, e.g. BTC — hit Enter';
+            if (market === 'jp') return 'Code, e.g. 7203 — hit Enter';
+            if (market === 'us') return 'Symbol, e.g. AAPL — hit Enter';
+            return 'Stock code, e.g. 0700 — hit Enter';
+        }
+
+        // Dispatch a (already canonical-normalized) symbol from the search box into the
+        // shared InstrumentDetail view — uniform across every market.
+        function dispatchSearch(symbol, market) {
+            if (!symbol) return;
+            InstrumentDetail.open(market, symbol);
+        }
+
+        // Resolve a ticker symbol → CoinGecko id (falls back to the raw input as an id).
+        // Still used by the in-card 30d thumbnail (applyCryptoSmallCharts).
+        async function resolveCryptoId(symbol) {
+            try {
+                const r = await fetch(`/betelgeuse/api/crypto/translate?symbol=${encodeURIComponent(symbol)}`);
+                if (r.ok) { const d = await r.json(); if (d.coin_id) return d.coin_id; }
+            } catch (e) { /* fall through */ }
+            return symbol.toLowerCase();
+        }
+
+        function renderError(market) {
+            const content = document.getElementById('content');
+            content.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <div class="empty-state-text">Error loading data</div>
+                </div>
+            `;
+        }
+
+        // Initialize
+        initTabs();
+        loadMarketData(currentMarket);
+    </script>
+</body>
+</html>

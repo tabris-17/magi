@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}magi · Control panel{% endblock %}
+{% block content %}
+<h1 class="view-title">Control panel</h1>
+<p class="lead">Tools to control this machine. Pick a function to get started.</p>
+<div class="cards">
+  {% for f in nav_functions %}
+    {% if f.coming_soon %}
+      <span class="card disabled">
+        <span class="ic">{{ f.icon | safe }}</span>
+        <span>
+          <span class="t">{{ f.label }}</span>
+          <span class="d">{{ f.description }} <em>(coming soon)</em></span>
+        </span>
+      </span>
+    {% else %}
+      <a class="card" href="{{ f.url }}">
+        <span class="ic">{{ f.icon | safe }}</span>
+        <span>
+          <span class="t">{{ f.label }}</span>
+          <span class="d">{{ f.description }}</span>
+          {% if f.version %}<span class="v">{{ f.version }}</span>{% endif %}
+        </span>
+      </a>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
