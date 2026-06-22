@@ -12,10 +12,15 @@ from datetime import datetime
 
 import yt_dlp
 
-DEFAULT_DOWNLOAD_DIR = "/Users/kai/doc/_my_creations/saved stuffs"
+# Machine-local download dir. Overridable per-machine via MAGI_YOUTUBE_DIR so the
+# unified host can boot on the mini (user wklin3) without reaching for a path under
+# /Users/kai. NOTE: importing this module must never touch the filesystem — a crash
+# here takes the whole host down. The dir is created lazily at download time
+# (os.makedirs(dest, ...) in run_download), so there is no import-time makedirs.
+DEFAULT_DOWNLOAD_DIR = os.environ.get(
+    "MAGI_YOUTUBE_DIR", "/Users/kai/doc/_my_creations/saved stuffs"
+)
 METADATA_FILE = os.path.join(DEFAULT_DOWNLOAD_DIR, "video-links.txt")
-
-os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
 
 
 def has_ffmpeg():

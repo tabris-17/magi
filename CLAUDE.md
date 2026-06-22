@@ -296,10 +296,14 @@ inside `functions/betelgeuse/`), with only settings shared.
 
 ## Conventions worth knowing
 
-- The YouTube function is **machine-local** (writes to a hardcoded
-  `DEFAULT_DOWNLOAD_DIR` in `functions/youtube/logic.py`, overridable per request
-  via `dest`). If the unified app ever deploys to the betelgeuse mini, decide
-  whether this function appears there.
+- The YouTube function is **machine-local** (its `DEFAULT_DOWNLOAD_DIR` in
+  `functions/youtube/logic.py` defaults to a path under `/Users/kai`, overridable
+  per-machine via the `MAGI_YOUTUBE_DIR` env var and per request via `dest`). The
+  download dir is created **lazily at download time** (`os.makedirs(dest, …)` inside
+  `run_download`) — importing the module must NOT touch the filesystem, or a path that
+  isn't writable on the host (e.g. `/Users/kai` on the `wklin3` mini) crashes the whole
+  unified app at import and KeepAlive crash-loops `com.magi.web`. If the unified app
+  ever deploys to the betelgeuse mini, decide whether this function appears there.
 - The YouTube function appends one line per download to `video-links.txt` in the
   save dir, format `YYYY/MM/DD: <slug> <url> <title>` with blank lines between
   days — `append_metadata()` preserves that exact format.
