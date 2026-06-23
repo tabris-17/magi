@@ -63,17 +63,29 @@ other process is betelgeuse's background worker, run separately (see Deploy).
 `serve.py`); `python3 magi.py` defaults it to `dev`. `magi.py` exposes it as `APP_ENV`, injected into the
 shell via the context processor (`app_env`) and returned by `/api/settings` (`env`).
 The sidebar account block shows a `🐱 <env>` chip (the cat is betelgeuse's), and **dev
-wears a red brand** — `[data-env="dev"]` in `shell.css` flips the `M` avatar to a
-red→pink gradient + reddens the version label/sidebar edge, so a dev tab is never
-mistaken for prod. Host pages set `data-env` server-side on `<html>`; betelgeuse pages
-set it via the pre-paint script in `header.html` (it already gets `app_env`).
+wears a red brand** — `[data-env="dev"]` in `shell.css` puts a **red ring** around the
+`.magi-avatar` + reddens the version label/sidebar edge, so a dev tab is never mistaken
+for prod. The `.magi-avatar` is the magi brand icon (`/static/icon-512.png` as a
+`background`, no more text "M"); the dev cue is a ring (was a red gradient fill). Host
+pages set `data-env` server-side on `<html>`; betelgeuse pages set it via the pre-paint
+script in `header.html` (it already gets `app_env`).
+
+**Open-prod link.** In dev, the account block also renders a one-click **`open prod ↗`**
+link (under the chip, accent-colored) pointing at the **same path** on the prod box —
+`{{ prod_url.rstrip('/') }}{{ request.path }}`. The target is `PROD_URL` in `magi.py`
+(`MAGI_PROD_URL` env override; default the mini's browser-resolvable Bonjour URL
+`http://wklin3s-mac-mini.local:8080/` — NOT the `Macmini` SSH alias; set empty to hide
+it). It's injected via the context processor (`prod_url`) and returned by `/api/settings`.
+Rendered only on host shell pages (`base.html`) and only in dev; betelgeuse pages have
+their own dev↔prod awareness (its `dev ▸ prod` title bar — see its CLAUDE.md).
 
 ## Architecture (the unified host)
 
 The host owns **only** the shell and the shared settings page; each function is
 isolated.
 
-- **`magi.py`** — Flask host. Serves `/` (dashboard) and `/settings` (shared),
+- **`magi.py`** — Flask host. Serves `/` (dashboard), `/settings` (shared), and
+  `/health` (the aggregated Application Health page; see Application Health),
   and wires functions two ways: lightweight ones (youtube) are **blueprints**
   registered on the host Flask app; heavier formerly-standalone apps (betelgeuse)
   are mounted **unchanged** as WSGI sub-apps under a prefix via
@@ -94,7 +106,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.0.0`); `host/db.py` is the common-settings
+  app version (`full_version()` → `magi-1.3.0`); `host/db.py` is the common-settings
   SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
   + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
@@ -110,7 +122,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.0.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.3.0` in the sidebar footer.
 
 ### Function contract
 
@@ -141,10 +153,47 @@ host composes it under the shell. The function still owns its settings storage
 and save routes — only the presentation is shared.
 
 **Common (cross-function) settings** live in the host DB (`data/magi.db` via
-`host/db.py`), exposed at **`/api/settings`** (`GET` → `{version, settings}`,
-`POST {key,value}` → upsert, validated against `host.db.ALLOWED`). This is the
-federated model in practice: the host owns *global* settings (theme); each function
-owns its own. Today only `theme` is a common setting.
+`host/db.py`), exposed at **`/api/settings`** (`GET` → `{version, env, prod_url, envs,
+env_config, functions, settings}`, `POST {key,value[,env]}` → upsert, validated against
+the `host.db.SETTINGS` registry). This is the federated model in practice: the host owns
+*global* settings (theme); each function owns its own.
+
+**Env-scoped ("dev/prod") settings.** A host setting can be **global** (one value, e.g.
+`theme`) or **env-scoped** (a separate value per environment, e.g. `youtube_download_dir`).
+`host/db.py:SETTINGS` is the single registry (`allowed`/`default`/`scoped` per key).
+Env-scoped values share the one key/value table via a **`<key>@<env>` storage key**, so
+dev and prod keep DISTINCT values even though `./magi upgrade dev` copies the whole
+`magi.db` prod→dev — **no schema change, no migration engine** (which the host doesn't
+have). `get_setting`/`set_setting(key, value, env=…)` resolve against `MAGI_ENV` by
+default; `all_settings()` is the current-env-resolved flat map (the shell reads `theme`
+from it); `env_config()` returns `{key: {dev, prod}}` for the settings page, which shows
+both values **side by side** (`templates/settings.html` "Environment" section — the
+current env's row is highlighted; `POST {key,value,env}` saves one env). The YouTube
+download dir is the first consumer: the host injects a resolver into the otherwise
+self-contained function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the
+function reads the env-scoped setting **without importing the host** (precedence:
+setting → `MAGI_YOUTUBE_DIR` env → hardcoded default; see Conventions).
+
+### Application Health (the second cross-function aggregation)
+
+A dedicated **Health** sidebar page (`/health`, `templates/health.html`) aggregates the
+runtime status of the host **and every function**, lifting betelgeuse's "Application
+Health + dev-knows-prod" concept to the host. A function opts in with a **`health`
+callable on its `META`** (parallel to `settings_section`); it returns an opaque dict the
+host tags with the function's `label`/`version`. The host endpoints (`magi.py`):
+- **`GET /api/health`** — `{host:{name,version,env,server_time,started_at,ok}, functions:[
+  {key,label,version,ok,health|error}]}`. Each function's `health()` is called **guarded**
+  (`ok=False`+`error` on raise; `ok=None` = no reporting) so one function can't break the
+  page. youtube → `{ffmpeg, download_dir}`; betelgeuse → its **own `/api/health` reused
+  unchanged**, called in-process via `betel_app.test_client()` (a 503 in maintenance still
+  returns JSON, surfaced as-is — no betelgeuse code change, its tests stay green).
+- **`GET /api/prod/health`** — on **dev** only, probes `PROD_URL + /api/health` server-side
+  with **`urllib.request`** (stdlib — do NOT add `requests`), 3s timeout →
+  `{configured, reachable, base_url, probed_at, health|error}`; mirrors betelgeuse's probe.
+The page polls both every 60s and color-codes cards client-side (host green; youtube amber
+if ffmpeg missing; betelgeuse from worker-liveness + schema-gate). The Health nav link is
+emitted on host pages (`base.html`) AND betelgeuse pages (`header.html`) for parity.
+`APP_START_TIME` (module load) is the host's `started_at`.
 
 ### Theming
 
@@ -157,7 +206,7 @@ value (and fills the version label), and on change `applyTheme(pref, true)` writ
 through to the DB. `system` resolves via `matchMedia`. **New UI must use the theme
 tokens** (`var(--fg)`, `var(--surface)`, `var(--accent)`, …), never hardcoded colors.
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.0.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.3.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -296,9 +345,12 @@ inside `functions/betelgeuse/`), with only settings shared.
 
 ## Conventions worth knowing
 
-- The YouTube function is **machine-local** (its `DEFAULT_DOWNLOAD_DIR` in
-  `functions/youtube/logic.py` defaults to a path under `/Users/kai`, overridable
-  per-machine via the `MAGI_YOUTUBE_DIR` env var and per request via `dest`). The
+- The YouTube function is **machine-local**. The active download dir is
+  `logic.current_download_dir()`, precedence: the **env-scoped `youtube_download_dir`
+  host setting** (injected by the host via `set_download_dir_resolver` — set per-env on
+  `/settings`) → `MAGI_YOUTUBE_DIR` env → `DEFAULT_DOWNLOAD_DIR` (a path under
+  `/Users/kai`); a per-request `dest` still overrides. `video-links.txt` is written into
+  whatever folder the videos land in (`metadata_file(dest)`). The
   download dir is created **lazily at download time** (`os.makedirs(dest, …)` inside
   `run_download`) — importing the module must NOT touch the filesystem, or a path that
   isn't writable on the host (e.g. `/Users/kai` on the `wklin3` mini) crashes the whole
@@ -307,5 +359,16 @@ inside `functions/betelgeuse/`), with only settings shared.
 - The YouTube function appends one line per download to `video-links.txt` in the
   save dir, format `YYYY/MM/DD: <slug> <url> <title>` with blank lines between
   days — `append_metadata()` preserves that exact format.
+- The **Taxation** function (a blueprint, like youtube) downloads + parses the RBA daily
+  FX `.xls` and answers "A$1 = USD/GBP/HKD for date D" (nearest prior business day on a
+  weekend/holiday). Source URL is the **global `taxation_rba_url` host setting** (injected
+  via `set_rba_url_resolver`, editable on `/settings`; falls back to `MAGI_RBA_URL` env →
+  `DEFAULT_RBA_URL`). Reads the old binary `.xls` with **`xlrd`** (openpyxl can't);
+  currency columns are matched by the `A$1=<CCY>` header, not fixed indices. The download
+  uses a **`truststore`** SSL context (verifies against the OS trust store) so a TLS-
+  intercepting proxy doesn't break it; verification is never disabled. Parsed data is cached
+  in `functions/taxation/data/rba-cache.xls` (rsync-excluded + gitignored → regenerated per
+  box) with a ~12h TTL + a manual Refresh; **importing the module touches no network/FS**
+  (same crash-loop lesson as youtube).
 - The host binds to `127.0.0.1`. For phone/LAN access bind `0.0.0.0` (trusted
   networks only).

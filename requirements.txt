@@ -1,6 +1,16 @@
-# magi host + functions
+# magi host + the youtube and taxation functions (pinned to the verified working set).
+# betelgeuse brings its own deps — see functions/betelgeuse/requirements.txt;
+# deploy/setup-mini.sh installs both.
+# These three MUST match betelgeuse's pins (functions/betelgeuse/requirements.txt) —
+# the deploy installs both files into ONE venv, so a differing `==` here is an
+# unresolvable pip conflict (e.g. waitress 3.0.2 vs 3.0.0). Keep them in lockstep.
 Flask==3.0.0
+Werkzeug==3.0.0          # used directly by the host: DispatcherMiddleware + run_simple (not just via Flask)
 waitress==3.0.0          # prod web server; serve.py picks it for --env prod (dev uses werkzeug)
-yt-dlp>=2024.1.0
-# Each function brings its own deps. betelgeuse's are in
-# functions/betelgeuse/requirements.txt — deploy/setup-mini.sh installs both.
+yt-dlp>=2026.6.9         # youtube function; kept as a floor — sites change, so let it update freely
+xlrd>=2.0.1             # taxation function; reads the RBA's old binary .xls (openpyxl can't)
+truststore>=0.9        # taxation download verifies TLS against the OS trust store (proxy-friendly)
+
+# NOT pip packages (don't add here), but required at runtime:
+#   ffmpeg / ffprobe — YouTube high-res merges + MP3. Install via your OS, or on the
+#   mini they're vendored under data/vendor/ (see deploy/README.md).

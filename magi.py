@@ -9,13 +9,17 @@ prefix via DispatcherMiddleware — so the copy stays byte-for-byte in sync with
 Run:  ./magi run --env dev    # canonical CLI (dev → 127.0.0.1, prod → LAN)
       python3 magi.py         # dev shortcut — delegates to the serve.py launcher
 """
+import json
 import os
 import sys
+import time
+import urllib.request
 
 from flask import Flask, jsonify, render_template, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
-from functions.youtube import bp as youtube_bp, META as YOUTUBE_META
+from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
+from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
 from host import db as hostdb
 from host.version import full_version
 
@@ -25,6 +29,15 @@ BETEL_DIR = os.path.join(ROOT, "functions", "betelgeuse")
 # dev|prod — set by serve.py (prod) before import; defaults to dev for `python3 magi.py`.
 # Surfaced to the shell (sidebar mode chip + dev red brand) and to /api/settings.
 APP_ENV = os.environ.get("MAGI_ENV", "dev")
+
+# In dev, the shell shows a one-click "open prod" link to the always-on mini.
+# Machine-local default (the mini's browser-resolvable Bonjour URL — NOT the SSH
+# alias), overridable via MAGI_PROD_URL; set it empty to hide the link.
+PROD_URL = os.environ.get("MAGI_PROD_URL", "http://wklin3s-mac-mini.local:8080/")
+
+# When this host process started (epoch seconds) — surfaced on the Health page as the
+# host's "started_at"/uptime (so a dev probe of prod can show when prod last restarted).
+APP_START_TIME = time.time()
 
 
 def _betelgeuse_version():
@@ -58,7 +71,7 @@ BETELGEUSE_META = {
     "version": _betelgeuse_version(),
 }
 
-FUNCTIONS = [YOUTUBE_META, BETELGEUSE_META]
+FUNCTIONS = [YOUTUBE_META, TAXATION_META, BETELGEUSE_META]
 
 
 def load_betelgeuse_wsgi():
@@ -90,20 +103,90 @@ def create_host_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
     hostdb.ensure_schema()  # create data/magi.db (common settings store) if missing
     app.register_blueprint(youtube_bp)
+    # Host injects the env-scoped download dir into the (otherwise self-contained) youtube
+    # function, so it resolves the per-env `youtube_download_dir` setting without importing
+    # the host. None/unset → youtube falls back to MAGI_YOUTUBE_DIR / its hardcoded default.
+    youtube_logic.set_download_dir_resolver(lambda: hostdb.get_setting("youtube_download_dir"))
+    app.register_blueprint(taxation_bp)
+    # Same pattern: the host owns the RBA source URL (taxation_rba_url setting); the
+    # taxation function reads it via this resolver without importing the host.
+    taxation_logic.set_rba_url_resolver(lambda: hostdb.get_setting("taxation_rba_url"))
 
     @app.context_processor
     def inject_nav():
         # nav_functions + app_version + app_env drive the sidebar on every host page
-        # (app_env → the dev/prod mode chip + dev red brand via data-env).
+        # (app_env → the dev/prod mode chip + dev red brand via data-env; prod_url →
+        # the dev-only "open prod" link).
         return {
             "nav_functions": FUNCTIONS,
             "app_version": full_version(),
             "app_env": APP_ENV,
+            "prod_url": PROD_URL,
         }
 
     @app.route("/")
     def home():
         return render_template("home.html", active="home")
+
+    @app.route("/favicon.ico")
+    def favicon():
+        # Browsers request /favicon.ico at the root regardless of <link> tags.
+        return app.send_static_file("favicon.ico")
+
+    @app.route("/health")
+    def health_page():
+        return render_template("health.html", active="health")
+
+    @app.route("/api/health")
+    def api_health():
+        """Aggregated health for the host + every function (powers the Health page).
+
+        Each function opts in with a `health` callable on its META; the host calls it
+        guarded so one function's failure can't break the page. The values are opaque to
+        the host — the UI color-codes them (ffmpeg, worker liveness, schema gate, …)."""
+        functions = []
+        for m in FUNCTIONS:
+            entry = {"key": m["key"], "label": m["label"], "version": m.get("version", "")}
+            fn = m.get("health")
+            if callable(fn):
+                try:
+                    entry["health"] = fn()
+                    entry["ok"] = True
+                except Exception as e:  # noqa: BLE001
+                    entry["ok"], entry["error"] = False, str(e)
+            else:
+                entry["ok"] = None  # function reports no health
+            functions.append(entry)
+        return jsonify(
+            host={
+                "name": "magi",
+                "version": full_version(),
+                "env": APP_ENV,
+                "server_time": int(time.time() * 1000),
+                "started_at": int(APP_START_TIME * 1000),
+                "ok": True,
+            },
+            functions=functions,
+        )
+
+    @app.route("/api/prod/health")
+    def api_prod_health():
+        """Probe prod's aggregated /api/health server-side (dev → mini over the LAN).
+
+        Done on the server (not the browser) to avoid CORS. Returns configured:false when
+        not on dev or PROD_URL is empty; tolerates prod being down (reachable:false)."""
+        if APP_ENV != "dev" or not PROD_URL:
+            return jsonify(configured=False)
+        base = PROD_URL.rstrip("/")
+        probed_at = int(time.time() * 1000)
+        try:
+            with urllib.request.urlopen(base + "/api/health", timeout=3) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            return jsonify(configured=True, reachable=True, base_url=base,
+                           probed_at=probed_at, health=payload)
+        except Exception as e:  # noqa: BLE001
+            return jsonify(configured=True, reachable=False, base_url=base,
+                           probed_at=probed_at, error=str(e))
 
     @app.route("/settings")
     def settings():
@@ -113,7 +196,8 @@ def create_host_app():
             fn = meta.get("settings_section")
             if callable(fn):
                 sections.append(fn())
-        return render_template("settings.html", active="settings", sections=sections)
+        return render_template("settings.html", active="settings", sections=sections,
+                               env_config=hostdb.env_config(), envs=list(hostdb.ENVS))
 
     @app.route("/api/settings", methods=["GET", "POST"])
     def api_settings():
@@ -124,8 +208,13 @@ def create_host_app():
             key, value = data.get("key"), data.get("value")
             if not hostdb.is_valid(key, value):
                 return jsonify(error="unknown setting or invalid value"), 400
-            hostdb.set_setting(key, value)
-            return jsonify(ok=True, key=key, value=value)
+            # Optional `env` targets a specific environment for env-scoped keys (the
+            # settings page edits dev/prod side by side); ignored for global keys.
+            env = data.get("env")
+            if env is not None and env not in hostdb.ENVS:
+                return jsonify(error="invalid env"), 400
+            hostdb.set_setting(key, value, env=env)
+            return jsonify(ok=True, key=key, value=value, env=env)
         # env + per-function versions let function pages (which fill the shell from
         # this endpoint) reflect the mode + show each function's version.
         functions = [
@@ -135,6 +224,9 @@ def create_host_app():
         return jsonify(
             version=full_version(),
             env=APP_ENV,
+            prod_url=PROD_URL,
+            envs=list(hostdb.ENVS),
+            env_config=hostdb.env_config(),
             functions=functions,
             settings=hostdb.all_settings(),
         )
@@ -143,7 +235,28 @@ def create_host_app():
 
 
 host_app = create_host_app()
-application = DispatcherMiddleware(host_app, {"/betelgeuse": load_betelgeuse_wsgi()})
+betel_app = load_betelgeuse_wsgi()
+
+
+def _betelgeuse_health():
+    """Betelgeuse's own /api/health, called in-process via its Flask test client (the
+    endpoint is reused unchanged — no betelgeuse code change). A 503 in maintenance mode
+    still returns JSON (error/gate), which the Health page surfaces."""
+    resp = betel_app.test_client().get("/api/health")
+    return resp.get_json(silent=True) or {"error": f"HTTP {resp.status_code}"}
+
+
+BETELGEUSE_META["health"] = _betelgeuse_health
+
+# Give betelgeuse's templates the host's PROD_URL so its sidebar can render the same
+# dev-only "open prod ↗" link as the host shell (its header.html is already a magi shell
+# file). Registered here so betelgeuse's own app.py stays byte-identical to prod.
+@betel_app.context_processor
+def _inject_prod_url():
+    return {"prod_url": PROD_URL}
+
+
+application = DispatcherMiddleware(host_app, {"/betelgeuse": betel_app})
 
 
 if __name__ == "__main__":

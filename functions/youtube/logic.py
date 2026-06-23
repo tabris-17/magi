@@ -20,23 +20,54 @@ import yt_dlp
 DEFAULT_DOWNLOAD_DIR = os.environ.get(
     "MAGI_YOUTUBE_DIR", "/Users/kai/doc/_my_creations/saved stuffs"
 )
-METADATA_FILE = os.path.join(DEFAULT_DOWNLOAD_DIR, "video-links.txt")
+METADATA_NAME = "video-links.txt"
+
+# The host injects a resolver (the env-scoped `youtube_download_dir` setting) at startup;
+# left None when the function runs standalone. See current_download_dir().
+_dir_resolver = None
+
+
+def set_download_dir_resolver(fn):
+    """Let the host supply the active download dir (e.g. an env-scoped setting). `fn` is
+    called with no args and may return a path or a falsy value (→ fall back)."""
+    global _dir_resolver
+    _dir_resolver = fn
+
+
+def current_download_dir():
+    """The active download directory. Precedence: host-injected resolver (the env-scoped
+    setting) → MAGI_YOUTUBE_DIR env / hardcoded default (both baked into
+    DEFAULT_DOWNLOAD_DIR). Never touches the filesystem (importing must stay side-effect free)."""
+    if _dir_resolver is not None:
+        try:
+            chosen = (_dir_resolver() or "").strip()
+        except Exception:  # noqa: BLE001
+            chosen = ""
+        if chosen:
+            return chosen
+    return DEFAULT_DOWNLOAD_DIR
+
+
+def metadata_file(dest_dir=None):
+    """Path to video-links.txt — it lives in the folder the videos land in."""
+    return os.path.join(dest_dir or current_download_dir(), METADATA_NAME)
 
 
 def has_ffmpeg():
     return shutil.which("ffmpeg") is not None
 
 
-def append_metadata(url, title, stem):
-    """Append one entry to video-links.txt, matching its existing format:
-    `YYYY/MM/DD: <slug> <url> <title>`. A blank line is inserted whenever the
+def append_metadata(url, title, stem, dest_dir=None):
+    """Append one entry to video-links.txt (in the download dir), matching its existing
+    format: `YYYY/MM/DD: <slug> <url> <title>`. A blank line is inserted whenever the
     date changes, so entries stay grouped by day."""
+    meta_file = metadata_file(dest_dir)
     today = datetime.now().strftime("%Y/%m/%d")
     line = f"{today}: {stem} {url} {title}".rstrip()
 
     lead = ""
-    if os.path.exists(METADATA_FILE) and os.path.getsize(METADATA_FILE) > 0:
-        with open(METADATA_FILE, "r", encoding="utf-8") as fh:
+    if os.path.exists(meta_file) and os.path.getsize(meta_file) > 0:
+        with open(meta_file, "r", encoding="utf-8") as fh:
             content = fh.read()
         if not content.endswith("\n"):
             lead = "\n"  # finish the current line first
@@ -45,7 +76,7 @@ def append_metadata(url, title, stem):
         is_date = len(head) == 10 and head[4] == "/" and head[7] == "/"
         if is_date and head != today:
             lead += "\n"  # blank line between different days
-    with open(METADATA_FILE, "a", encoding="utf-8") as fh:
+    with open(meta_file, "a", encoding="utf-8") as fh:
         fh.write(lead + line + "\n")
     return line
 
@@ -179,7 +210,7 @@ def run_download(*, url, format_id, kind, audio_mp3, date_prefix, write_meta, de
             if write_meta:
                 try:
                     stem = os.path.splitext(fname)[0]
-                    meta_line = append_metadata(info.get("webpage_url") or url, info.get("title") or "", stem)
+                    meta_line = append_metadata(info.get("webpage_url") or url, info.get("title") or "", stem, dest_dir=dest)
                 except Exception as me:  # noqa: BLE001
                     meta_line = f"⚠️ metadata write failed: {me}"
 

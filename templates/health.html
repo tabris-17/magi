@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}magi · Health{% endblock %}
+{% block content %}
+<div class="health-head">
+  <div>
+    <h1 class="view-title">Application Health</h1>
+    <p class="lead" id="healthSummary">Runtime status of the magi host and every function.</p>
+  </div>
+  <button class="health-refresh" id="healthRefresh" type="button">↻ Refresh</button>
+</div>
+
+<div class="health-cols">
+  <section class="health-col">
+    <div class="health-col-head" id="localHead">This instance</div>
+    <div class="cards health-cards" id="localCards"><div class="health-empty">Loading…</div></div>
+  </section>
+  <section class="health-col" id="prodCol" hidden>
+    <div class="health-col-head" id="prodHead">Prod</div>
+    <div class="cards health-cards" id="prodCards"><div class="health-empty">Loading…</div></div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  var APP_ENV = {{ app_env | tojson }};
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function fmtAgo(ms) {
+    if (!ms) return "—";
+    var s = Math.max(0, (Date.now() - ms) / 1000);
+    if (s < 60) return Math.round(s) + "s ago";
+    if (s < 3600) return Math.round(s / 60) + "m ago";
+    if (s < 86400) return Math.round(s / 3600) + "h ago";
+    return Math.round(s / 86400) + "d ago";
+  }
+  function dot(state) { return '<span class="health-dot ' + state + '"></span>'; }
+  function row(label, value) {
+    return '<span class="hf-row"><span class="hf-k">' + esc(label) + '</span>' +
+           '<span class="hf-v">' + value + '</span></span>';
+  }
+  function ok(b) { return b ? '<span class="hf-ok">✓</span>' : '<span class="hf-bad">✗</span>'; }
+
+  // Per-function body + status, derived from its opaque health payload.
+  function youtubeBody(h) {
+    var hasF = !!h.ffmpeg;
+    return {
+      state: hasF ? "good" : "warn",
+      html: row("ffmpeg", ok(hasF) + (hasF ? "" : " missing — high-res/MP3 disabled")) +
+            row("download dir", '<code>' + esc(h.download_dir) + '</code>'),
+    };
+  }
+  function betelgeuseBody(h) {
+    if (h.error && !h.worker) {
+      return { state: "bad", html: row("status", esc(h.error)) +
+        (h.gate ? row("schema gate", esc(h.gate)) : "") };
+    }
+    var w = h.worker || {}, db = h.db || {};
+    var gate = db.schema_gate, gateOk = gate === "OK";
+    var workerOk = !!w.ready;
+    var state = (workerOk && gateOk) ? "good" : (gateOk ? "warn" : "bad");
+    var gateTxt = gate ? (gateOk ? "OK" : esc(gate) + " · " + (db.pending_count || 0) + " pending") : "—";
+    return {
+      state: state,
+      html:
+        row("worker", dot(workerOk ? "good" : "bad") + (workerOk ? "ready" : "down") +
+            (w.age_seconds != null ? ' <span class="hf-mut">· beat ' + Math.round(w.age_seconds) + "s ago</span>" : "")) +
+        row("schema gate", gateOk ? '<span class="hf-ok">' + gateTxt + "</span>" : '<span class="hf-bad">' + gateTxt + "</span>") +
+        row("web", esc((h.web && h.web.version) || (h.versions && h.versions.app) || "—")) +
+        (w.started_at ? row("worker started", fmtAgo(w.started_at * 1000)) : ""),
+    };
+  }
+  function fnBody(key, h) {
+    if (key === "youtube") return youtubeBody(h);
+    if (key === "betelgeuse") return betelgeuseBody(h);
+    // generic fallback: show up to a few key/values
+    var html = Object.keys(h || {}).slice(0, 6).map(function (k) {
+      var v = h[k];
+      return row(k, esc(typeof v === "object" ? JSON.stringify(v) : v));
+    }).join("");
+    return { state: "good", html: html || row("status", "ok") };
+  }
+
+  function card(opts) {
+    return '<div class="card health-card">' +
+      '<div class="health-card-head">' + dot(opts.state) +
+        '<span class="t">' + esc(opts.title) + "</span>" +
+        (opts.version ? '<span class="v">' + esc(opts.version) + "</span>" : "") +
+      "</div>" +
+      '<div class="health-card-body">' + opts.body + "</div>" +
+    "</div>";
+  }
+
+  // Render an aggregated /api/health payload into a column of cards.
+  function renderAgg(agg) {
+    if (!agg || !agg.host) return '<div class="health-empty">No data.</div>';
+    var h = agg.host;
+    var out = card({
+      state: "good", title: "magi host", version: h.version,
+      body: row("env", esc(h.env)) +
+            row("started", fmtAgo(h.started_at)) +
+            row("server time", new Date(h.server_time).toLocaleTimeString()),
+    });
+    (agg.functions || []).forEach(function (f) {
+      if (f.ok === false) {
+        out += card({ state: "bad", title: f.label, version: f.version,
+          body: row("status", '<span class="hf-bad">unreachable</span>') + row("error", esc(f.error)) });
+        return;
+      }
+      if (f.ok === null) {
+        out += card({ state: "warn", title: f.label, version: f.version,
+          body: row("status", "no health reporting") });
+        return;
+      }
+      var b = fnBody(f.key, f.health || {});
+      out += card({ state: b.state, title: f.label, version: f.version, body: b.html });
+    });
+    return out;
+  }
+
+  function setSummary(local, prod) {
+    var el = document.getElementById("healthSummary");
+    if (APP_ENV !== "dev") { el.textContent = "Runtime status of the magi host and every function."; return; }
+    var bit = "magi dev";
+    if (prod && prod.configured) bit += " ▸ prod " + (prod.reachable ? "up" : "down");
+    el.innerHTML = bit;
+  }
+
+  async function load() {
+    var btn = document.getElementById("healthRefresh");
+    btn.disabled = true;
+    try {
+      var local = await (await fetch("/api/health")).json();
+      document.getElementById("localCards").innerHTML = renderAgg(local);
+
+      var prod = null;
+      try { prod = await (await fetch("/api/prod/health")).json(); } catch (e) { /* ignore */ }
+      var prodCol = document.getElementById("prodCol");
+      if (prod && prod.configured) {
+        prodCol.hidden = false;
+        var base = prod.base_url || "";
+        // "click prod" → open the prod site in a single reused window (named target,
+        // shared with the sidebar "open prod ↗" link).
+        document.getElementById("prodHead").innerHTML = base
+          ? 'Prod · <a class="health-prod-link" href="' + esc(base) + '" target="magiprod">' + esc(base) + " ↗</a>"
+          : "Prod";
+        if (prod.reachable) {
+          document.getElementById("prodCards").innerHTML = renderAgg(prod.health);
+        } else {
+          document.getElementById("prodCards").innerHTML =
+            '<div class="health-empty health-down">Unreachable — ' + esc(prod.error || "no response") + "</div>";
+        }
+      } else {
+        prodCol.hidden = true;
+      }
+      setSummary(local, prod);
+    } catch (e) {
+      document.getElementById("localCards").innerHTML =
+        '<div class="health-empty health-down">Failed to load: ' + esc(e.message || e) + "</div>";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("healthRefresh").addEventListener("click", load);
+  load();
+  setInterval(load, 60000);
+</script>
+{% endblock %}

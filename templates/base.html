@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>{% block title %}magi{% endblock %}</title>
 <meta name="theme-color" content="#0d1117" />
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any" />
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='icon-512.png') }}" />
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='apple-touch-icon.png') }}" />
 <script>
   // Apply the saved theme before first paint to avoid a flash.
   (function () {
@@ -29,18 +32,26 @@
   <button class="magi-hamburger" id="magiMenuBtn" aria-label="Open menu">
     <svg width="18" height="18" viewBox="0 0 16 16"><path fill="currentColor" d="M1 2.75A.75.75 0 0 1 1.75 2h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 2.75Zm0 5A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75ZM1.75 12h12.5a.75.75 0 0 1 0 1.5H1.75a.75.75 0 0 1 0-1.5Z"/></svg>
   </button>
-  <span class="magi-brand"><span class="magi-avatar">M</span> magi</span>
+  <span class="magi-brand"><span class="magi-avatar" role="img" aria-label="magi"></span> magi</span>
 </header>
 
 <div class="magi-backdrop" id="magiBackdrop"></div>
 
 <aside class="magi-sidebar" id="magiSidebar">
   <div class="magi-account">
-    <span class="magi-avatar lg">M</span>
+    <span class="magi-avatar lg" role="img" aria-label="magi"></span>
     <div>
       <div class="magi-name">magi</div>
       <div class="magi-role">Control panel</div>
       <div class="magi-env" title="Running mode">🐱 {{ app_env }}</div>
+      {% if app_env == 'dev' and prod_url %}
+      {# target names a single reused window; NO rel=noopener — it would make a named
+         target behave like _blank (a fresh window every click). prod is our own
+         first-party app, so the opener reference is harmless. #}
+      <a class="magi-prod-link" href="{{ prod_url.rstrip('/') }}{{ request.path }}"
+         target="magiprod"
+         title="Open this page on prod ({{ prod_url }})">open prod&nbsp;↗</a>
+      {% endif %}
     </div>
   </div>
   <nav class="magi-nav">
@@ -57,6 +68,10 @@
     {% endfor %}
 
     <div class="magi-nav-section">Settings</div>
+    <a class="magi-nav-item {{ 'active' if active == 'health' }}" href="{{ url_for('health_page') }}">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M9.5 1.5a.75.75 0 0 1 .728.568l1.36 5.438 1.024-2.047A.75.75 0 0 1 13.25 5h2a.75.75 0 0 1 0 1.5h-1.536l-1.793 3.585a.75.75 0 0 1-1.398-.153L9.392 5.62 7.957 12.43a.75.75 0 0 1-1.45.075L5.06 7.667l-.41 1.024A.75.75 0 0 1 3.95 9.16L2.75 9.16a.75.75 0 0 1 0-1.5h.692l1.024-2.56a.75.75 0 0 1 1.412.083l1.193 4.06 1.494-7.082A.75.75 0 0 1 9.5 1.5Z"/></svg>
+      Health
+    </a>
     <a class="magi-nav-item {{ 'active' if active == 'settings' }}" href="{{ url_for('settings') }}">
       <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 12a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm0-1.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Zm5.657-8.157a.75.75 0 0 1 0 1.061l-1.061 1.06a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l1.06-1.06a.75.75 0 0 1 1.06 0Zm-9.193 9.193a.75.75 0 0 1 0 1.06l-1.06 1.061a.75.75 0 1 1-1.061-1.06l1.06-1.061a.75.75 0 0 1 1.061 0ZM8 0a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V.75A.75.75 0 0 1 8 0ZM3 8a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 3 8Zm13 0a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 16 8Zm-8 5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 8 13ZM2.343 2.343a.75.75 0 0 1 1.061 0l1.06 1.061a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-1.06-1.06a.75.75 0 0 1 0-1.061Zm9.193 9.193a.75.75 0 0 1 1.06 0l1.061 1.06a.75.75 0 0 1-1.06 1.061l-1.061-1.06a.75.75 0 0 1 0-1.061Z"/></svg>
       Appearance

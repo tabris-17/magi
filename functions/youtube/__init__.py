@@ -24,6 +24,15 @@ ICON = (
     '0 0 1 16 3.75Z"/></svg>'
 )
 
+def health_payload():
+    """Function health for the host's aggregated Health page (no request context needed).
+    ffmpeg gates high-res merges + MP3; download_dir is the active (env-scoped) folder."""
+    return {
+        "ffmpeg": logic.has_ffmpeg(),
+        "download_dir": logic.current_download_dir(),
+    }
+
+
 META = {
     "key": "youtube",
     "label": "YouTube Downloader",
@@ -31,6 +40,7 @@ META = {
     "icon": ICON,
     "url": "/youtube/",
     "version": "yd-1.0.0",
+    "health": health_payload,
 }
 
 
@@ -43,8 +53,8 @@ def page():
 def health():
     return jsonify(
         ffmpeg=logic.has_ffmpeg(),
-        default_dir=logic.DEFAULT_DOWNLOAD_DIR,
-        metadata_file=logic.METADATA_FILE,
+        default_dir=logic.current_download_dir(),
+        metadata_file=logic.metadata_file(),
     )
 
 
@@ -65,7 +75,8 @@ def download():
     url = (a.get("url") or "").strip()
     if not url:
         return jsonify(error="Missing url"), 400
-    dest = os.path.expanduser((a.get("dest") or logic.DEFAULT_DOWNLOAD_DIR).strip() or logic.DEFAULT_DOWNLOAD_DIR)
+    default_dir = logic.current_download_dir()
+    dest = os.path.expanduser((a.get("dest") or default_dir).strip() or default_dir)
     params = dict(
         url=url,
         format_id=(a.get("format_id") or "").strip(),
@@ -90,7 +101,7 @@ def download():
 @bp.route("/files/<path:name>")
 def files(name):
     safe = os.path.basename(urllib.parse.unquote(name))
-    base_dir = os.path.expanduser(request.args.get("dir", logic.DEFAULT_DOWNLOAD_DIR))
+    base_dir = os.path.expanduser(request.args.get("dir", logic.current_download_dir()))
     full = os.path.join(base_dir, safe)
     if os.path.isfile(full):
         return send_file(full, as_attachment=True, download_name=safe)

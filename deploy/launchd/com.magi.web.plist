@@ -22,6 +22,12 @@
     <dict>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
+        <!-- launchd hands jobs a minimal PATH that omits Homebrew/vendored bins.
+             ffmpeg+ffprobe are vendored under data/vendor (deploy-safe: data/ is
+             rsync-excluded AND --delete-protected), so expose it here for the YouTube
+             function (shutil.which + yt-dlp). Standard + brew dirs follow as fallback. -->
+        <key>PATH</key>
+        <string>__ROOT__/data/vendor:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

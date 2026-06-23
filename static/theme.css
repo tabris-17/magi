@@ -64,6 +64,87 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   font-variant-numeric: tabular-nums; letter-spacing: .02em;
 }
 
+/* ---- taxation page ------------------------------------------------- */
+.tax-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0; }
+.tax-bar input[type=date] {
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg);
+  padding: 9px 12px; border-radius: 6px; font-size: 14px; color-scheme: dark light;
+}
+.tax-ratedate {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-size: 15px; font-weight: 600; color: var(--fg); margin: 6px 0 2px;
+}
+.tax-ratedate .tax-rd-val {
+  color: var(--accent); font-variant-numeric: tabular-nums;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px;
+}
+.tax-ratedate .tax-rd-tag {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--warn-fg); border: 1px solid var(--warn-fg); border-radius: 6px; padding: 2px 7px;
+}
+.tax-note { color: var(--fg-muted); font-size: 13px; min-height: 18px; }
+.tax-err { color: var(--danger-fg); font-size: 14px; min-height: 18px; }
+.tax-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 12px; }
+.tax-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.tax-ccy { font-weight: 700; font-size: 18px; color: var(--accent); margin-bottom: 8px; }
+.tax-rate { display: flex; align-items: center; gap: 6px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.tax-rate.tax-inv { color: var(--fg-muted); font-size: 13px; margin-top: 3px; }
+.tax-k { color: var(--fg-muted); }
+.tax-v { font-weight: 600; }
+.tax-copy {
+  margin-left: auto; padding: 3px; line-height: 0; border: none; border-radius: 5px;
+  background: none; color: var(--fg-muted); cursor: pointer; flex: 0 0 auto;
+}
+.tax-copy:hover { color: var(--accent); background: var(--surface-2); }
+.tax-copy.copied { color: var(--success-fg); }
+.tax-copy svg { fill: currentColor; display: block; }
+.tax-source { color: var(--fg-subtle); font-size: 12px; margin-top: 18px; }
+.tax-source a { color: var(--accent); }
+/* taxation settings_section URL editor (on /settings) */
+.tax-setting { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; max-width: 760px; }
+.tax-url-input {
+  flex: 1 1 320px; min-width: 0; padding: 8px 10px; font-size: 13px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.tax-url-input:focus { outline: none; border-color: var(--accent); }
+
+/* ---- health page --------------------------------------------------- */
+.health-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.health-refresh {
+  flex: 0 0 auto; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  color: var(--fg); background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+}
+.health-refresh:hover { border-color: var(--accent); }
+.health-refresh:disabled { opacity: .55; cursor: default; }
+.health-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 26px; margin-top: 14px; }
+.health-col-head {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--fg-muted); margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.health-cards { grid-template-columns: 1fr; }
+.health-card { flex-direction: column; gap: 10px; align-items: stretch; }
+.health-card:hover { border-color: var(--border); }  /* not a link — no accent hover */
+.health-card-head { display: flex; align-items: center; gap: 8px; }
+.health-card-head .t { font-weight: 600; font-size: 14px; }
+.health-card-head .v { margin: 0 0 0 auto; font-size: 11px; color: var(--fg-subtle); font-variant-numeric: tabular-nums; }
+.health-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; background: var(--fg-muted); }
+.health-dot.good { background: var(--success-fg); }
+.health-dot.warn { background: var(--warn-fg); }
+.health-dot.bad  { background: var(--danger-fg); }
+.health-card-body { display: grid; gap: 5px; }
+.hf-row { display: flex; gap: 10px; font-size: 13px; align-items: baseline; }
+.hf-k { flex: 0 0 96px; color: var(--fg-muted); }
+.hf-v { flex: 1 1 auto; min-width: 0; color: var(--fg); word-break: break-word; }
+.hf-v code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.hf-ok { color: var(--success-fg); font-weight: 600; }
+.hf-bad { color: var(--danger-fg); font-weight: 600; }
+.hf-mut { color: var(--fg-muted); }
+.health-prod-link { color: var(--accent); text-decoration: none; text-transform: none; letter-spacing: 0; }
+.health-prod-link:hover { text-decoration: underline; }
+.health-empty { color: var(--fg-muted); font-size: 13px; padding: 10px 0; }
+.health-down { color: var(--danger-fg); }
+
 /* ---- appearance / theme picker ------------------------------------- */
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .theme-card {
@@ -134,10 +215,38 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .yt .spin { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: s .8s linear infinite; vertical-align: -3px; margin-right: 8px; }
 @keyframes s { to { transform: rotate(360deg); } }
 
+/* ---- Environment (env-scoped dev/prod settings) -------------------- */
+.env-settings { display: grid; gap: 22px; max-width: 760px; margin-top: 8px; }
+.env-setting-label { font-weight: 600; color: var(--fg); margin-bottom: 8px; }
+.env-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+.env-tag {
+  flex: 0 0 auto; width: 46px; text-align: center; padding: 4px 0;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--fg-muted); background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.env-row.is-current .env-tag { color: var(--accent); border-color: var(--accent); }
+.env-input {
+  flex: 1 1 auto; min-width: 0; padding: 8px 10px; font-size: 13px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.env-input::placeholder { color: var(--fg-muted); }
+.env-input:focus { outline: none; border-color: var(--accent); }
+.btn-env-save {
+  flex: 0 0 auto; padding: 8px 16px; font-size: 13px; font-weight: 600; color: #fff;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer;
+}
+.btn-env-save:hover { filter: brightness(1.07); }
+.btn-env-save:disabled { opacity: .55; cursor: default; }
+.env-status { flex: 0 0 auto; min-width: 58px; font-size: 12px; color: var(--fg-muted); }
+
 /* ---- responsive (content) ------------------------------------------ */
 @media (max-width: 860px) {
   main { margin-left: 0; }
   .content { padding: 20px 16px 70px; }
   .view-title { font-size: 20px; }
   .yt .meta img { width: 120px; }
+  .env-row { flex-wrap: wrap; }
+  .env-input { flex-basis: 100%; order: 3; }
 }

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}magi · Taxation{% endblock %}
+{% block content %}
+<div class="tax">
+  <h1 class="view-title">Taxation — RBA FX rates</h1>
+  <p class="lead">Pick a date to get that day's RBA exchange rate for
+    <b>USD</b>, <b>GBP</b> and <b>HKD</b> (for converting foreign amounts to AUD at tax time).
+    Rates are <b>A$1 = X</b> (foreign per 1 AUD); the inverse is shown alongside.</p>
+
+  <div class="tax-bar">
+    <input id="date" type="date" />
+    <button id="get" class="btn primary">Get rates</button>
+    <button id="refresh" class="btn" title="Re-download the RBA spreadsheet">↻ Refresh data</button>
+  </div>
+
+  <div id="err" class="tax-err"></div>
+
+  <div id="ratedate" class="tax-ratedate" hidden></div>
+  <div id="note" class="tax-note"></div>
+
+  <div id="results" class="tax-results"></div>
+
+  <p class="tax-source" id="source"></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const API = "/taxation";
+const $ = function (id) { return document.getElementById(id); };
+
+function fmt(n, dp) { return (n == null) ? "—" : Number(n).toLocaleString(undefined, { minimumFractionDigits: dp, maximumFractionDigits: dp }); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+
+var COPY_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>';
+
+// A copy button carrying the bare number to copy (no currency/label).
+function copyBtn(value) {
+  if (value == null) return "";
+  var v = Number(value).toFixed(4);
+  return '<button class="tax-copy" type="button" data-copy="' + v + '" title="Copy ' + v + '" aria-label="Copy ' + v + '">' + COPY_SVG + "</button>";
+}
+
+// Clipboard with a fallback: navigator.clipboard needs a secure context, which prod
+// (http://…local over the LAN) is NOT — so fall back to a hidden textarea + execCommand.
+function copyToClipboard(text, btn) {
+  function done() { flashCopied(btn); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, function () { legacyCopy(text, done); });
+  } else {
+    legacyCopy(text, done);
+  }
+}
+function legacyCopy(text, done) {
+  var ta = document.createElement("textarea");
+  ta.value = text; ta.setAttribute("readonly", "");
+  ta.style.position = "fixed"; ta.style.top = "-1000px"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) { /* ignore */ }
+  document.body.removeChild(ta);
+}
+function flashCopied(btn) {
+  if (!btn) return;
+  btn.classList.add("copied");
+  var prev = btn.getAttribute("title");
+  btn.setAttribute("title", "Copied!");
+  setTimeout(function () { btn.classList.remove("copied"); btn.setAttribute("title", prev); }, 1200);
+}
+
+function render(d) {
+  $("err").textContent = "";
+  $("note").textContent = "";
+  $("ratedate").hidden = true;
+  $("ratedate").innerHTML = "";
+  $("results").innerHTML = "";
+  $("source").innerHTML = "";
+
+  if (d.error) { $("err").textContent = d.error; return; }
+  if (d.out_of_range) {
+    $("err").innerHTML = "No RBA data for that date." +
+      (d.range ? " Available range: <b>" + esc(d.range[0]) + "</b> to <b>" + esc(d.range[1]) + "</b>." : "");
+    return;
+  }
+  // Prominently show the date the displayed rates actually come from.
+  $("ratedate").hidden = false;
+  $("ratedate").innerHTML = 'FX rate date <span class="tax-rd-val">' + esc(d.used) + "</span>" +
+    (d.exact ? "" : ' <span class="tax-rd-tag">nearest prior business day</span>');
+  if (!d.exact) {
+    $("note").innerHTML = "No rate was published for the requested <b>" + esc(d.requested) +
+      "</b> (weekend/holiday).";
+  }
+
+  var order = ["USD", "GBP", "HKD"];
+  var html = "";
+  order.forEach(function (ccy) {
+    var r = d.rates[ccy];
+    if (!r) return;
+    html += '<div class="tax-card">' +
+      '<div class="tax-ccy">' + ccy + "</div>" +
+      '<div class="tax-rate"><span class="tax-k">A$1 =</span> <span class="tax-v">' + fmt(r.published, 4) + " " + ccy + "</span>" + copyBtn(r.published) + "</div>" +
+      '<div class="tax-rate tax-inv"><span class="tax-k">1 ' + ccy + " =</span> <span class=\"tax-v\">A$ " + fmt(r.inverse, 4) + "</span>" + copyBtn(r.inverse) + "</div>" +
+    "</div>";
+  });
+  $("results").innerHTML = html;
+  $("source").innerHTML = "Source: <a href=\"" + esc(d.source_url) + "\" target=\"_blank\" rel=\"noreferrer\">RBA F11.1</a> · basis " + esc(d.basis);
+}
+
+async function getRates() {
+  var date = $("date").value;
+  if (!date) { $("err").textContent = "Pick a date first."; return; }
+  $("get").disabled = true;
+  $("note").textContent = "Loading…";
+  try {
+    var d = await (await fetch(API + "/api/rates?date=" + encodeURIComponent(date))).json();
+    render(d);
+  } catch (e) {
+    $("err").textContent = "Request failed: " + (e.message || e);
+    $("note").textContent = "";
+  } finally {
+    $("get").disabled = false;
+  }
+}
+
+async function refreshData() {
+  var btn = $("refresh");
+  btn.disabled = true;
+  var prev = btn.textContent;
+  btn.textContent = "Refreshing…";
+  try {
+    var d = await (await fetch(API + "/api/refresh", { method: "POST" })).json();
+    if (d.ok && $("date").value) await getRates();
+    else if (!d.ok) $("err").textContent = d.error || "Refresh failed.";
+  } catch (e) {
+    $("err").textContent = "Refresh failed: " + (e.message || e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
+}
+
+$("get").addEventListener("click", getRates);
+$("date").addEventListener("keydown", function (e) { if (e.key === "Enter") getRates(); });
+$("refresh").addEventListener("click", refreshData);
+// Delegated: copy a card's bare number when its copy icon is clicked.
+$("results").addEventListener("click", function (e) {
+  var btn = e.target.closest(".tax-copy");
+  if (btn) copyToClipboard(btn.getAttribute("data-copy"), btn);
+});
+
+// Default the date input to today (local).
+(function () {
+  var t = new Date();
+  var iso = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+  $("date").value = iso;
+})();
+</script>
+{% endblock %}

@@ -87,6 +87,19 @@ confirm). The whole CLI is also one **Claude slash command** — `/magi <args>` 
    ssh <user>@<mini>.local "cd <REMOTE_DIR> && bash deploy/setup-mini.sh"
    ```
 6. **Verify:** open `http://<mini>.local:8080/`.
+7. **ffmpeg for YouTube (optional).** The YouTube function needs `ffmpeg`/`ffprobe` for
+   high-res merges + MP3. They're **vendored** on the mini under `~/magi/data/vendor/`
+   (deploy-safe: `data/` is rsync-excluded + `--delete`-protected, so it's NOT shipped
+   from dev — provision it per-mini). The `com.magi.web` LaunchAgent puts
+   `__ROOT__/data/vendor` first on its `PATH` (launchd's default PATH omits it). Drop a
+   static arm64 build there and reload web:
+   ```bash
+   ssh <user>@<mini>.local 'mkdir -p ~/magi/data/vendor && cd ~/magi/data/vendor && \
+     for b in ffmpeg ffprobe; do curl -fsSL -o $b.zip \
+       https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/$b.zip && \
+       unzip -oq $b.zip && rm $b.zip && chmod +x $b; done'
+   # then: ./magi launch prod  (or re-run setup-mini.sh to regenerate + reload the plist)
+   ```
 
 ## Migrations day-to-day
 
