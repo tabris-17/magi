@@ -244,6 +244,14 @@ value (and fills the version label), and on change `applyTheme(pref, true)` writ
 through to the DB. `system` resolves via `matchMedia`. **New UI must use the theme
 tokens** (`var(--fg)`, `var(--surface)`, `var(--accent)`, …), never hardcoded colors.
 
+**Definition of done for UI work:** a layout/color/theming change isn't finished until
+it's **verified legible and consistent in BOTH themes** (and, in future, mobile widths) —
+a hardcoded color is correct in at most one theme. The **`/look-and-feel` skill** is the
+how-to (token maps, the known breakages like betelgeuse's inline-literal debt, and the
+screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisory, like
+"tests green = done" — not enforced; the skill is also auto-discoverable from its own
+description.)
+
 **Versioning:** `host/version.py` → `full_version()` = `magi-1.5.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
