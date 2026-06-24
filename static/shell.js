@@ -74,6 +74,26 @@
     const menuBtn = $("magiMenuBtn"), backdrop = $("magiBackdrop");
     if (menuBtn) menuBtn.addEventListener("click", openDrawer);
     if (backdrop) backdrop.addEventListener("click", closeDrawer);
+
+    // Brand icon → open a lightbox showing the full-size icon (built once, shared).
+    const iconBox = (function () {
+      let box = document.getElementById("magiIconLightbox");
+      if (!box) {
+        box = document.createElement("div");
+        box.id = "magiIconLightbox";
+        box.className = "magi-lightbox";
+        box.innerHTML = '<img src="/static/icon-512.png" alt="magi icon (full size)" />';
+        box.addEventListener("click", () => box.classList.remove("open"));
+        document.body.appendChild(box);
+      }
+      return box;
+    })();
+    document.querySelectorAll(".magi-avatar").forEach((el) =>
+      el.addEventListener("click", () => iconBox.classList.add("open")));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") iconBox.classList.remove("open");
+    });
+
     initAppearance();
     syncFromServer();
   });

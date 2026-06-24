@@ -106,7 +106,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.3.0`); `host/db.py` is the common-settings
+  app version (`full_version()` → `magi-1.4.0`); `host/db.py` is the common-settings
   SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
   + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
@@ -122,7 +122,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.3.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.4.0` in the sidebar footer.
 
 ### Function contract
 
@@ -231,7 +231,7 @@ value (and fills the version label), and on change `applyTheme(pref, true)` writ
 through to the DB. `system` resolves via `matchMedia`. **New UI must use the theme
 tokens** (`var(--fg)`, `var(--surface)`, `var(--accent)`, …), never hardcoded colors.
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.3.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.4.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on

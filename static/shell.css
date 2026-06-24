@@ -23,7 +23,7 @@
   --primary-bg-hover: #2ea043;
   --primary-fg: #ffffff;
   --success-fg: #3fb950; --success-bg: #12261a; --success-border: #2ea04366;
-  --danger-fg: #f85149;  --danger-bg: #2d1416;  --danger-border: #6e2329;
+  --danger-fg: #f85149;  --danger-bg: #2d1416;  --danger-border: #6e2329; --danger-rgb: 248, 81, 73;
   --warn-fg: #d29922;    --warn-bg: #2d2410;    --warn-border: #6b4a16;
   --tag-both-bg:#12261a;  --tag-both-bd:#238636;  --tag-both-fg:#56d364;
   --tag-video-bg:#0d2440; --tag-video-bd:#1f6feb; --tag-video-fg:#79c0ff;
@@ -46,7 +46,7 @@
   --primary-bg-hover: #1a7f37;
   --primary-fg: #ffffff;
   --success-fg: #1a7f37; --success-bg: #dafbe1; --success-border: #aceebb;
-  --danger-fg: #cf222e;  --danger-bg: #ffebe9;  --danger-border: #ffced0;
+  --danger-fg: #cf222e;  --danger-bg: #ffebe9;  --danger-border: #ffced0; --danger-rgb: 207, 34, 46;
   --warn-fg: #9a6700;    --warn-bg: #fff8c5;    --warn-border: #eac54f;
   --tag-both-bg:#dafbe1;  --tag-both-bd:#aceebb;  --tag-both-fg:#1a7f37;
   --tag-video-bg:#ddf4ff; --tag-video-bd:#b6e3ff; --tag-video-fg:#0969da;
@@ -66,10 +66,32 @@
 /* ---- avatar / brand ------------------------------------------------- */
 .magi-avatar {
   width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  position: relative;
   background: #0d1117 url("/static/icon-512.png") center/cover no-repeat;
   box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
 }
 .magi-avatar.lg { width: 44px; height: 44px; }
+/* Click the brand icon → a lightbox showing the full-size icon (shell.js builds the
+   overlay once + toggles .open). Bouncy zoom-in on the image; click/Esc to close. */
+.magi-lightbox {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity .2s ease, visibility .2s ease;
+  cursor: zoom-out;
+}
+.magi-lightbox.open { opacity: 1; visibility: visible; pointer-events: auto; }
+.magi-lightbox img {
+  width: min(512px, 80vmin); height: auto; border-radius: 16px;
+  box-shadow: 0 0 0 1px var(--border), 0 18px 60px rgba(0, 0, 0, 0.6);
+  transform: scale(.7);
+  transition: transform .28s cubic-bezier(.34, 1.56, .64, 1);
+}
+.magi-lightbox.open img { transform: scale(1); }
+@media (prefers-reduced-motion: reduce) { .magi-lightbox img { transition: none; } }
 
 /* ---- dev/prod mode chip + dev brand --------------------------------- */
 .magi-env {
@@ -79,8 +101,15 @@
 }
 /* DEV: a distinctive red brand on the left panel (vs prod). The avatar is now the magi
    icon image, so the dev cue is a red RING around it (was a red gradient fill). */
-[data-env="dev"] .magi-avatar { box-shadow: 0 0 0 2px var(--danger-fg); }
-[data-env="dev"] .magi-env { color: var(--danger-fg); }
+/* DEV cue: a red-tinted account block (the rectangle), not scattered red accents —
+   so the avatar keeps its normal ring and the "DEV" word isn't reddened. */
+[data-env="dev"] .magi-account {
+  background: rgba(var(--danger-rgb), 0.14);
+  border: 1px solid var(--danger-border);
+  border-radius: 10px;
+  padding: 8px 10px 10px;
+  margin-bottom: 6px;
+}
 [data-env="dev"] .magi-ver { color: var(--danger-fg); }
 [data-env="dev"] .magi-sidebar { border-right-color: var(--danger-border); }
 /* DEV-only one-click hop to the prod site (rendered only in dev — see base.html). */
