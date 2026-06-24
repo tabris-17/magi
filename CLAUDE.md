@@ -140,39 +140,64 @@ Two styles, both registered in the `FUNCTIONS` list in **`magi.py`** and both
   and renders the magi shell itself — it includes the shared `/static/shell.css`
   + `/static/shell.js` and emits the `magi-*` sidebar markup (see
   `functions/betelgeuse/templates/header.html`), with its pages as a sub-nav under
-  the function. Because it doesn't extend `base.html`, it adds its own
+  the function. Its sidebar **function list is host-driven, NOT hardcoded**:
+  `header.html` loops over the same `nav_functions` (+ `app_version`, `prod_url`)
+  that `base.html` does, injected into the sub-app via a context processor
+  registered on `betel_app` in `magi.py` (kept there so betelgeuse's own `app.py`
+  stays byte-identical to prod). So a new function appears in betelgeuse's sidebar
+  for free, at the same level as youtube/taxation — don't re-hardcode the list (the
+  loop guards `nav_functions or []` so betelgeuse rendered standalone in its own
+  pytest degrades gracefully). Because it doesn't extend `base.html`, it adds its own
   `body{padding-left:260px}` to clear the fixed sidebar. Its hardcoded absolute
   URLs must carry the prefix (`scripts/prefix_betelgeuse.py`).
 
 ### Shared settings (the only cross-function sharing)
 
-`/settings` renders the host's **Appearance** section, then aggregates each
-function's optional settings section. A function opts in by adding a
-`settings_section` callable to its `META`; it returns `{id, label, html}` and the
-host composes it under the shell. The function still owns its settings storage
-and save routes — only the presentation is shared.
+Settings split by **lifetime/ownership**, surfaced at three places in the shell's
+**Settings** sidebar section:
 
-**Common (cross-function) settings** live in the host DB (`data/magi.db` via
-`host/db.py`), exposed at **`/api/settings`** (`GET` → `{version, env, prod_url, envs,
-env_config, functions, settings}`, `POST {key,value[,env]}` → upsert, validated against
-the `host.db.SETTINGS` registry). This is the federated model in practice: the host owns
-*global* settings (theme); each function owns its own.
+- **`/settings` (Appearance)** — the host's own look (theme) only. Nothing else.
+- **`/tools/database` (Settings → Tools → Database)** — **global, DB-backed app settings**
+  stored in `data/magi.db`: the same value in dev and prod (e.g. the taxation RBA URL).
+  This is where each function's optional **`settings_section`** is aggregated (a callable on
+  its `META` returning `{id, label, html}`; the function still owns its storage + save route,
+  only the presentation is shared). `magi.py` route `tools_database` composes them under
+  `templates/tools_database.html`. The sidebar shows a **Tools** parent (`base.html` AND
+  betelgeuse's `header.html`, for parity) with a **Database** sub-nav item underneath.
+  **Sidebar sub-navs expand only for the active section** (collapse-when-inactive): a parent
+  reveals its children only when you're inside it — **Tools** shows **Database** only on
+  `/tools/database` (gated `{% if active == 'database' %}` in `base.html`; absent from
+  `header.html`, since you're never on that page while inside betelgeuse), and **Betelgeuse**
+  shows its pages only on betelgeuse pages. Children are text-only and drawn with CSS tree
+  connectors (`.magi-nav-sub .magi-nav-item::before/::after` in `shell.css` — a vertical rail
+  + an elbow tick per child, last child = `└`), shared by both render sites.
+- **The function's own page** — **env-scoped ("user profile") settings** (see below).
 
-**Env-scoped ("dev/prod") settings.** A host setting can be **global** (one value, e.g.
-`theme`) or **env-scoped** (a separate value per environment, e.g. `youtube_download_dir`).
-`host/db.py:SETTINGS` is the single registry (`allowed`/`default`/`scoped` per key).
-Env-scoped values share the one key/value table via a **`<key>@<env>` storage key**, so
-dev and prod keep DISTINCT values even though `./magi upgrade dev` copies the whole
-`magi.db` prod→dev — **no schema change, no migration engine** (which the host doesn't
-have). `get_setting`/`set_setting(key, value, env=…)` resolve against `MAGI_ENV` by
-default; `all_settings()` is the current-env-resolved flat map (the shell reads `theme`
-from it); `env_config()` returns `{key: {dev, prod}}` for the settings page, which shows
-both values **side by side** (`templates/settings.html` "Environment" section — the
-current env's row is highlighted; `POST {key,value,env}` saves one env). The YouTube
-download dir is the first consumer: the host injects a resolver into the otherwise
-self-contained function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the
-function reads the env-scoped setting **without importing the host** (precedence:
-setting → `MAGI_YOUTUBE_DIR` env → hardcoded default; see Conventions).
+**APP SETTING vs USER PROFILE (the rule for where a setting lives).** A **global** setting
+(one value, same dev/prod — e.g. `theme`, `taxation_rba_url`) is an *app setting* → it goes in
+the DB and is edited centrally (Appearance for theme, **Tools → Database** for the rest, via
+`settings_section`). An **env-scoped** setting (a separate value per environment — e.g.
+`youtube_download_dir`) is a **user profile / per-machine** thing → it is **NOT** shown in
+central settings or Tools → Database; it is **displayed and edited directly on the owning
+function's own page** (the YouTube download folder is edited on `/youtube/` — its "Save to"
+field has a **Save** button that persists `youtube_download_dir` for the box's *own* env via
+`POST /api/settings {key,value}` with **no `env`**, so it writes the running env; blank clears
+it to the default). **When the user calls a setting environment-specific (dev/prod), default to
+this: edit it on the function page, don't add it to Tools → Database.**
+
+**Storage (`host/db.py`).** `SETTINGS` is the single registry (`allowed`/`default`/`scoped`
+per key); `/api/settings` (`GET` → `{version, env, prod_url, envs, env_config, functions,
+settings}`, `POST {key,value[,env]}` → upsert, validated against the registry) is the one
+endpoint. Env-scoped values share the one key/value table via a **`<key>@<env>` storage key**,
+so dev and prod keep DISTINCT values even though `./magi upgrade dev` copies the whole `magi.db`
+prod→dev — **no schema change, no migration engine** (which the host doesn't have).
+`get_setting`/`set_setting(key, value, env=…)` resolve against `MAGI_ENV` by default;
+`all_settings()` is the current-env-resolved flat map (the shell reads `theme` from it);
+`env_config()` returns `{key:{dev,prod}}` (still in the `/api/settings` payload, no longer
+rendered on a central page). The host injects a **resolver** into the otherwise self-contained
+function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the function reads the
+env-scoped setting **without importing the host** (precedence: setting → `MAGI_YOUTUBE_DIR` env
+→ hardcoded default; see Conventions).
 
 ### Application Health (the second cross-function aggregation)
 

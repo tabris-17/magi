@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}magi · Tools · Database{% endblock %}
+{% block content %}
+<h1 class="view-title">Database</h1>
+<p class="lead">Global app settings stored in magi's settings database
+(<code>data/magi.db</code>) — the same value in dev and prod. Environment-specific settings
+(your machine's "user profile", e.g. the YouTube download folder) are edited on each
+function's own page, not here.</p>
+
+{# Each function contributes its GLOBAL, DB-backed settings here (settings_section on its
+   META). The function owns the storage + save route; the host only composes the section. #}
+{% if sections %}
+  {% for s in sections %}
+    <h2 class="settings-h" id="{{ s.id }}">{{ s.label }}</h2>
+    {{ s.html | safe }}
+  {% endfor %}
+{% else %}
+  <p class="lead">No functions contribute database-backed settings yet.</p>
+{% endif %}
+{% endblock %}

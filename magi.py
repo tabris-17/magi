@@ -190,14 +190,23 @@ def create_host_app():
 
     @app.route("/settings")
     def settings():
-        # Collect each function's optional settings section (kept inside its package).
+        # Appearance only — the host's own look. GLOBAL, DB-backed app settings moved to
+        # Tools -> Database; ENV-SCOPED "user profile" settings live on each function's own
+        # page (e.g. the YouTube download folder on /youtube/), never in central settings.
+        return render_template("settings.html", active="settings")
+
+    @app.route("/tools/database")
+    def tools_database():
+        # Settings -> Tools -> Database: the host settings database (data/magi.db) surfaced as
+        # editable GLOBAL app settings, aggregated from each function's settings_section. Env-
+        # scoped settings are deliberately NOT here (they're per-machine, edited on the function
+        # page — see the "user profile vs app setting" note in CLAUDE.md).
         sections = []
         for meta in FUNCTIONS:
             fn = meta.get("settings_section")
             if callable(fn):
                 sections.append(fn())
-        return render_template("settings.html", active="settings", sections=sections,
-                               env_config=hostdb.env_config(), envs=list(hostdb.ENVS))
+        return render_template("tools_database.html", active="database", sections=sections)
 
     @app.route("/api/settings", methods=["GET", "POST"])
     def api_settings():
@@ -248,12 +257,20 @@ def _betelgeuse_health():
 
 BETELGEUSE_META["health"] = _betelgeuse_health
 
-# Give betelgeuse's templates the host's PROD_URL so its sidebar can render the same
-# dev-only "open prod ↗" link as the host shell (its header.html is already a magi shell
-# file). Registered here so betelgeuse's own app.py stays byte-identical to prod.
+# Give betelgeuse's templates the SAME shell context the host injects (base.html), so its
+# hand-authored magi sidebar (header.html) renders the identical, dynamic function list —
+# incl. functions added later (e.g. taxation) — plus the host version and the dev-only
+# "open prod ↗" link. This keeps betelgeuse at the same UX level as the other functions
+# instead of drifting from a hardcoded nav. Registered here (not in betelgeuse's app.py) so
+# that file stays byte-identical to prod. betelgeuse's own context processor already supplies
+# app_env/web_version; these keys don't collide.
 @betel_app.context_processor
-def _inject_prod_url():
-    return {"prod_url": PROD_URL}
+def _inject_shell_context():
+    return {
+        "nav_functions": FUNCTIONS,
+        "app_version": full_version(),
+        "prod_url": PROD_URL,
+    }
 
 
 application = DispatcherMiddleware(host_app, {"/betelgeuse": betel_app})

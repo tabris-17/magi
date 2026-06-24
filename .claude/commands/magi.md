@@ -2,6 +2,7 @@
 description: Run the magi CLI — upgrade/launch/workflow/run/deploy/migrate
 argument-hint: upgrade dev|prod · launch dev|prod · stop dev|prod · workflow · run --env dev|prod · deploy [target] · migrate up
 allowed-tools: Bash
+model: haiku
 ---
 Run `./magi $ARGUMENTS` from the repo root (/Users/kai/Documents/development/magi) and
 report the result. If `$ARGUMENTS` is empty, run `./magi --help` and show the usage.

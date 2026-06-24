@@ -13,7 +13,10 @@
     <div class="opt-row">
       <label class="opt-label" for="dest">Save to</label>
       <input id="dest" type="text" placeholder="/Users/kai/doc/_my_creations/saved stuffs" />
+      <button id="saveDir" class="btn" type="button" title="Save as this environment's default download folder">Save</button>
+      <span id="saveDirStatus" class="muted" aria-live="polite"></span>
     </div>
+    <div class="opt-hint muted">Default for <span id="envName"></span>. Blank = built-in.</div>
     <label class="chk"><input type="checkbox" id="datePrefix" checked /> Prefix filename with download date <span class="muted">(yyyyMMdd-)</span></label>
     <label class="chk"><input type="checkbox" id="metaChk" checked /> Log entry to <span class="muted">video-links.txt</span> (metadata)</label>
   </div>
@@ -72,6 +75,25 @@ async function checkHealth(){
     if(j.default_dir && !$("dest").value) $("dest").value = j.default_dir;
     if(j.default_dir) $("dldir").textContent = j.default_dir;
   } catch(e){}
+}
+
+// Persist the "Save to" folder as this environment's default download dir. POSTs to the
+// host /api/settings with NO env, so it saves for the box's own MAGI_ENV (env-scoped,
+// "user profile" — see CLAUDE.md). Empty clears it back to the built-in default.
+async function saveDir(){
+  const btn = $("saveDir"), status = $("saveDirStatus"), val = $("dest").value.trim();
+  btn.disabled = true; status.textContent = "saving…";
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "youtube_download_dir", value: val }),
+    });
+    const d = await r.json().catch(() => ({}));
+    status.textContent = r.ok ? "saved as default ✓" : (d.error || "error");
+    if(r.ok) $("dldir").textContent = val || $("dest").placeholder;
+  } catch(e){ status.textContent = "error"; }
+  finally { btn.disabled = false; setTimeout(() => { status.textContent = ""; }, 2500); }
 }
 
 async function fetchInfo(){
@@ -226,6 +248,9 @@ function showError(msg){
 
 $("fetch").addEventListener("click", fetchInfo);
 $("url").addEventListener("keydown", (e) => { if(e.key === "Enter") fetchInfo(); });
+$("saveDir").addEventListener("click", saveDir);
+$("dest").addEventListener("keydown", (e) => { if(e.key === "Enter") saveDir(); });
+$("envName").textContent = document.documentElement.getAttribute("data-env") || "this machine";
 if (window.innerWidth > 860) $("url").focus();
 checkHealth();
 </script>

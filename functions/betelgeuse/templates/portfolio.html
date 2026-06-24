@@ -58,6 +58,28 @@
             flex-direction: column;
         }
 
+        /* Name → Symbol search-as-you-type dropdown (reverse of the Symbol→Name autofill). */
+        .name-search { position: relative; }
+        .name-suggest {
+            position: absolute; left: 0; right: 0; top: calc(100% + 3px); z-index: 30;
+            background: var(--bt-surface);
+            border: 1px solid rgba(var(--bt-slate-rgb), 0.6); border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            max-height: 280px; overflow-y: auto; padding: 4px;
+        }
+        .name-suggest[hidden] { display: none; }
+        .name-suggest-item {
+            display: flex; flex-direction: column; gap: 1px;
+            padding: 6px 9px; border-radius: 6px; cursor: pointer;
+        }
+        .name-suggest-item:hover,
+        .name-suggest-item.active { background: rgba(var(--bt-accent-rgb), 0.18); }
+        .name-suggest-item .ns-name {
+            font-size: 0.85rem; color: var(--bt-fg);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .name-suggest-item .ns-sym { font-size: 0.72rem; color: var(--bt-fg-muted); }
+
         /* Inline field status (e.g. background Monitor-price fetch): spinner + message. */
         .field-status {
             margin-top: 0.4rem;
@@ -498,7 +520,10 @@
                 </div>
                 <div class="form-group">
                     <label for="name">Name</label>
-                    <input type="text" id="name" placeholder="Company or Asset Name">
+                    <div class="name-search">
+                        <input type="text" id="name" placeholder="Company or Asset Name" autocomplete="off">
+                        <div id="nameSuggest" class="name-suggest" hidden></div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="group">Group *</label>
@@ -903,6 +928,7 @@
              }
              loadGroupOptions(true);
              initSymbolField();
+             initNameSearch();
         });
 
         // Context-aware Symbol box via the shared SymbolField component. onResolve does
@@ -934,6 +960,107 @@
                 symbolField.refresh();
                 symbolField.resolveNow();
             });
+        }
+
+        // Reverse direction: type in the Name box to search the static-data catalog by name
+        // and pick a match, which fills the Symbol box. This is the mirror of the Symbol→Name
+        // autofill above, and the two CANNOT form a cycle / hang:
+        //   • this search fires ONLY on the user 'input' event (real keystrokes);
+        //   • selecting a result fills both boxes with a plain `.value =` and SymbolField's
+        //     onResolve likewise writes Name via `.value =` — neither dispatches an 'input'
+        //     event, so a programmatic fill never re-triggers the other side's lookup.
+        // A `suppress` flag guards the one re-entrant window (resolveNow → onResolve) as
+        // belt-and-suspenders. Requests are debounced + raced with a seq token + AbortController.
+        function initNameSearch() {
+            const nameInput = document.getElementById('name');
+            const symbolInput = document.getElementById('symbol');
+            const marketSelect = document.getElementById('market');
+            const box = document.getElementById('nameSuggest');
+            if (!nameInput || !symbolInput || !marketSelect || !box) return;
+
+            // market → static-data search endpoint + row→{symbol,name,extra} mapper.
+            // JP has no static-data catalog, so it's intentionally absent (no autocomplete).
+            const SEARCH = {
+                hk:     { url: 'hk/securities',   map: r => ({ symbol: r.stock_code, name: r.name, extra: r.category }) },
+                us:     { url: 'us/securities',   map: r => ({ symbol: r.symbol,     name: r.name, extra: r.board }) },
+                crypto: { url: 'coingecko/coins', map: r => ({ symbol: (r.symbol || '').toUpperCase(), name: r.name, extra: r.coin_id }) },
+            };
+
+            let timer = null, seq = 0, ctrl = null, suppress = false, items = [], active = -1;
+
+            function close() { box.hidden = true; box.replaceChildren(); items = []; active = -1; }
+
+            function pick(it) {
+                if (!it) return;
+                suppress = true;
+                nameInput.value = it.name;
+                symbolInput.value = it.symbol;
+                close();
+                // Canonicalize the symbol + run the existing onResolve (name + monitor prefill).
+                // onResolve writes Name via `.value =` (no 'input' event) → can't re-enter here.
+                if (symbolField) symbolField.resolveNow();
+                suppress = false;
+            }
+
+            function highlight() {
+                [...box.children].forEach((el, i) => el.classList.toggle('active', i === active));
+            }
+
+            function render(rows, cfg) {
+                const seen = new Set();
+                items = rows.map(cfg.map)
+                    .filter(it => it.symbol && it.name && !seen.has(it.symbol) && seen.add(it.symbol))
+                    .slice(0, 8);
+                active = -1;
+                if (!items.length) { close(); return; }
+                box.replaceChildren(...items.map((it, i) => {
+                    const row = document.createElement('div');
+                    row.className = 'name-suggest-item';
+                    const nm = document.createElement('span');
+                    nm.className = 'ns-name'; nm.textContent = it.name;
+                    const sy = document.createElement('span');
+                    sy.className = 'ns-sym'; sy.textContent = it.symbol + (it.extra ? '  ·  ' + it.extra : '');
+                    row.append(nm, sy);
+                    // mousedown (not click) so it fires before the input's blur closes the box.
+                    row.addEventListener('mousedown', e => { e.preventDefault(); pick(it); });
+                    return row;
+                }));
+                box.hidden = false;
+            }
+
+            async function search() {
+                const q = nameInput.value.trim();
+                const cfg = SEARCH[marketSelect.value];
+                if (!cfg || q.length < 2) { close(); return; }
+                const mine = ++seq;
+                if (ctrl) ctrl.abort();
+                ctrl = new AbortController();
+                try {
+                    const res = await fetch(
+                        `/betelgeuse/api/admin/static-data/${cfg.url}?q=${encodeURIComponent(q)}&per_page=12`,
+                        { signal: ctrl.signal });
+                    if (mine !== seq) return;          // a newer keystroke superseded us
+                    if (!res.ok) { close(); return; }
+                    const data = await res.json();
+                    if (mine !== seq) return;
+                    render(data.rows || [], cfg);
+                } catch (e) { if (e.name !== 'AbortError') close(); }
+            }
+
+            nameInput.addEventListener('input', () => {
+                if (suppress) return;                  // ignore our own programmatic writes (defensive)
+                clearTimeout(timer);
+                timer = setTimeout(search, 250);
+            });
+            nameInput.addEventListener('keydown', e => {
+                if (box.hidden || !items.length) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, items.length - 1); highlight(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); highlight(); }
+                else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
+                else if (e.key === 'Escape') { close(); }
+            });
+            nameInput.addEventListener('blur', () => setTimeout(close, 150));  // let mousedown land first
+            marketSelect.addEventListener('change', close);
         }
 
         // Status line under the Monitor Price box. state ∈ 'loading'|'ok'|'warn'|null(hide).

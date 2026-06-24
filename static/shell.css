@@ -126,7 +126,19 @@
 
 /* ---- sub-navigation (a function's own pages, shown under it) -------- */
 .magi-nav-sub { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
-.magi-nav-sub .magi-nav-item { padding-left: 34px; font-size: 13.5px; }
+.magi-nav-sub .magi-nav-item { position: relative; padding-left: 34px; font-size: 13.5px; }
+/* tree connectors: a vertical rail down the group (under the parent icon) with an
+   elbow tick to each child — last child's rail stops at the elbow (└), others run
+   through (├). Aligned to the parent nav-item icon's centre (left: 16px). */
+.magi-nav-sub .magi-nav-item::before {
+  content: ""; position: absolute; left: 16px; top: 0; bottom: 0;
+  width: 1px; background: var(--border);
+}
+.magi-nav-sub .magi-nav-item:last-child::before { bottom: 50%; }
+.magi-nav-sub .magi-nav-item::after {
+  content: ""; position: absolute; left: 16px; top: 50%;
+  width: 10px; height: 1px; background: var(--border);
+}
 
 /* ---- version label (bottom of sidebar) ----------------------------- */
 .magi-ver {
