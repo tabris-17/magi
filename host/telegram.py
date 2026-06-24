@@ -10,6 +10,7 @@ Uses stdlib urllib (the host deliberately avoids the `requests` dependency — s
 as /api/prod/health). All calls return (value, error) tuples; never raise to the route.
 """
 import json
+import ssl
 import urllib.error
 import urllib.request
 
@@ -17,6 +18,18 @@ from host import db as hostdb
 
 API = "https://api.telegram.org/bot{token}/{method}"
 TIMEOUT = 10
+
+
+def _ssl_context():
+    """Verify TLS against the OS trust store via truststore, so a corporate/firewall
+    TLS-intercepting proxy whose self-signed root CA the OS already trusts doesn't break
+    api.telegram.org. Falls back to Python's default verifying context when truststore
+    isn't installed. Verification is NEVER disabled. (Same pattern as the taxation fn.)"""
+    try:
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    except Exception:  # noqa: BLE001
+        return None  # urlopen(context=None) uses the default verifying context
 
 
 def get_config():
@@ -42,7 +55,7 @@ def _call(token, method, *, params=None, post=False):
                 headers={"Content-Type": "application/json"}, method="POST")
         else:
             req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=_ssl_context()) as resp:
             return json.loads(resp.read().decode("utf-8")), None
     except urllib.error.HTTPError as e:
         # Telegram returns a JSON body with a `description` even on 4xx — surface it.
