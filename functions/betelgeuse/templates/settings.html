@@ -45,6 +45,9 @@
             top: 100px;
         }
 
+        /* Promoted into the magi sidebar → hide the in-page nav (kept in DOM for JS). */
+        .settings-shell.embedded .settings-nav { display: none; }
+
         .nav-item {
             display: flex;
             align-items: center;
@@ -587,7 +590,11 @@
     </div>
 
     <div class="content">
-        <div class="settings-shell">
+        {# Inside the magi host (nav_functions injected) the admin tree is promoted into
+           the main sidebar, so hide this in-page nav (.embedded) and let the detail fill
+           the width. The nav stays in the DOM — openPanelFromHash/selectPanel resolve the
+           active panel via its .nav-item items. Standalone betelgeuse keeps the nav. #}
+        <div class="settings-shell{{ ' embedded' if nav_functions }}">
             <!-- Left: settings navigation -->
             <nav class="settings-nav">
                 <div class="nav-group open" id="adminGroup">
@@ -646,7 +653,7 @@
 
                         <div class="form-group">
                             <label for="defaultTimezone">Default Timezone</label>
-                            <select id="defaultTimezone" style="width:100%;padding:0.625rem 0.875rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:#e6edf3;font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                            <select id="defaultTimezone" style="width:100%;padding:0.625rem 0.875rem;background:var(--bt-surface-3);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:var(--bt-fg);font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
                                 <optgroup label="🇦🇺 Australia">
                                     <option value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</option>
                                     <option value="Australia/Brisbane">Australia/Brisbane (AEST, no DST)</option>
@@ -672,7 +679,7 @@
                                     <option value="UTC">UTC</option>
                                 </optgroup>
                             </select>
-                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Used for recurring notification scheduling.</div>
+                            <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin-top:0.4rem;">Used for recurring notification scheduling.</div>
                         </div>
 
                         <div id="generalSuccessMsg" class="success-message"></div>
@@ -692,15 +699,15 @@
 
                         <!-- HK Securities -->
                         <div style="margin-bottom:1.5rem;">
-                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🇭🇰 HK Securities</div>
+                            <div style="font-weight:700;color:var(--bt-fg-2);font-size:1rem;margin-bottom:0.75rem;">🇭🇰 HK Securities</div>
                             <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
-                                    <span id="hkLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="hkLastUpdated" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Securities</span><br>
-                                    <span id="hkRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Securities</span><br>
+                                    <span id="hkRowCount" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                             </div>
                             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -722,20 +729,20 @@
                                 <div class="static-url-hint">Leave the box empty to fall back to the default (shown as the placeholder).</div>
                                 <span id="hkUrlMsg" class="static-url-msg"></span>
                             </div>
-                            <div id="hkStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                            <div id="hkStatus" style="margin-top:0.5rem;font-size:0.85rem;color:var(--bt-fg-muted);"></div>
                         </div>
 
                         <!-- CoinGecko Catalog -->
                         <div style="margin-bottom:1.5rem;">
-                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🦎 CoinGecko Catalog</div>
+                            <div style="font-weight:700;color:var(--bt-fg-2);font-size:1rem;margin-bottom:0.75rem;">🦎 CoinGecko Catalog</div>
                             <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
-                                    <span id="cgLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="cgLastUpdated" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Coins</span><br>
-                                    <span id="cgRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Coins</span><br>
+                                    <span id="cgRowCount" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                             </div>
                             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -757,20 +764,20 @@
                                 <div class="static-url-hint">Leave the box empty to fall back to the default (shown as the placeholder).</div>
                                 <span id="cgUrlMsg" class="static-url-msg"></span>
                             </div>
-                            <div id="cgStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                            <div id="cgStatus" style="margin-top:0.5rem;font-size:0.85rem;color:var(--bt-fg-muted);"></div>
                         </div>
 
                         <!-- US Securities (Nasdaq Trader symbol directory) -->
                         <div style="margin-bottom:1.5rem;">
-                            <div style="font-weight:700;color:#c9d1d9;font-size:1rem;margin-bottom:0.75rem;">🇺🇸 US Securities <span style="font-weight:400;color:#6e7681;font-size:0.8rem;">(NASDAQ + NYSE/AMEX/ARCA/BATS/IEX)</span></div>
+                            <div style="font-weight:700;color:var(--bt-fg-2);font-size:1rem;margin-bottom:0.75rem;">🇺🇸 US Securities <span style="font-weight:400;color:var(--bt-fg-subtle);font-size:0.8rem;">(NASDAQ + NYSE/AMEX/ARCA/BATS/IEX)</span></div>
                             <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
-                                    <span id="usLastUpdated" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last updated</span><br>
+                                    <span id="usLastUpdated" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                                 <div>
-                                    <span style="color:#6e7681;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Tickers</span><br>
-                                    <span id="usRowCount" style="color:#e6edf3;font-size:0.9rem;">—</span>
+                                    <span style="color:var(--bt-fg-subtle);font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Tickers</span><br>
+                                    <span id="usRowCount" style="color:var(--bt-fg);font-size:0.9rem;">—</span>
                                 </div>
                             </div>
                             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -802,7 +809,7 @@
                                 <div class="static-url-hint">Leave a box empty to fall back to its default (shown as the placeholder).</div>
                                 <span id="usOtherUrlMsg" class="static-url-msg"></span>
                             </div>
-                            <div id="usStatus" style="margin-top:0.5rem;font-size:0.85rem;color:#7d8590;"></div>
+                            <div id="usStatus" style="margin-top:0.5rem;font-size:0.85rem;color:var(--bt-fg-muted);"></div>
                         </div>
                     </div>
                 </div>
@@ -815,7 +822,7 @@
                             Telegram Notifications
                         </div>
 
-                        <div style="background:rgba(47,129,247, 0.06);border:1px solid rgba(88,166,255, 0.15);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.85rem;color:#7d8590;line-height:1.7;">
+                        <div style="background:rgba(47,129,247, 0.06);border:1px solid rgba(88,166,255, 0.15);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.85rem;color:var(--bt-fg-muted);line-height:1.7;">
                             <strong style="color:#58a6ff;">Setup steps:</strong><br>
                             1. Open Telegram and search for <code style="color:#79c0ff;">@BotFather</code> → type <code style="color:#79c0ff;">/newbot</code> → follow prompts → copy the bot token.<br>
                             2. Start a chat with your new bot by sending it <code style="color:#79c0ff;">/start</code>.<br>
@@ -859,11 +866,11 @@
 
                         <div class="form-group" style="margin-bottom:0;">
                             <label for="hkChartProvider">Chart type</label>
-                            <select id="hkChartProvider" onchange="saveHkChartProvider()" style="width:100%;padding:0.5rem 0.65rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:6px;color:#e6edf3;font-size:0.82rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                            <select id="hkChartProvider" onchange="saveHkChartProvider()" style="width:100%;padding:0.5rem 0.65rem;background:var(--bt-surface-3);border:1px solid rgba(125,133,144, 0.2);border-radius:6px;color:var(--bt-fg);font-size:0.82rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
                                 <option value="aastocks">AAStocks</option>
                                 <option value="yfinance">App-Rendered</option>
                             </select>
-                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">How HK charts render everywhere (cards, detail view, expanders). <b>AAStocks</b> embeds the live GIFs from the URL card below; <b>App-Rendered</b> draws candlesticks from market data — same as JP/US — and the URL templates are then unused. HK prices &amp; performance are yfinance-backed either way.</div>
+                            <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin-top:0.4rem;">How HK charts render everywhere (cards, detail view, expanders). <b>AAStocks</b> embeds the live GIFs from the URL card below; <b>App-Rendered</b> draws candlesticks from market data — same as JP/US — and the URL templates are then unused. HK prices &amp; performance are yfinance-backed either way.</div>
                             <div id="hkChartProviderMsg" class="success-message" style="margin-top:0.5rem;margin-bottom:0;padding:0.4rem 0.7rem;font-size:0.8rem;">✓ Saved</div>
                         </div>
                     </div>
@@ -873,7 +880,7 @@
                             <span class="settings-icon">🔗</span>
                             AAStocks URL Configuration
                         </div>
-                        <div style="font-size:0.78rem;color:#6e7681;margin:-0.5rem 0 1.25rem;">Used only when <b>Chart type</b> above is set to <b>AAStocks</b>.</div>
+                        <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin:-0.5rem 0 1.25rem;">Used only when <b>Chart type</b> above is set to <b>AAStocks</b>.</div>
                         <form id="settingsForm">
                             <div class="form-group">
                                 <label for="url3ms">3 Months (Small) URL Template</label>
@@ -918,16 +925,16 @@
                         <div class="form-group">
                             <label for="coingeckoApiUrl">CoinGecko API Base URL</label>
                             <input type="text" id="coingeckoApiUrl" placeholder="https://api.coingecko.com/api/v3">
-                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Leave as default unless you use a proxy or self-hosted instance.</div>
+                            <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin-top:0.4rem;">Leave as default unless you use a proxy or self-hosted instance.</div>
                         </div>
 
                         <div class="form-group">
-                            <label for="coingeckoApiKey">API Key <span style="color:#484f58;font-weight:400;">(optional — for higher rate limits)</span></label>
+                            <label for="coingeckoApiKey">API Key <span style="color:var(--bt-fg-faint);font-weight:400;">(optional — for higher rate limits)</span></label>
                             <div style="display:flex;gap:0.5rem;align-items:center;">
                                 <input type="password" id="coingeckoApiKey" placeholder="CG-xxxxxxxxxxxxxxxxxxxx" style="flex:1;">
                                 <button class="btn btn-secondary" onclick="toggleCgKeyVisibility()" style="white-space:nowrap;">👁 Show</button>
                             </div>
-                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">Free Demo API key from CoinGecko gives higher rate limits. Without a key the free public API is used (30 req/min).</div>
+                            <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin-top:0.4rem;">Free Demo API key from CoinGecko gives higher rate limits. Without a key the free public API is used (30 req/min).</div>
                         </div>
 
                         <div id="cryptoSuccessMsg" class="success-message"></div>
@@ -1007,15 +1014,15 @@
                                 <span class="settings-icon">🗄️</span>
                                 Database Tool
                             </div>
-                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1rem;line-height:1.6;">
+                            <div style="font-size:0.85rem;color:var(--bt-fg-muted);margin-bottom:1rem;line-height:1.6;">
                                 Browse every table in <code style="color:#79c0ff;">portfolio.db</code>. Tables are auto-discovered from the database — any new table appears here automatically. Read-only.
                             </div>
                             <div id="dbTableList" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-                                <span style="color:#6e7681;font-size:0.85rem;">Loading tables…</span>
+                                <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading tables…</span>
                             </div>
                             <div id="dbTableView" style="display:none;">
                                 <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-                                    <span id="dbTableName" style="font-weight:700;color:#e6edf3;font-size:1rem;"></span>
+                                    <span id="dbTableName" style="font-weight:700;color:var(--bt-fg);font-size:1rem;"></span>
                                     <span id="dbTableCount" class="sec-count"></span>
                                 </div>
                                 <div class="sec-table-wrap">
@@ -1040,7 +1047,7 @@
                                 <span class="settings-icon">🩺</span>
                                 Application Health
                             </div>
-                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1.25rem;line-height:1.6;">
+                            <div style="font-size:0.85rem;color:var(--bt-fg-muted);margin-bottom:1.25rem;line-height:1.6;">
                                 Runtime mode, component versions, and whether the background worker (the
                                 scheduler "server") is alive. The worker reports a heartbeat every 30s;
                                 it shows <b>Down</b> if no beat has arrived in ~90s.
@@ -1049,14 +1056,14 @@
                                 <button class="tools-refresh" onclick="loadAppHealth()">↻ Refresh</button>
                             </div>
                             <div id="ahBody">
-                                <span style="color:#6e7681;font-size:0.85rem;">Loading…</span>
+                                <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading…</span>
                             </div>
                             {% if app_env == 'dev' %}
                             <div class="ah-produrl">
                                 <label for="ahProdUrl">Prod URL</label>
                                 <input id="ahProdUrl" type="text" placeholder="auto — from deploy/config.sh" />
                                 <button onclick="saveProdUrl()">Save</button>
-                                <span id="ahProdUrlMsg" style="font-size:0.8rem;color:#6e7681;"></span>
+                                <span id="ahProdUrlMsg" style="font-size:0.8rem;color:var(--bt-fg-subtle);"></span>
                             </div>
                             {% endif %}
                         </div>
@@ -1069,7 +1076,7 @@
                                 <span class="settings-icon">🧬</span>
                                 Database Migrations
                             </div>
-                            <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1rem;line-height:1.6;">
+                            <div style="font-size:0.85rem;color:var(--bt-fg-muted);margin-bottom:1rem;line-height:1.6;">
                                 Versioned, reversible schema changes. Definitions live in <code style="color:#79c0ff;">migrations/</code>
                                 (git); what has actually run on <b>this</b> DB is the ledger below. Every up/down
                                 takes an automatic timestamped backup first.
@@ -1080,7 +1087,7 @@
                                 <button class="tools-refresh" onclick="loadMigrations()">↻ Refresh</button>
                             </div>
                             <div id="migBody">
-                                <span style="color:#6e7681;font-size:0.85rem;">Loading…</span>
+                                <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading…</span>
                             </div>
                         </div>
                     </div>
@@ -1104,38 +1111,38 @@
                             <span class="settings-icon">📊</span>
                             Market Data
                         </div>
-                        <div style="font-size:0.85rem;color:#7d8590;margin-bottom:1.25rem;line-height:1.6;">
+                        <div style="font-size:0.85rem;color:var(--bt-fg-muted);margin-bottom:1.25rem;line-height:1.6;">
                             Market-data providers, cache statistics and controls — categorized by market. Each
                             market can be served by one or more providers; pick the active one. Cached data is
                             reused until it ages past the freshness window, then refetched on demand.
                         </div>
                         <!-- Global settings (apply to all markets / the backload component) -->
-                        <div style="background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
-                            <div style="font-weight:700;color:#c9d1d9;font-size:0.9rem;margin-bottom:0.4rem;">⚙️ Backload settings <span style="font-weight:400;color:#6e7681;font-size:0.78rem;">· all markets</span></div>
-                            <div style="font-size:0.82rem;color:#7d8590;margin-bottom:0.75rem;line-height:1.5;">
+                        <div style="background:var(--bt-surface);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:var(--bt-fg-2);font-size:0.9rem;margin-bottom:0.4rem;">⚙️ Backload settings <span style="font-weight:400;color:var(--bt-fg-subtle);font-size:0.78rem;">· all markets</span></div>
+                            <div style="font-size:0.82rem;color:var(--bt-fg-muted);margin-bottom:0.75rem;line-height:1.5;">
                                 The earliest date the worker fills daily history back to (for stocks; crypto is best-effort
                                 via the provider's deepest window). Also the start date used by <b>Rebuild cache</b>.
                             </div>
                             <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap;">
-                                <label style="color:#7d8590;font-size:0.85rem;">Start date</label>
-                                <input type="date" id="mdBackloadStart" style="padding:0.4rem 0.6rem;background:rgba(13,17,23, 0.6);border:1px solid rgba(125,133,144, 0.2);border-radius:7px;color:#e6edf3;font-size:0.85rem;">
+                                <label style="color:var(--bt-fg-muted);font-size:0.85rem;">Start date</label>
+                                <input type="date" id="mdBackloadStart" style="padding:0.4rem 0.6rem;background:var(--bt-surface-3);border:1px solid rgba(125,133,144, 0.2);border-radius:7px;color:var(--bt-fg);font-size:0.85rem;">
                                 <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;" onclick="saveMdBackloadStart()">Save</button>
-                                <span id="mdBackloadMsg" style="font-size:0.82rem;color:#7d8590;"></span>
+                                <span id="mdBackloadMsg" style="font-size:0.82rem;color:var(--bt-fg-muted);"></span>
                             </div>
                         </div>
                         <!-- Background reload indicator (worker's recurring prefetch + backfill jobs) -->
-                        <div style="background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
-                            <div style="font-weight:700;color:#c9d1d9;font-size:0.9rem;margin-bottom:0.3rem;">🔁 Background reload <span style="font-weight:400;color:#6e7681;font-size:0.78rem;">· runs in the worker</span></div>
-                            <div style="font-size:0.8rem;color:#7d8590;margin-bottom:0.7rem;line-height:1.5;">
-                                <b style="color:#c9d1d9;">Forward-fill</b> keeps the newest prices current; <b style="color:#c9d1d9;">backward-fill</b> extends daily history back to the start date.
+                        <div style="background:var(--bt-surface);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;">
+                            <div style="font-weight:700;color:var(--bt-fg-2);font-size:0.9rem;margin-bottom:0.3rem;">🔁 Background reload <span style="font-weight:400;color:var(--bt-fg-subtle);font-size:0.78rem;">· runs in the worker</span></div>
+                            <div style="font-size:0.8rem;color:var(--bt-fg-muted);margin-bottom:0.7rem;line-height:1.5;">
+                                <b style="color:var(--bt-fg-2);">Forward-fill</b> keeps the newest prices current; <b style="color:var(--bt-fg-2);">backward-fill</b> extends daily history back to the start date.
                             </div>
                             <div id="mdJobs" style="display:flex;flex-direction:column;gap:0.5rem;">
-                                <span style="color:#6e7681;font-size:0.82rem;">Loading job status…</span>
+                                <span style="color:var(--bt-fg-subtle);font-size:0.82rem;">Loading job status…</span>
                             </div>
                         </div>
                         <!-- Market sub-tabs -->
                         <div id="mdTabs" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1.5rem;">
-                            <span style="color:#6e7681;font-size:0.85rem;">Loading markets…</span>
+                            <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading markets…</span>
                         </div>
                         <!-- Active market sub-panel (rendered by JS) -->
                         <div id="mdBody"></div>
@@ -1186,7 +1193,7 @@
                         <div class="form-group">
                             <label for="fxBaseCurrency">Base Currency</label>
                             <div class="fx-base-row">
-                                <select id="fxBaseCurrency" style="flex:0 0 auto;min-width:160px;padding:0.625rem 0.875rem;background:rgba(13,17,23, 0.5);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:#e6edf3;font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
+                                <select id="fxBaseCurrency" style="flex:0 0 auto;min-width:160px;padding:0.625rem 0.875rem;background:var(--bt-surface-3);border:1px solid rgba(125,133,144, 0.2);border-radius:8px;color:var(--bt-fg);font-size:0.9rem;appearance:none;-webkit-appearance:none;padding-right:2rem;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%237d8590' stroke-width='1.5'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 0.65rem center;">
                                     <option value="HKD">HKD</option>
                                     <option value="USD">USD</option>
                                     <option value="AUD">AUD</option>
@@ -1194,7 +1201,7 @@
                                 <button class="btn btn-primary" onclick="saveFxBaseCurrency()">💾 Save</button>
                                 <button class="btn btn-secondary" onclick="loadFx()">🔄 Refresh</button>
                             </div>
-                            <div style="font-size:0.78rem;color:#6e7681;margin-top:0.4rem;">All portfolio P&amp;L is normalized to this currency.</div>
+                            <div style="font-size:0.78rem;color:var(--bt-fg-subtle);margin-top:0.4rem;">All portfolio P&amp;L is normalized to this currency.</div>
                         </div>
 
                         <div id="fxBaseMsg" class="success-message"></div>
@@ -1204,7 +1211,7 @@
                         </div>
 
                         <div id="fxGridHost">
-                            <span style="color:#6e7681;font-size:0.85rem;">Loading rates…</span>
+                            <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading rates…</span>
                         </div>
 
                         <div class="fx-foot">
@@ -1288,7 +1295,7 @@
                     : `<span class="mig-badge up">${st.pending.length} pending</span>`);
             let html = `<div class="mig-verline">
                 DB <span class="mig-pill ${gate === 'OK' ? 'ok' : 'cur'}">v${st.current}</span>
-                <span style="color:#6e7681;">→ code</span>
+                <span style="color:var(--bt-fg-subtle);">→ code</span>
                 <span class="mig-pill head">v${st.head}</span>
                 ${badge}
             </div>`;
@@ -1323,7 +1330,7 @@
 
             html += '<div class="ah-section-title">Applied ledger</div>';
             if (!hist.length) {
-                html += '<span style="color:#6e7681;font-size:0.85rem;">(nothing recorded yet)</span>';
+                html += '<span style="color:var(--bt-fg-subtle);font-size:0.85rem;">(nothing recorded yet)</span>';
             } else {
                 html += '<ul class="mig-list">';
                 for (const r of hist) {
@@ -1472,7 +1479,7 @@
 
         async function loadAppHealth() {
             const body = document.getElementById('ahBody');
-            body.innerHTML = '<span style="color:#6e7681;font-size:0.85rem;">Loading…</span>';
+            body.innerHTML = '<span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading…</span>';
             try {
                 const h = await (await fetch('/betelgeuse/api/health')).json();
                 const env = h.env || 'dev';
@@ -1480,7 +1487,7 @@
                 html += `<div class="ah-grid">${ahHealthCards(h)}</div>`;
                 if (env === 'dev') {
                     html += `<div class="ah-section-title" id="ahProdTitle">Prod (mini)</div>`;
-                    html += `<div class="ah-grid" id="ahProdGrid"><span style="color:#6e7681;font-size:0.85rem;">Probing prod…</span></div>`;
+                    html += `<div class="ah-grid" id="ahProdGrid"><span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Probing prod…</span></div>`;
                 }
                 body.innerHTML = html;
 
@@ -1519,7 +1526,7 @@
             const msg = document.getElementById('ahProdUrlMsg');
             if (!input) return;
             msg.textContent = 'Saving…';
-            msg.style.color = '#6e7681';
+            msg.style.color = 'var(--bt-fg-subtle)';
             try {
                 const resp = await fetch('/betelgeuse/api/settings', {
                     method: 'POST',
@@ -1621,7 +1628,7 @@
                     <td class="fx-pair">${escMig(base)} <span class="fx-arrow">→</span> ${escMig(ccy)}&nbsp; <span class="fx-rate">${fxFmt(rate)}</span></td>
                     <td class="fx-pair">${escMig(ccy)} <span class="fx-arrow">→</span> ${escMig(base)}&nbsp; <span class="fx-rate">${fxFmt(inv)}</span></td>
                     <td><span class="fx-src ${live ? 'live' : 'fallback'}">${live ? 'Live' : 'Fallback'}</span></td>
-                    <td style="color:#6e7681;">${live ? escMig(fxAgo(ts)) : '—'}</td>
+                    <td style="color:var(--bt-fg-subtle);">${live ? escMig(fxAgo(ts)) : '—'}</td>
                 </tr>`;
             }).join('');
             return `<table class="fx-grid">
@@ -1761,6 +1768,11 @@
             openPanelFromHash();
         });
 
+        // Same-page panel switching: the promoted sidebar tree (header.html) links to
+        // /settings#<panel>, so a click while already here only changes the hash (no
+        // reload) — re-run the deep-link resolver on hashchange.
+        window.addEventListener('hashchange', openPanelFromHash);
+
         // Deep-link support: /settings#static-data opens that panel (expanding its
         // nav group). Used by the "data is stale" prompt in header.html. A Tools-alias
         // hash (#app-health / #db-migrations / #database-tool) resolves to the Tools nav item.
@@ -1875,7 +1887,7 @@
             if (category) params.set('category', category);
 
             const body = document.getElementById('secTableBody');
-            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+            body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Loading…</td></tr>';
 
             const res = await fetch(`/betelgeuse/api/admin/static-data/hk/securities?${params}`);
             const data = await res.json();
@@ -1899,7 +1911,7 @@
             document.getElementById('secNextBtn').disabled = data.page >= data.pages;
 
             body.innerHTML = data.rows.length === 0
-                ? '<tr><td colspan="5" style="text-align:center;color:#6e7681;padding:2rem;">No results</td></tr>'
+                ? '<tr><td colspan="5" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">No results</td></tr>'
                 : data.rows.map(r => `
                     <tr>
                         <td class="code">${r.stock_code}</td>
@@ -1943,7 +1955,7 @@
             btn.disabled = true;
             btn.textContent = '⏳ Downloading…';
             status.textContent = 'Fetching the Nasdaq Trader symbol directory (both files)…';
-            status.style.color = '#7d8590';
+            status.style.color = 'var(--bt-fg-muted)';
             try {
                 const res = await fetch('/betelgeuse/api/admin/static-data/us/download', { method: 'POST' });
                 const data = await res.json();
@@ -1973,7 +1985,7 @@
             btn.disabled = true;
             btn.textContent = '⏳ Downloading…';
             status.textContent = 'Fetching the CoinGecko catalog, this may take a few seconds…';
-            status.style.color = '#7d8590';
+            status.style.color = 'var(--bt-fg-muted)';
             try {
                 const res = await fetch('/betelgeuse/api/admin/static-data/coingecko/download', { method: 'POST' });
                 const data = await res.json();
@@ -2025,7 +2037,7 @@
             if (q) params.set('q', q);
 
             const body = document.getElementById('cgTableBody');
-            body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+            body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Loading…</td></tr>';
 
             const res = await fetch(`/betelgeuse/api/admin/static-data/coingecko/coins?${params}`);
             const data = await res.json();
@@ -2038,7 +2050,7 @@
             document.getElementById('cgNextBtn').disabled = data.page >= data.pages;
 
             body.innerHTML = data.rows.length === 0
-                ? '<tr><td colspan="4" style="text-align:center;color:#6e7681;padding:2rem;">No results — try Download / Refresh first</td></tr>'
+                ? '<tr><td colspan="4" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">No results — try Download / Refresh first</td></tr>'
                 : data.rows.map(r => `
                     <tr>
                         <td class="lot">${r.market_cap_rank ?? '—'}</td>
@@ -2058,7 +2070,7 @@
                 const res = await fetch('/betelgeuse/api/admin/db/tables');
                 const data = await res.json();
                 if (!data.tables || !data.tables.length) {
-                    list.innerHTML = '<span style="color:#6e7681;font-size:0.85rem;">No tables found.</span>';
+                    list.innerHTML = '<span style="color:var(--bt-fg-subtle);font-size:0.85rem;">No tables found.</span>';
                     return;
                 }
                 list.innerHTML = data.tables.map(t =>
@@ -2070,7 +2082,7 @@
         }
 
         function escapeDbCell(v) {
-            if (v === null || v === undefined) return '<span style="color:#484f58;">NULL</span>';
+            if (v === null || v === undefined) return '<span style="color:var(--bt-fg-faint);">NULL</span>';
             let s = String(v);
             if (s.length > 160) s = s.slice(0, 160) + '…';
             return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2086,7 +2098,7 @@
             view.style.display = 'block';
             const head = document.getElementById('dbTableHead');
             const body = document.getElementById('dbTableBody');
-            body.innerHTML = '<tr><td style="text-align:center;color:#6e7681;padding:2rem;">Loading…</td></tr>';
+            body.innerHTML = '<tr><td style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Loading…</td></tr>';
 
             const res = await fetch(`/betelgeuse/api/admin/db/table/${encodeURIComponent(name)}?page=${page}&per_page=50`);
             const data = await res.json();
@@ -2105,7 +2117,7 @@
             document.getElementById('dbNextBtn').disabled = data.page >= data.pages;
 
             body.innerHTML = data.rows.length === 0
-                ? `<tr><td colspan="${data.columns.length || 1}" style="text-align:center;color:#6e7681;padding:2rem;">Empty table</td></tr>`
+                ? `<tr><td colspan="${data.columns.length || 1}" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Empty table</td></tr>`
                 : data.rows.map(r =>
                     `<tr>${data.columns.map(c => `<td>${escapeDbCell(r[c])}</td>`).join('')}</tr>`
                 ).join('');
@@ -2211,13 +2223,13 @@
                 const next = running ? '' : (j.next_run ? `· next ${mdFmtUntil(j.next_run)}` : '');
                 const err = j.last_error ? ` · <span style="color:#f85149;">last error: ${escapeDbCell(j.last_error)}</span>` : '';
                 return `<div class="md-job-row">
-                    <span style="min-width:215px;color:#c9d1d9;" title="${meta.tip || ''}">
+                    <span style="min-width:215px;color:var(--bt-fg-2);" title="${meta.tip || ''}">
                         ${meta.icon} ${meta.name}
                         <span style="color:#58a6ff;font-size:0.72rem;font-weight:600;">${meta.dir || ''}</span>
-                        <span style="color:#484f58;font-size:0.72rem;">· ${meta.every}</span>
+                        <span style="color:var(--bt-fg-faint);font-size:0.72rem;">· ${meta.every}</span>
                     </span>
                     ${indicator}
-                    <span style="color:#6e7681;">${last}${summary ? ` (${summary})` : ''} ${next}</span>${err}
+                    <span style="color:var(--bt-fg-subtle);">${last}${summary ? ` (${summary})` : ''} ${next}</span>${err}
                 </div>`;
             }).join('');
         }
@@ -2269,7 +2281,7 @@
             if (!m.available) {
                 body.innerHTML = `
                     <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;">
-                        <label style="color:#7d8590;font-size:0.85rem;">Provider</label>
+                        <label style="color:var(--bt-fg-muted);font-size:0.85rem;">Provider</label>
                         ${renderMdProviderSelect(m)}
                     </div>
                     <div style="background:rgba(210,153,34, 0.08);border:1px solid rgba(210,153,34, 0.25);border-radius:10px;padding:1.25rem;color:#e3b341;font-size:0.9rem;line-height:1.6;">
@@ -2279,24 +2291,24 @@
             }
             body.innerHTML = `
                 <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-                    <label style="color:#7d8590;font-size:0.85rem;">Provider</label>
+                    <label style="color:var(--bt-fg-muted);font-size:0.85rem;">Provider</label>
                     ${renderMdProviderSelect(m)}
                     <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;margin-left:auto;" onclick="rebuildMdCache()">🔄 Rebuild cache</button>
                     <button class="btn btn-secondary" style="font-size:0.85rem;padding:0.5rem 1rem;" onclick="clearMdCache()">🗑️ Clear cache</button>
                 </div>
-                <div id="mdRebuild" style="display:none;margin-bottom:1rem;background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:0.85rem 1.1rem;">
-                    <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:#c9d1d9;margin-bottom:0.5rem;">
+                <div id="mdRebuild" style="display:none;margin-bottom:1rem;background:var(--bt-surface);border:1px solid rgba(125,133,144, 0.15);border-radius:10px;padding:0.85rem 1.1rem;">
+                    <div style="display:flex;justify-content:space-between;font-size:0.82rem;color:var(--bt-fg-2);margin-bottom:0.5rem;">
                         <span id="mdRebuildLabel">Rebuilding…</span>
-                        <span id="mdRebuildCount" style="color:#7d8590;"></span>
+                        <span id="mdRebuildCount" style="color:var(--bt-fg-muted);"></span>
                     </div>
                     <div style="height:8px;background:rgba(125,133,144, 0.15);border-radius:5px;overflow:hidden;">
                         <div id="mdRebuildBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2f81f7,#58a6ff);transition:width 0.4s ease;"></div>
                     </div>
                 </div>
-                <div id="mdStats" style="margin-bottom:0.5rem;color:#7d8590;font-size:0.85rem;">Loading statistics…</div>
+                <div id="mdStats" style="margin-bottom:0.5rem;color:var(--bt-fg-muted);font-size:0.85rem;">Loading statistics…</div>
                 <div style="margin-top:1.5rem;">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-                        <span style="font-weight:700;color:#c9d1d9;font-size:0.95rem;">Cached instruments</span>
+                        <span style="font-weight:700;color:var(--bt-fg-2);font-size:0.95rem;">Cached instruments</span>
                         <input id="mdSearch" placeholder="Search symbol / id…" style="min-width:200px;" oninput="mdSearchInput(this.value)">
                     </div>
                     <div class="sec-table-wrap">
@@ -2311,7 +2323,7 @@
                         <button class="sec-page-btn" id="mdNextBtn" onclick="changeMdPage(1)">Next ›</button>
                     </div>
                 </div>
-                <div id="mdMsg" style="margin-top:0.75rem;font-size:0.85rem;color:#7d8590;"></div>`;
+                <div id="mdMsg" style="margin-top:0.75rem;font-size:0.85rem;color:var(--bt-fg-muted);"></div>`;
             loadMdStatus();
             loadMdInstruments();
             pollMdRebuild(market);   // resume the progress bar if a rebuild is already running
@@ -2324,14 +2336,14 @@
                 const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/status`);
                 const d = await res.json();
                 mdServerTime = d.server_time || null;
-                if (!d.available) { el.innerHTML = '<span style="color:#7d8590;">Not available.</span>'; return; }
+                if (!d.available) { el.innerHTML = '<span style="color:var(--bt-fg-muted);">Not available.</span>'; return; }
                 const s = d.stats;
                 const stat = (label, val) =>
-                    `<div><span style="color:#6e7681;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">${label}</span><br><span style="color:#e6edf3;font-size:0.95rem;">${val}</span></div>`;
+                    `<div><span style="color:var(--bt-fg-subtle);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.05em;">${label}</span><br><span style="color:var(--bt-fg);font-size:0.95rem;">${val}</span></div>`;
                 const pngs = s.extra && s.extra.rendered_pngs != null
                     ? `${s.extra.rendered_pngs} (${mdFmtBytes(s.extra.rendered_png_bytes)})` : '—';
                 el.innerHTML = `
-                    <div style="display:flex;gap:1.75rem;flex-wrap:wrap;background:rgba(13,17,23, 0.4);border:1px solid rgba(125,133,144, 0.12);border-radius:10px;padding:1rem 1.25rem;">
+                    <div style="display:flex;gap:1.75rem;flex-wrap:wrap;background:var(--bt-surface);border:1px solid rgba(125,133,144, 0.12);border-radius:10px;padding:1rem 1.25rem;">
                         ${stat('Provider', d.provider)}
                         ${stat('Instruments', (s.instruments || 0).toLocaleString())}
                         ${stat('OHLCV rows', (s.rows || 0).toLocaleString())}
@@ -2350,14 +2362,14 @@
         async function loadMdInstruments() {
             const body = document.getElementById('mdInstrBody');
             if (!body) return;
-            body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#6e7681;padding:1.5rem;">Loading…</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--bt-fg-subtle);padding:1.5rem;">Loading…</td></tr>';
             try {
                 const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/instruments?q=${encodeURIComponent(mdInstrQuery)}&page=${mdInstrPage}&per_page=25`);
                 const d = await res.json();
                 const now = mdServerTime || new Date().toISOString();
-                if (!d.available) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#7d8590;padding:1.5rem;">Not available.</td></tr>'; return; }
+                if (!d.available) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--bt-fg-muted);padding:1.5rem;">Not available.</td></tr>'; return; }
                 body.innerHTML = d.rows.length === 0
-                    ? '<tr><td colspan="7" style="text-align:center;color:#6e7681;padding:1.5rem;">No cached instruments.</td></tr>'
+                    ? '<tr><td colspan="7" style="text-align:center;color:var(--bt-fg-subtle);padding:1.5rem;">No cached instruments.</td></tr>'
                     : d.rows.map(r => `<tr>
                         <td class="code">${escapeDbCell(r.coin_id)}</td>
                         <td>${escapeDbCell(r.symbol || '—')}</td>
@@ -2410,7 +2422,7 @@
             if (!m) return;
             if (!confirm(`Clear all cached market data for ${m.name} (provider: ${m.active_provider})?\n\nThis deletes cached OHLCV rows and any rendered chart images. They will be re-fetched on demand.`)) return;
             const msg = document.getElementById('mdMsg');
-            if (msg) { msg.textContent = '⏳ Clearing…'; msg.style.color = '#7d8590'; }
+            if (msg) { msg.textContent = '⏳ Clearing…'; msg.style.color = 'var(--bt-fg-muted)'; }
             try {
                 const res = await fetch(`/betelgeuse/api/admin/market-data/${mdActiveMarket}/clear`, { method: 'POST' });
                 const d = await res.json();
@@ -2535,7 +2547,7 @@
             const btn = document.getElementById('detectBtn');
             const msg = document.getElementById('detectMsg');
             btn.disabled = true;
-            msg.style.color = '#7d8590';
+            msg.style.color = 'var(--bt-fg-muted)';
             msg.textContent = '⏳ Checking Telegram for recent messages…';
             try {
                 const res = await fetch('/betelgeuse/api/telegram/detect-chat-id', { method: 'POST' });
@@ -2590,7 +2602,7 @@
             btn.disabled = true;
             btn.textContent = '⏳ Downloading…';
             status.textContent = 'Fetching from HKEX, this may take a few seconds…';
-            status.style.color = '#7d8590';
+            status.style.color = 'var(--bt-fg-muted)';
             try {
                 const res = await fetch('/betelgeuse/api/admin/static-data/hk/download', { method: 'POST' });
                 const data = await res.json();

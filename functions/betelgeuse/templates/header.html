@@ -78,6 +78,44 @@
         <a class="magi-nav-item {{ 'active' if p == '/groups' }}" href="{{ base }}/groups">Groups</a>
         <a class="magi-nav-item {{ 'active' if p == '/notifications' }}" href="{{ base }}/notifications">Notifications</a>
         <a class="magi-nav-item {{ 'active' if p == '/settings' }}" href="{{ base }}/settings">Settings</a>
+        {% if p == '/settings' %}
+        {# Betelgeuse admin/settings panels promoted into the main menu — each deep-links
+           to the matching settings panel via #hash (settings.html openPanelFromHash).
+           Excludes Tools → Application Health and Tools → Migrations (those stay inside
+           the Settings page's Tools workbench). Collapse-when-inactive: only shown on
+           the settings page. #}
+        <div class="magi-subtree" id="betelSettingsNav">
+          <div class="magi-nav-sub2">
+            <a class="magi-nav-item" data-hash="general"       href="{{ base }}/settings#general">General</a>
+            <a class="magi-nav-item" data-hash="static-data"   href="{{ base }}/settings#static-data">Static Data</a>
+            <a class="magi-nav-item" data-hash="market-data"   href="{{ base }}/settings#market-data">Market Data</a>
+            <a class="magi-nav-item" data-hash="fx-rates"      href="{{ base }}/settings#fx-rates">FX Rates</a>
+            <a class="magi-nav-item" data-hash="telegram"      href="{{ base }}/settings#telegram">Telegram</a>
+            <a class="magi-nav-item" data-hash="database-tool" href="{{ base }}/settings#database-tool">Database</a>
+            <span class="magi-nav-item magi-nav-group">Markets</span>
+          </div>
+          <div class="magi-nav-sub3">
+            <a class="magi-nav-item" data-hash="stock-url"     href="{{ base }}/settings#stock-url">HK</a>
+            <a class="magi-nav-item" data-hash="crypto-config" href="{{ base }}/settings#crypto-config">Crypto</a>
+          </div>
+        </div>
+        <script>
+          // Highlight the sidebar panel matching the current #hash (default: general),
+          // and keep it in sync as the hash changes (same-page panel switches).
+          (function () {
+            var nav = document.getElementById('betelSettingsNav');
+            if (!nav) return;
+            function sync() {
+              var h = (location.hash || '#general').slice(1);
+              nav.querySelectorAll('.magi-nav-item').forEach(function (a) {
+                a.classList.toggle('active', a.getAttribute('data-hash') === h);
+              });
+            }
+            window.addEventListener('hashchange', sync);
+            sync();
+          })();
+        </script>
+        {% endif %}
         <a class="magi-nav-item {{ 'active' if p == '/training' }}" href="{{ base }}/training">Training</a>
         <a class="magi-nav-item {{ 'active' if p in ['/tracker', '/crypto'] }}" href="{{ base }}/tracker">Tracker <span style="opacity:.6">(legacy)</span></a>
       </div>

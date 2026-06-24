@@ -31,10 +31,10 @@
   --shadow: 0 8px 24px rgba(1,4,9,.6);
 }
 [data-theme="light"] {
-  --canvas: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #f6f8fa;
-  --surface-hover: #eaeef2;
+  --canvas: #f6f8fa;       /* soft off-white page — layered, not a flat pure-white sheet */
+  --surface: #ffffff;      /* white cards/elevated surfaces pop against the canvas */
+  --surface-2: #eaeef2;    /* subtle fills / hover / active nav (distinct from canvas) */
+  --surface-hover: #e1e6eb;
   --border: #d0d7de;
   --border-muted: #d8dee4;
   --fg: #1f2328;
@@ -167,6 +167,48 @@
 .magi-nav-sub .magi-nav-item::after {
   content: ""; position: absolute; left: 16px; top: 50%;
   width: 10px; height: 1px; background: var(--border);
+}
+
+/* second-level sub-nav (e.g. Betelgeuse → Settings → its panels) — deeper indent,
+   its own tree rail shifted right (left: 34px, under the level-1 label). */
+.magi-nav-sub2 { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; }
+.magi-nav-sub2 .magi-nav-item { position: relative; padding-left: 52px; font-size: 13px; }
+.magi-nav-sub2 .magi-nav-item::before {
+  content: ""; position: absolute; left: 34px; top: 0; bottom: 0;
+  width: 1px; background: var(--border);
+}
+.magi-nav-sub2 .magi-nav-item:last-child::before { bottom: 50%; }
+.magi-nav-sub2 .magi-nav-item::after {
+  content: ""; position: absolute; left: 34px; top: 50%;
+  width: 9px; height: 1px; background: var(--border);
+}
+/* A nav item that's the parent of an expanded subtree shouldn't wear the full filled
+   active block — that double-stacks with the highlighted leaf below it. Keep it bold
+   (you're in this section) but drop the fill + accent rail. */
+.magi-nav-item.active:has(+ .magi-subtree) {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+/* a second-level subtree that also carries a third level (e.g. Settings → Markets →
+   HK/Crypto): wrapper + a non-clickable group header + the deeper level. */
+.magi-subtree { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.magi-subtree .magi-nav-sub2 { margin-bottom: 0; }
+.magi-nav-item.magi-nav-group {
+  color: var(--fg-subtle); font-weight: 700; cursor: default;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
+}
+.magi-nav-item.magi-nav-group:hover { background: transparent; }
+.magi-nav-sub3 { display: flex; flex-direction: column; gap: 2px; }
+.magi-nav-sub3 .magi-nav-item { position: relative; padding-left: 68px; font-size: 12.5px; }
+.magi-nav-sub3 .magi-nav-item::before {
+  content: ""; position: absolute; left: 52px; top: 0; bottom: 0;
+  width: 1px; background: var(--border);
+}
+.magi-nav-sub3 .magi-nav-item:last-child::before { bottom: 50%; }
+.magi-nav-sub3 .magi-nav-item::after {
+  content: ""; position: absolute; left: 52px; top: 50%;
+  width: 9px; height: 1px; background: var(--border);
 }
 
 /* ---- version label (bottom of sidebar) ----------------------------- */

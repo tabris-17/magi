@@ -106,7 +106,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.4.0`); `host/db.py` is the common-settings
+  app version (`full_version()` → `magi-1.5.0`); `host/db.py` is the common-settings
   SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
   + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
@@ -122,7 +122,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.4.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.5.0` in the sidebar footer.
 
 ### Function contract
 
@@ -150,6 +150,19 @@ Two styles, both registered in the `FUNCTIONS` list in **`magi.py`** and both
   pytest degrades gracefully). Because it doesn't extend `base.html`, it adds its own
   `body{padding-left:260px}` to clear the fixed sidebar. Its hardcoded absolute
   URLs must carry the prefix (`scripts/prefix_betelgeuse.py`).
+  - **Settings tree promoted into the sidebar.** On the betelgeuse **Settings** page
+    its admin/markets panels are surfaced as a **second-level sub-nav** under
+    Betelgeuse → Settings (`header.html`, `.magi-nav-sub2` in `shell.css`): General,
+    Static Data, Market Data, FX Rates, Telegram, Database, HK, Crypto — each a
+    `#<hash>` deep-link resolved by `settings.html`'s existing `openPanelFromHash`
+    (a `hashchange` listener handles same-page switches; a small script syncs the
+    active sidebar item). **Excludes** Tools → Application Health and Tools →
+    Migrations — they stay inside the Settings page's Tools workbench, not the sidebar.
+    When rendered **inside magi** (`nav_functions` present) the page's own in-page
+    `.settings-nav` is hidden (`.settings-shell.embedded`) so the sidebar is the sole
+    nav and the panel fills the width; standalone betelgeuse keeps its in-page nav.
+    All template/CSS only — `app.py` stays byte-identical. (Vendored-only: re-apply
+    after re-vendoring betelgeuse from prod.)
 
 ### Shared settings (the only cross-function sharing)
 
@@ -231,7 +244,7 @@ value (and fills the version label), and on change `applyTheme(pref, true)` writ
 through to the DB. `system` resolves via `matchMedia`. **New UI must use the theme
 tokens** (`var(--fg)`, `var(--surface)`, `var(--accent)`, …), never hardcoded colors.
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.4.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.5.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
