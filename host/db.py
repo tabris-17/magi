@@ -40,6 +40,11 @@ SETTINGS = {
         "default": "https://www.rba.gov.au/statistics/tables/xls-hist/2023-current.xls",
         "scoped": False,
     },
+    # App-wide Telegram notification bot (global; same token/chat across functions).
+    # `secret` keeps the token out of the broadcast /api/settings payload (it's read
+    # server-side on the Tools -> Telegram page instead). chat_id is not a secret.
+    "telegram_bot_token": {"allowed": None, "default": None, "scoped": False, "secret": True},
+    "telegram_chat_id": {"allowed": None, "default": None, "scoped": False},
 }
 
 # Derived views kept for any external reference (the registry above is the source of truth).
@@ -127,7 +132,7 @@ def all_settings(env=None):
     finally:
         conn.close()
     return {key: rows.get(_storage_key(key, env), spec["default"])
-            for key, spec in SETTINGS.items()}
+            for key, spec in SETTINGS.items() if not spec.get("secret")}
 
 
 def env_config(key=None):

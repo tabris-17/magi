@@ -500,6 +500,15 @@ send + scheduled job). `send_scheduled_portfolio_notification()` is the APSchedu
 `reschedule_portfolio_notifications()` re-reads schedule at startup + after every `POST
 /api/settings`. The scheduler runs in `worker.py`, not `app.py`.
 
+**When vendored inside magi (vendored-only edit), the bot is APP-WIDE:** `send_telegram_message`
+reads its credentials from magi's host settings DB (`_read_telegram_credentials()` →
+`_host_settings_db()`, found via `MAGI_HOST_DB`/`MAGI_DATA_DIR`/the relative layout) instead of this
+app's own `settings` table — so the token/chat id are configured once at magi → Settings → Tools →
+Telegram and shared across functions. Standalone betelgeuse (no host DB) falls back to its own
+`settings` unchanged. The web app + the worker both resolve it (the worker never imports the host).
+The in-app Telegram **config** panel (Settings → Admin → Telegram) was removed here; only the
+Notifications page (portfolio send/schedule) remains. Re-apply after re-vendoring from prod.
+
 ### Static Data
 
 **Guarded refresh (all sources — MUST reuse).** Every reload: download → parse into memory →

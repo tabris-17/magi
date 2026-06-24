@@ -109,6 +109,30 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 }
 .tax-url-input:focus { outline: none; border-color: var(--accent); }
 
+/* ---- tools · telegram --------------------------------------------- */
+.tg-info {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 8px; padding: 14px 16px; margin-bottom: 22px;
+  font-size: 13px; line-height: 1.7; color: var(--fg-muted); max-width: 760px;
+}
+.tg-info strong { color: var(--fg); }
+.tg-info code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+.tg-form { max-width: 760px; display: grid; gap: 18px; }
+.tg-field { display: grid; gap: 7px; }
+.tg-field label { font-size: 13px; font-weight: 600; color: var(--fg); }
+.tg-row { display: flex; gap: 10px; align-items: center; }
+.tg-input {
+  flex: 1 1 auto; min-width: 0; padding: 9px 12px; font-size: 14px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+}
+.tg-input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tg-note { font-size: 12px; min-height: 16px; color: var(--fg-muted); }
+.tg-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+
 /* ---- health page --------------------------------------------------- */
 .health-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .health-refresh {

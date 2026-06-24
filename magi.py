@@ -21,6 +21,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
 from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
 from host import db as hostdb
+from host import telegram as host_telegram
 from host.version import full_version
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -102,6 +103,10 @@ def load_betelgeuse_wsgi():
 def create_host_app():
     app = Flask(__name__, template_folder="templates", static_folder="static")
     hostdb.ensure_schema()  # create data/magi.db (common settings store) if missing
+    # Point the mounted betelgeuse (and any in-process consumer) at the host settings DB
+    # so its Telegram sends read the APP-WIDE bot credentials (Tools -> Telegram), not its
+    # own. The worker process reads the same DB via its own relative-path fallback.
+    os.environ.setdefault("MAGI_HOST_DB", hostdb.DB_PATH)
     app.register_blueprint(youtube_bp)
     # Host injects the env-scoped download dir into the (otherwise self-contained) youtube
     # function, so it resolves the per-env `youtube_download_dir` setting without importing
@@ -207,6 +212,34 @@ def create_host_app():
             if callable(fn):
                 sections.append(fn())
         return render_template("tools_database.html", active="database", sections=sections)
+
+    @app.route("/tools/telegram")
+    def tools_telegram():
+        # Settings -> Tools -> Telegram: the APP-WIDE notification bot. The token + chat id
+        # are GLOBAL host settings (data/magi.db); every function sends through this one bot
+        # (betelgeuse is a consumer). Config is rendered server-side (the token is secret —
+        # not in the broadcast /api/settings payload). Save reuses POST /api/settings.
+        cfg = host_telegram.get_config()
+        return render_template("tools_telegram.html", active="telegram",
+                               telegram_bot_token=cfg["telegram_bot_token"],
+                               telegram_chat_id=cfg["telegram_chat_id"],
+                               telegram_configured=host_telegram.is_configured())
+
+    @app.route("/api/telegram/test", methods=["POST"])
+    def api_telegram_test():
+        """Send a connectivity test message via the app-wide bot."""
+        ok, err = host_telegram.test()
+        if ok:
+            return jsonify(success=True)
+        return jsonify(error=err), 400
+
+    @app.route("/api/telegram/detect-chat-id", methods=["POST"])
+    def api_telegram_detect_chat_id():
+        """Auto-detect the chat id from the bot's recent updates (after /start)."""
+        chat_id, err = host_telegram.detect_chat_id()
+        if chat_id:
+            return jsonify(chat_id=chat_id)
+        return jsonify(error=err), 400
 
     @app.route("/api/settings", methods=["GET", "POST"])
     def api_settings():

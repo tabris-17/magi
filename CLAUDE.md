@@ -106,9 +106,10 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.5.0`); `host/db.py` is the common-settings
+  app version (`full_version()` → `magi-1.6.0`); `host/db.py` is the common-settings
   SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
   + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
+  `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
   imports the host or another function. Each contributes a **`META`** dict
   (`key`, `label`, `description`, `icon` SVG, `url`, and an optional **`version`**
@@ -122,7 +123,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.5.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.6.0` in the sidebar footer.
 
 ### Function contract
 
@@ -176,14 +177,17 @@ Settings split by **lifetime/ownership**, surfaced at three places in the shell'
   its `META` returning `{id, label, html}`; the function still owns its storage + save route,
   only the presentation is shared). `magi.py` route `tools_database` composes them under
   `templates/tools_database.html`. The sidebar shows a **Tools** parent (`base.html` AND
-  betelgeuse's `header.html`, for parity) with a **Database** sub-nav item underneath.
-  **Sidebar sub-navs expand only for the active section** (collapse-when-inactive): a parent
-  reveals its children only when you're inside it — **Tools** shows **Database** only on
-  `/tools/database` (gated `{% if active == 'database' %}` in `base.html`; absent from
-  `header.html`, since you're never on that page while inside betelgeuse), and **Betelgeuse**
-  shows its pages only on betelgeuse pages. Children are text-only and drawn with CSS tree
-  connectors (`.magi-nav-sub .magi-nav-item::before/::after` in `shell.css` — a vertical rail
-  + an elbow tick per child, last child = `└`), shared by both render sites.
+  betelgeuse's `header.html`, for parity) with **Database** and **Telegram** sub-nav items
+  underneath. **Sidebar sub-navs expand only for the active section** (collapse-when-inactive):
+  a parent reveals its children only when you're inside it — **Tools** shows its children only
+  on a `/tools/*` page (gated `{% if active in ['database', 'telegram'] %}` in `base.html`;
+  absent from `header.html`, since you're never on those pages while inside betelgeuse), and
+  **Betelgeuse** shows its pages only on betelgeuse pages. Children are text-only and drawn with
+  CSS tree connectors (`.magi-nav-sub .magi-nav-item::before/::after` in `shell.css` — a vertical
+  rail + an elbow tick per child, last child = `└`), shared by both render sites.
+- **`/tools/telegram` (Settings → Tools → Telegram)** — the **app-wide Telegram bot** (see
+  Application Telegram below). Global secret-ish config (bot token + chat id), one bot shared by
+  every function.
 - **The function's own page** — **env-scoped ("user profile") settings** (see below).
 
 **APP SETTING vs USER PROFILE (the rule for where a setting lives).** A **global** setting
@@ -210,7 +214,34 @@ prod→dev — **no schema change, no migration engine** (which the host doesn't
 rendered on a central page). The host injects a **resolver** into the otherwise self-contained
 function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the function reads the
 env-scoped setting **without importing the host** (precedence: setting → `MAGI_YOUTUBE_DIR` env
-→ hardcoded default; see Conventions).
+→ hardcoded default; see Conventions). A registry entry may also be flagged **`secret: True`**
+(`telegram_bot_token`) — those are **excluded from `all_settings()`** so the value is NOT
+broadcast in the `/api/settings` GET payload (every function page reads that); the owning page
+renders it server-side instead.
+
+### Application Telegram (the app-wide notification bot)
+
+A single **Telegram bot** is shared by all functions, surfaced at **Settings → Tools → Telegram**
+(`/tools/telegram`, `templates/tools_telegram.html`). **`host/telegram.py`** is the service:
+`get_config()`/`is_configured()`, `send_message(text)` → `(ok, err)`, `test()`, and
+`detect_chat_id()` — all over **`urllib`** (stdlib; the host does NOT depend on `requests`). The
+bot token + chat id are **global host settings** (`telegram_bot_token` secret + `telegram_chat_id`
+in `host/db.py`'s registry), edited on the Tools → Telegram page. The host routes (`magi.py`):
+`GET /tools/telegram` (renders config server-side), `POST /api/telegram/test`,
+`POST /api/telegram/detect-chat-id`; **save reuses `POST /api/settings`** (the keys are registered,
+so no extra endpoint). The sidebar **Telegram** child sits next to **Database** under **Tools**.
+
+**Betelgeuse is a consumer, not the host.** Its Telegram config panel was removed
+(`functions/betelgeuse/templates/settings.html` + the `header.html` settings sub-nav); its
+`core/notifications.send_telegram_message` now reads the **host** credentials. `_host_settings_db()`
+resolves magi's `data/magi.db` (env **`MAGI_HOST_DB`**, which `magi.py` sets for the in-process web
+process → `MAGI_DATA_DIR` → the vendored relative layout three dirs up), so **both** the mounted web
+app and the standalone **worker** (which never imports the host) send through the one app-wide bot;
+standalone betelgeuse / pytest (no host DB found) fall back to its own settings table unchanged
+(265 tests stay green). Betelgeuse keeps its portfolio-specific message building + scheduler — only
+the credential/send primitive is centralized. **Vendored-only:** re-apply these `notifications.py` /
+`settings.html` / `header.html` edits after re-vendoring betelgeuse from prod (like the prefix/
+tokenize scripts).
 
 ### Application Health (the second cross-function aggregation)
 
@@ -252,7 +283,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.5.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.6.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -386,8 +417,12 @@ inside `functions/betelgeuse/`), with only settings shared.
   `🐱 <env>` chip + dev red brand (`[data-env]`); per-function `META["version"]`
   (youtube `yd-1.0.0`, betelgeuse `betelgeuse-app`/`-server`); the legacy `start.sh` /
   `server.py` / `static/index.html` SPA removed (the M4 retirement).
+- **Telegram promoted to app-wide — done.** Betelgeuse's Telegram bot was lifted to a host
+  service (`host/telegram.py`, Settings → Tools → Telegram); betelgeuse is now a consumer that
+  reads the host credentials. See **Application Telegram** above.
 - **M4 (remaining)** — fold betelgeuse settings in as a contributed `settings_section`
-  (the legacy-SPA retirement half of M4 is now done, above).
+  (the legacy-SPA retirement half of M4 is now done, above; Telegram is now promoted whole to
+  the host rather than surfaced via `settings_section`).
 
 ## Conventions worth knowing
 

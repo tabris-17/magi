@@ -615,9 +615,6 @@
                         <div class="nav-item" data-panel="fx-rates">
                             <span>💱</span> FX Rates
                         </div>
-                        <div class="nav-item" data-panel="telegram">
-                            <span>✈️</span> Telegram
-                        </div>
                         <div class="nav-item" data-panel="tools">
                             <span>🧰</span> Tools
                         </div>
@@ -814,47 +811,10 @@
                     </div>
                 </div>
 
-                <!-- Panel: Admin -> Telegram -->
-                <div class="settings-panel" data-panel-id="telegram">
-                    <div class="settings-section">
-                        <div class="settings-title">
-                            <span class="settings-icon">✈️</span>
-                            Telegram Notifications
-                        </div>
-
-                        <div style="background:rgba(47,129,247, 0.06);border:1px solid rgba(88,166,255, 0.15);border-radius:8px;padding:1rem 1.25rem;margin-bottom:1.5rem;font-size:0.85rem;color:var(--bt-fg-muted);line-height:1.7;">
-                            <strong style="color:#58a6ff;">Setup steps:</strong><br>
-                            1. Open Telegram and search for <code style="color:#79c0ff;">@BotFather</code> → type <code style="color:#79c0ff;">/newbot</code> → follow prompts → copy the bot token.<br>
-                            2. Start a chat with your new bot by sending it <code style="color:#79c0ff;">/start</code>.<br>
-                            3. Paste the token below, click <strong>Auto-detect Chat ID</strong>, then <strong>Save</strong>.
-                        </div>
-
-                        <div class="form-group">
-                            <label for="telegramToken">Bot Token</label>
-                            <div style="display:flex;gap:0.5rem;align-items:center;">
-                                <input type="password" id="telegramToken" placeholder="123456789:ABCdef…" autocomplete="off" style="flex:1;">
-                                <button type="button" class="btn btn-secondary" style="padding:0.5rem 0.75rem;white-space:nowrap;font-size:0.8rem;" onclick="toggleTokenVisibility()">👁 Show</button>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="telegramChatId">Chat ID</label>
-                            <div style="display:flex;gap:0.5rem;align-items:center;">
-                                <input type="text" id="telegramChatId" placeholder="e.g. 987654321" style="flex:1;">
-                                <button type="button" class="btn btn-secondary" id="detectBtn" style="padding:0.5rem 0.75rem;white-space:nowrap;font-size:0.8rem;" onclick="detectChatId()">🔍 Auto-detect</button>
-                            </div>
-                            <div id="detectMsg" style="font-size:0.8rem;margin-top:0.4rem;"></div>
-                        </div>
-
-                        <div id="telegramSuccessMsg" class="success-message"></div>
-                        <div id="telegramErrorMsg" style="display:none;background:rgba(218,54,51, 0.1);border:1px solid rgba(248,81,73, 0.3);color:#f85149;padding:0.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:0.85rem;"></div>
-
-                        <div class="button-group">
-                            <button class="btn btn-primary" onclick="saveTelegramSettings()">💾 Save</button>
-                            <button class="btn btn-secondary" id="testTelegramBtn" onclick="testTelegram()">🧪 Test Connection</button>
-                        </div>
-                    </div>
-                </div>
+                {# Telegram config promoted to the app-wide host page (magi → Settings →
+                   Tools → Telegram). Betelgeuse is now a consumer of that shared bot —
+                   it no longer hosts its own token/chat-id panel. The Notifications page
+                   (portfolio send/schedule) remains; sends go through the host bot. #}
 
                 <!-- Panel: HK charts (chart-style card + AAStocks URL card) -->
                 <div class="settings-panel" data-panel-id="stock-url">
@@ -1560,8 +1520,6 @@
                 document.getElementById('url3ms').value = settings.url_template_3m_small || '';
                 document.getElementById('hkChartProvider').value =
                     (settings.hk_chart_provider === 'yfinance') ? 'yfinance' : 'aastocks';
-                document.getElementById('telegramToken').value = settings.telegram_bot_token || '';
-                document.getElementById('telegramChatId').value = settings.telegram_chat_id || '';
                 document.getElementById('defaultTimezone').value = settings.default_timezone || 'Australia/Sydney';
                 document.getElementById('coingeckoApiUrl').value = settings.coingecko_api_url || '';
                 document.getElementById('coingeckoApiKey').value = settings.coingecko_api_key || '';
@@ -2502,99 +2460,8 @@
             mdRebuildTimer = setInterval(tick, 2000);
         }
 
-        // Telegram helpers
-        function toggleTokenVisibility() {
-            const inp = document.getElementById('telegramToken');
-            const btn = event.target;
-            if (inp.type === 'password') {
-                inp.type = 'text';
-                btn.textContent = '🙈 Hide';
-            } else {
-                inp.type = 'password';
-                btn.textContent = '👁 Show';
-            }
-        }
-
-        async function saveTelegramSettings() {
-            const token = document.getElementById('telegramToken').value.trim();
-            const chatId = document.getElementById('telegramChatId').value.trim();
-            const successEl = document.getElementById('telegramSuccessMsg');
-            const errorEl = document.getElementById('telegramErrorMsg');
-            successEl.classList.remove('show');
-            errorEl.style.display = 'none';
-            try {
-                const res = await fetch('/betelgeuse/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ telegram_bot_token: token, telegram_chat_id: chatId })
-                });
-                if (res.ok) {
-                    successEl.textContent = '✓ Telegram settings saved!';
-                    successEl.classList.add('show');
-                    setTimeout(() => successEl.classList.remove('show'), 3000);
-                } else {
-                    const d = await res.json();
-                    errorEl.textContent = '✗ ' + (d.error || 'Save failed');
-                    errorEl.style.display = 'block';
-                }
-            } catch (e) {
-                errorEl.textContent = '✗ Network error: ' + e.message;
-                errorEl.style.display = 'block';
-            }
-        }
-
-        async function detectChatId() {
-            const btn = document.getElementById('detectBtn');
-            const msg = document.getElementById('detectMsg');
-            btn.disabled = true;
-            msg.style.color = 'var(--bt-fg-muted)';
-            msg.textContent = '⏳ Checking Telegram for recent messages…';
-            try {
-                const res = await fetch('/betelgeuse/api/telegram/detect-chat-id', { method: 'POST' });
-                const data = await res.json();
-                if (res.ok) {
-                    document.getElementById('telegramChatId').value = data.chat_id;
-                    msg.style.color = '#56d364';
-                    msg.textContent = '✓ Chat ID detected! Click Save to persist it.';
-                } else {
-                    msg.style.color = '#f85149';
-                    msg.textContent = '✗ ' + data.error;
-                }
-            } catch (e) {
-                msg.style.color = '#f85149';
-                msg.textContent = '✗ Network error: ' + e.message;
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        async function testTelegram() {
-            const btn = document.getElementById('testTelegramBtn');
-            const errorEl = document.getElementById('telegramErrorMsg');
-            const successEl = document.getElementById('telegramSuccessMsg');
-            btn.disabled = true;
-            btn.textContent = '⏳ Sending…';
-            errorEl.style.display = 'none';
-            successEl.classList.remove('show');
-            try {
-                const res = await fetch('/betelgeuse/api/telegram/test', { method: 'POST' });
-                const data = await res.json();
-                if (res.ok) {
-                    successEl.textContent = '✓ Test message sent! Check your Telegram.';
-                    successEl.classList.add('show');
-                    setTimeout(() => successEl.classList.remove('show'), 4000);
-                } else {
-                    errorEl.textContent = '✗ ' + (data.error || 'Test failed');
-                    errorEl.style.display = 'block';
-                }
-            } catch (e) {
-                errorEl.textContent = '✗ Network error: ' + e.message;
-                errorEl.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🧪 Test Connection';
-            }
-        }
+        // Telegram config moved to the app-wide host page (magi → Settings → Tools →
+        // Telegram); its helpers (save/detect/test/toggle) live there now.
 
         async function downloadHkSecurities() {
             const btn = document.getElementById('hkDownloadBtn');

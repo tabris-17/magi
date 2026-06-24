@@ -4,6 +4,8 @@ Flask-free so the background worker (worker.py) can own the live scheduler. The
 web layer re-exports these and calls the build/send/reschedule helpers from its
 route handlers; only the worker actually starts `scheduler`.
 """
+import os
+import sqlite3
 from datetime import datetime
 
 import requests
@@ -21,9 +23,36 @@ logger = get_logger('notifications')
 scheduler = BackgroundScheduler(daemon=True)
 
 
-def send_telegram_message(text):
-    """Send a message via the configured Telegram bot. Returns (ok, error_string)."""
-    conn = get_db_connection()
+def _host_settings_db():
+    """Path to magi's APP-WIDE settings DB, if betelgeuse is running inside magi.
+
+    Telegram credentials were promoted out of betelgeuse into the host (Settings ->
+    Tools -> Telegram), so the bot is shared across magi functions. Both the web
+    process (magi.py sets MAGI_HOST_DB) and the standalone worker resolve it: env
+    MAGI_HOST_DB -> MAGI_DATA_DIR/magi.db -> the vendored layout (<root>/data/magi.db,
+    three dirs up from this file). Returns None when not found, so STANDALONE betelgeuse
+    (and pytest) fall back to its own settings table and behave exactly as before.
+    """
+    path = os.environ.get('MAGI_HOST_DB')
+    if not path:
+        data_dir = os.environ.get('MAGI_DATA_DIR')
+        if data_dir:
+            path = os.path.join(data_dir, 'magi.db')
+        else:
+            path = os.path.abspath(os.path.join(
+                os.path.dirname(__file__), '..', '..', '..', 'data', 'magi.db'))
+    return path if path and os.path.exists(path) else None
+
+
+def _read_telegram_credentials():
+    """(token, chat_id) for the bot — from magi's host DB when available, else from
+    betelgeuse's own settings table (standalone fallback)."""
+    host_db = _host_settings_db()
+    if host_db:
+        conn = sqlite3.connect(host_db)
+        conn.row_factory = sqlite3.Row
+    else:
+        conn = get_db_connection()
     try:
         c = conn.cursor()
         c.execute('SELECT key, value FROM settings WHERE key IN (?,?)',
@@ -31,10 +60,17 @@ def send_telegram_message(text):
         cfg = {row['key']: row['value'] for row in c.fetchall()}
     finally:
         conn.close()
-    token = cfg.get('telegram_bot_token', '').strip()
-    chat_id = cfg.get('telegram_chat_id', '').strip()
+    return (cfg.get('telegram_bot_token') or '').strip(), (cfg.get('telegram_chat_id') or '').strip()
+
+
+def send_telegram_message(text):
+    """Send a message via the app-wide Telegram bot. Returns (ok, error_string).
+
+    Credentials live in magi's host settings DB (Settings -> Tools -> Telegram) so the
+    bot is shared across functions; betelgeuse is a consumer, not the host."""
+    token, chat_id = _read_telegram_credentials()
     if not token or not chat_id:
-        return False, 'Telegram not configured — set Bot Token and Chat ID in Settings → Admin → Telegram'
+        return False, 'Telegram not configured — set Bot Token and Chat ID in magi → Settings → Tools → Telegram'
     try:
         resp = requests.post(
             f'https://api.telegram.org/bot{token}/sendMessage',

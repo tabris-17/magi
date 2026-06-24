@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}magi · Tools · Telegram{% endblock %}
+{% block content %}
+<h1 class="view-title">Telegram</h1>
+<p class="lead">The <strong>app-wide</strong> Telegram notification bot. The token and chat
+ID are stored once in magi's settings database (<code>data/magi.db</code>) and shared by
+every function — Betelgeuse and any future function send through this single bot.</p>
+
+<div class="tg-info">
+  <strong>Setup steps:</strong><br>
+  1. Open Telegram and search for <code>@BotFather</code> → type <code>/newbot</code> →
+     follow prompts → copy the bot token.<br>
+  2. Start a chat with your new bot by sending it <code>/start</code>.<br>
+  3. Paste the token below, click <strong>Auto-detect</strong> for the Chat ID, then
+     <strong>Save</strong>.
+</div>
+
+<div class="tg-form">
+  <div class="tg-field">
+    <label for="tgToken">Bot Token</label>
+    <div class="tg-row">
+      <input type="password" id="tgToken" class="tg-input" placeholder="123456789:ABCdef…"
+             autocomplete="off" spellcheck="false" value="{{ telegram_bot_token }}">
+      <button type="button" class="btn" id="tgTokenToggle" onclick="tgToggleToken()">👁 Show</button>
+    </div>
+  </div>
+
+  <div class="tg-field">
+    <label for="tgChatId">Chat ID</label>
+    <div class="tg-row">
+      <input type="text" id="tgChatId" class="tg-input" placeholder="e.g. 987654321"
+             value="{{ telegram_chat_id }}">
+      <button type="button" class="btn" id="tgDetectBtn" onclick="tgDetectChatId()">🔍 Auto-detect</button>
+    </div>
+    <div class="tg-note" id="tgDetectMsg"></div>
+  </div>
+
+  <div class="tg-actions">
+    <button type="button" class="btn primary" id="tgSaveBtn" onclick="tgSave()">Save</button>
+    <button type="button" class="btn" id="tgTestBtn" onclick="tgTest()">🧪 Test Connection</button>
+    <span class="env-status" id="tgStatus" aria-live="polite"></span>
+  </div>
+</div>
+
+<script>
+  function tgToggleToken() {
+    const inp = document.getElementById('tgToken');
+    const btn = document.getElementById('tgTokenToggle');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈 Hide'; }
+    else { inp.type = 'password'; btn.textContent = '👁 Show'; }
+  }
+
+  function tgSetStatus(text, kind) {
+    const el = document.getElementById('tgStatus');
+    el.textContent = text;
+    el.style.color = kind === 'ok' ? 'var(--success-fg)'
+                   : kind === 'err' ? 'var(--danger-fg)' : 'var(--fg-muted)';
+  }
+
+  async function tgSaveSetting(key, value) {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value })
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || ('Save failed for ' + key));
+    }
+  }
+
+  async function tgSave() {
+    const btn = document.getElementById('tgSaveBtn');
+    const token = document.getElementById('tgToken').value.trim();
+    const chatId = document.getElementById('tgChatId').value.trim();
+    btn.disabled = true;
+    tgSetStatus('Saving…', 'muted');
+    try {
+      await tgSaveSetting('telegram_bot_token', token);
+      await tgSaveSetting('telegram_chat_id', chatId);
+      tgSetStatus('✓ Saved', 'ok');
+      setTimeout(() => tgSetStatus('', 'muted'), 3000);
+    } catch (e) {
+      tgSetStatus('✗ ' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function tgDetectChatId() {
+    const btn = document.getElementById('tgDetectBtn');
+    const msg = document.getElementById('tgDetectMsg');
+    btn.disabled = true;
+    msg.style.color = 'var(--fg-muted)';
+    msg.textContent = '⏳ Checking Telegram for recent messages…';
+    try {
+      const res = await fetch('/api/telegram/detect-chat-id', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('tgChatId').value = data.chat_id;
+        msg.style.color = 'var(--success-fg)';
+        msg.textContent = '✓ Chat ID detected! Click Save to persist it.';
+      } else {
+        msg.style.color = 'var(--danger-fg)';
+        msg.textContent = '✗ ' + data.error;
+      }
+    } catch (e) {
+      msg.style.color = 'var(--danger-fg)';
+      msg.textContent = '✗ Network error: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function tgTest() {
+    const btn = document.getElementById('tgTestBtn');
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = '⏳ Sending…';
+    tgSetStatus('', 'muted');
+    try {
+      const res = await fetch('/api/telegram/test', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) tgSetStatus('✓ Test message sent! Check your Telegram.', 'ok');
+      else tgSetStatus('✗ ' + (data.error || 'Test failed'), 'err');
+    } catch (e) {
+      tgSetStatus('✗ Network error: ' + e.message, 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  }
+</script>
+{% endblock %}
