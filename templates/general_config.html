@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}magi · General · Config{% endblock %}
+{% block content %}
+<h1 class="view-title">Config</h1>
+
+{# Each function contributes its GLOBAL, DB-backed settings here (settings_section on its
+   META). The function owns the storage + save route; the host only composes the card. #}
+{% if sections %}
+  {% for s in sections %}
+    <h2 class="settings-h" id="{{ s.id }}">{{ s.label }}</h2>
+    {{ s.html | safe }}
+  {% endfor %}
+{% else %}
+  <p class="lead">No functions contribute config settings yet.</p>
+{% endif %}
+{% endblock %}

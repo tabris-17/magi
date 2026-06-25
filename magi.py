@@ -21,6 +21,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
 from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
 from host import db as hostdb
+from host import dbtool as host_dbtool
 from host import telegram as host_telegram
 from host.version import full_version
 
@@ -195,23 +196,47 @@ def create_host_app():
 
     @app.route("/settings")
     def settings():
-        # Appearance only — the host's own look. GLOBAL, DB-backed app settings moved to
-        # Tools -> Database; ENV-SCOPED "user profile" settings live on each function's own
-        # page (e.g. the YouTube download folder on /youtube/), never in central settings.
-        return render_template("settings.html", active="settings")
+        # Settings -> General -> Appearance: the host's own look (theme) only.
+        return render_template("settings.html", active="appearance")
 
-    @app.route("/tools/database")
-    def tools_database():
-        # Settings -> Tools -> Database: the host settings database (data/magi.db) surfaced as
-        # editable GLOBAL app settings, aggregated from each function's settings_section. Env-
-        # scoped settings are deliberately NOT here (they're per-machine, edited on the function
-        # page — see the "user profile vs app setting" note in CLAUDE.md).
+    @app.route("/general/config")
+    def config_page():
+        # Settings -> General -> Config: GLOBAL, DB-backed app settings, aggregated from each
+        # function's settings_section (a callable on its META returning {id,label,html}; the
+        # function owns its storage + save route, the host only composes). Env-scoped "user
+        # profile" settings are deliberately NOT here — they live on the function's own page.
         sections = []
         for meta in FUNCTIONS:
             fn = meta.get("settings_section")
             if callable(fn):
                 sections.append(fn())
-        return render_template("tools_database.html", active="database", sections=sections)
+        return render_template("general_config.html", active="config", sections=sections)
+
+    @app.route("/tools/database")
+    def tools_database():
+        # Settings -> Tools -> Database: a read-only browser over every magi-owned DB (host
+        # data/magi.db + betelgeuse portfolio.db), categorized per database. The table list is
+        # rendered server-side; row data loads on click from /api/db/<dbkey>/table/<name>.
+        return render_template("tools_database.html", active="database",
+                               databases=host_dbtool.list_all())
+
+    @app.route("/api/db/tables")
+    def api_db_tables():
+        """All databases + their tables/row-counts (powers the Database page)."""
+        return jsonify(databases=host_dbtool.list_all())
+
+    @app.route("/api/db/<dbkey>/table/<name>")
+    def api_db_table(dbkey, name):
+        """Columns + a paginated page of rows for one table (read-only)."""
+        try:
+            page = int(request.args.get("page", 1))
+            per_page = int(request.args.get("per_page", 50))
+        except ValueError:
+            page, per_page = 1, 50
+        payload, err = host_dbtool.table_data(dbkey, name, page=page, per_page=per_page)
+        if err:
+            return jsonify(error=err), 404
+        return jsonify(payload)
 
     @app.route("/tools/telegram")
     def tools_telegram():

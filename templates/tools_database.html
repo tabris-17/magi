@@ -2,19 +2,110 @@
 {% block title %}magi · Tools · Database{% endblock %}
 {% block content %}
 <h1 class="view-title">Database</h1>
-<p class="lead">Global app settings stored in magi's settings database
-(<code>data/magi.db</code>) — the same value in dev and prod. Environment-specific settings
-(your machine's "user profile", e.g. the YouTube download folder) are edited on each
-function's own page, not here.</p>
+<p class="lead">A read-only browser over every magi-owned database — the host's own
+<code>data/magi.db</code> and each function's DB. Pick a table to view its rows.</p>
 
-{# Each function contributes its GLOBAL, DB-backed settings here (settings_section on its
-   META). The function owns the storage + save route; the host only composes the section. #}
-{% if sections %}
-  {% for s in sections %}
-    <h2 class="settings-h" id="{{ s.id }}">{{ s.label }}</h2>
-    {{ s.html | safe }}
-  {% endfor %}
-{% else %}
-  <p class="lead">No functions contribute database-backed settings yet.</p>
-{% endif %}
+<div class="db-shell">
+  <aside class="db-tables">
+    {% for d in databases %}
+    <div class="db-cat">
+      <div class="db-cat-head">{{ d.label }}
+        {% if d.available %}<span class="db-cat-n">{{ d.tables|length }}</span>{% endif %}
+      </div>
+      <div class="db-cat-desc">{{ d.desc }}</div>
+      {% if d.available %}
+        {% if d.tables %}
+        <ul class="db-tlist">
+          {% for t in d.tables %}
+          <li>
+            <button class="db-tbtn" data-db="{{ d.key }}" data-table="{{ t.name }}">
+              <span class="db-tname">{{ t.name }}</span>
+              <span class="db-tcount">{{ '{:,}'.format(t.row_count) }}</span>
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="db-muted">No tables.</div>
+        {% endif %}
+      {% else %}
+        <div class="db-err">⚠ {{ d.error or 'unavailable' }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </aside>
+
+  <section class="db-detail" id="dbDetail">
+    <div class="db-placeholder">Select a table on the left to view its data.</div>
+  </section>
+</div>
+
+<script>
+  (function () {
+    const detail = document.getElementById('dbDetail');
+
+    function esc(v) {
+      if (v === null || v === undefined) return '';
+      return String(v).replace(/[&<>"]/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    function setActive(btn) {
+      document.querySelectorAll('.db-tbtn.active').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    async function load(db, table, page) {
+      detail.innerHTML = '<div class="db-placeholder">Loading…</div>';
+      try {
+        const res = await fetch(`/api/db/${encodeURIComponent(db)}/table/${encodeURIComponent(table)}?page=${page}&per_page=50`);
+        const d = await res.json();
+        if (!res.ok) { detail.innerHTML = `<div class="db-err">⚠ ${esc(d.error || 'Load failed')}</div>`; return; }
+        render(d);
+      } catch (e) {
+        detail.innerHTML = `<div class="db-err">⚠ ${esc(e.message)}</div>`;
+      }
+    }
+
+    function render(d) {
+      const head = `<div class="db-dhead">
+          <div class="db-dtitle"><span class="db-ddb">${esc(d.database)}</span> · <strong>${esc(d.name)}</strong></div>
+          <div class="db-dmeta">${d.total.toLocaleString()} row${d.total === 1 ? '' : 's'}
+            · ${d.columns.length} column${d.columns.length === 1 ? '' : 's'}</div>
+        </div>`;
+
+      let body;
+      if (!d.rows.length) {
+        body = '<div class="db-muted">This table is empty.</div>';
+      } else {
+        const ths = d.columns.map(c => `<th>${esc(c)}</th>`).join('');
+        const trs = d.rows.map(r =>
+          '<tr>' + r.map(v => `<td title="${esc(v)}">${esc(v)}</td>`).join('') + '</tr>').join('');
+        body = `<div class="db-tablewrap"><table class="db-grid"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></div>`;
+      }
+
+      let pager = '';
+      if (d.pages > 1) {
+        pager = `<div class="db-pager">
+            <button class="btn" id="dbPrev" ${d.page <= 1 ? 'disabled' : ''}>← Prev</button>
+            <span class="db-pageinfo">Page ${d.page} of ${d.pages}</span>
+            <button class="btn" id="dbNext" ${d.page >= d.pages ? 'disabled' : ''}>Next →</button>
+          </div>`;
+      }
+
+      detail.innerHTML = head + body + pager;
+      const prev = document.getElementById('dbPrev');
+      const next = document.getElementById('dbNext');
+      if (prev) prev.onclick = () => load(d.database, d.name, d.page - 1);
+      if (next) next.onclick = () => load(d.database, d.name, d.page + 1);
+    }
+
+    document.querySelectorAll('.db-tbtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setActive(btn);
+        load(btn.dataset.db, btn.dataset.table, 1);
+      });
+    });
+  })();
+</script>
 {% endblock %}

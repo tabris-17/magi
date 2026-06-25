@@ -106,10 +106,11 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.6.0`); `host/db.py` is the common-settings
+  app version (`full_version()` → `magi-1.7.0`); `host/db.py` is the common-settings
   SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
   + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
-  `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below).
+  `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below);
+  `host/dbtool.py` is the **read-only DB browser** behind Tools → Database (see Shared settings).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
   imports the host or another function. Each contributes a **`META`** dict
   (`key`, `label`, `description`, `icon` SVG, `url`, and an optional **`version`**
@@ -123,7 +124,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.6.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.7.0` in the sidebar footer.
 
 ### Function contract
 
@@ -167,40 +168,56 @@ Two styles, both registered in the `FUNCTIONS` list in **`magi.py`** and both
 
 ### Shared settings (the only cross-function sharing)
 
-Settings split by **lifetime/ownership**, surfaced at three places in the shell's
-**Settings** sidebar section:
+Settings split by **lifetime/ownership**. The shell's **Settings** sidebar section holds two
+**collapsible groups** — **General** and **Tools** — each a clickable parent (linking to its
+first child) that reveals its children only when you're inside it (collapse-when-active):
 
-- **`/settings` (Appearance)** — the host's own look (theme) only. Nothing else.
-- **`/tools/database` (Settings → Tools → Database)** — **global, DB-backed app settings**
-  stored in `data/magi.db`: the same value in dev and prod (e.g. the taxation RBA URL).
-  This is where each function's optional **`settings_section`** is aggregated (a callable on
-  its `META` returning `{id, label, html}`; the function still owns its storage + save route,
-  only the presentation is shared). `magi.py` route `tools_database` composes them under
-  `templates/tools_database.html`. The sidebar shows a **Tools** parent (`base.html` AND
-  betelgeuse's `header.html`, for parity) with **Database** and **Telegram** sub-nav items
-  underneath. **Sidebar sub-navs expand only for the active section** (collapse-when-inactive):
-  a parent reveals its children only when you're inside it — **Tools** shows its children only
-  on a `/tools/*` page (gated `{% if active in ['database', 'telegram'] %}` in `base.html`;
-  absent from `header.html`, since you're never on those pages while inside betelgeuse), and
-  **Betelgeuse** shows its pages only on betelgeuse pages. Children are text-only and drawn with
-  CSS tree connectors (`.magi-nav-sub .magi-nav-item::before/::after` in `shell.css` — a vertical
-  rail + an elbow tick per child, last child = `└`), shared by both render sites.
-- **`/tools/telegram` (Settings → Tools → Telegram)** — the **app-wide Telegram bot** (see
-  Application Telegram below). Global secret-ish config (bot token + chat id), one bot shared by
-  every function.
+- **General → Config** (`/general/config`, active `config`) — **global, DB-backed app settings**
+  stored in `data/magi.db`: the same value in dev and prod (e.g. the taxation RBA URL). This is
+  where each function's optional **`settings_section`** is aggregated as a card (a callable on its
+  `META` returning `{id, label, html}`; the function still owns its storage + save route, only the
+  presentation is shared). `magi.py` route `config_page` composes them under
+  `templates/general_config.html`.
+- **General → Appearance** (`/settings`, active `appearance`) — the host's own look (theme) only.
+- **Tools → Health** (`/health`, active `health`) — the Application Health page (below).
+- **Tools → Telegram** (`/tools/telegram`, active `telegram`) — the **app-wide Telegram bot**
+  config (Application Telegram below).
+- **Tools → Database** (`/tools/database`, active `database`) — a **read-only DB browser**, NOT a
+  settings page: it lists every magi-owned database's tables (host `data/magi.db` + each function's
+  DB, categorized) and shows a table's rows on click. Powered by **`host/dbtool.py`** +
+  `templates/tools_database.html` (see Database browser below).
 - **The function's own page** — **env-scoped ("user profile") settings** (see below).
+
+**Sidebar groups (collapse-when-active).** Both **General** (children Config, Appearance) and
+**Tools** (children Health, Telegram, Database) are gated by `active` in `base.html`
+(`{% if active in ['config','appearance'] %}` / `['health','telegram','database']`); the parent
+links to its first child. **Betelgeuse** likewise shows its pages only on betelgeuse pages. Children
+are text-only, drawn with CSS tree connectors (`.magi-nav-sub .magi-nav-item::before/::after` in
+`shell.css` — a vertical rail + an elbow tick per child, last child = `└`). betelgeuse's
+`header.html` mirrors the two parents (General, Tools) as plain links into the host shell — you're
+never on a host `/general/*` or `/tools/*` page while inside betelgeuse, so they don't expand there.
 
 **APP SETTING vs USER PROFILE (the rule for where a setting lives).** A **global** setting
 (one value, same dev/prod — e.g. `theme`, `taxation_rba_url`) is an *app setting* → it goes in
-the DB and is edited centrally (Appearance for theme, **Tools → Database** for the rest, via
+the DB and is edited centrally (Appearance for theme, **General → Config** for the rest, via
 `settings_section`). An **env-scoped** setting (a separate value per environment — e.g.
 `youtube_download_dir`) is a **user profile / per-machine** thing → it is **NOT** shown in
-central settings or Tools → Database; it is **displayed and edited directly on the owning
+central settings or General → Config; it is **displayed and edited directly on the owning
 function's own page** (the YouTube download folder is edited on `/youtube/` — its "Save to"
 field has a **Save** button that persists `youtube_download_dir` for the box's *own* env via
 `POST /api/settings {key,value}` with **no `env`**, so it writes the running env; blank clears
 it to the default). **When the user calls a setting environment-specific (dev/prod), default to
-this: edit it on the function page, don't add it to Tools → Database.**
+this: edit it on the function page, don't add it to General → Config.**
+
+**Database browser (`host/dbtool.py`).** Read-only, schema-agnostic introspection over a `DATABASES`
+registry (each entry: `key`, `label`, `desc`, lazily-resolved `path`; magi → `hostdb.DB_PATH`,
+betelgeuse → its `portfolio.db`). `list_all()` → per-DB `{available, tables:[{name,row_count}]}`;
+`table_data(dbkey, name, page, per_page)` → columns + a page of rows. Connections open with
+**`PRAGMA query_only=ON`** (physically reject writes — safe to point at betelgeuse's live WAL DB),
+run only SELECT/PRAGMA, and **validate the table name against the live `sqlite_master` whitelist**
+before interpolating it. It reads a function's DB as a plain file — never imports the function.
+Routes: `GET /api/db/tables`, `GET /api/db/<dbkey>/table/<name>`; the page server-renders the table
+list and fetches rows on click. A new function's DB shows up by adding a `DATABASES` entry.
 
 **Storage (`host/db.py`).** `SETTINGS` is the single registry (`allowed`/`default`/`scoped`
 per key); `/api/settings` (`GET` → `{version, env, prod_url, envs, env_config, functions,
@@ -260,9 +277,9 @@ host tags with the function's `label`/`version`. The host endpoints (`magi.py`):
   with **`urllib.request`** (stdlib — do NOT add `requests`), 3s timeout →
   `{configured, reachable, base_url, probed_at, health|error}`; mirrors betelgeuse's probe.
 The page polls both every 60s and color-codes cards client-side (host green; youtube amber
-if ffmpeg missing; betelgeuse from worker-liveness + schema-gate). The Health nav link is
-emitted on host pages (`base.html`) AND betelgeuse pages (`header.html`) for parity.
-`APP_START_TIME` (module load) is the host's `started_at`.
+if ffmpeg missing; betelgeuse from worker-liveness + schema-gate). Health is the **first item
+under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tools parent link
+(`header.html`). `APP_START_TIME` (module load) is the host's `started_at`.
 
 ### Theming
 
@@ -283,7 +300,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.6.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.7.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
