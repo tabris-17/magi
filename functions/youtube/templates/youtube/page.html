@@ -19,6 +19,7 @@
     <div class="opt-hint muted">Default for <span id="envName"></span>. Blank = built-in.</div>
     <label class="chk"><input type="checkbox" id="datePrefix" checked /> Prefix filename with download date <span class="muted">(yyyyMMdd-)</span></label>
     <label class="chk"><input type="checkbox" id="metaChk" checked /> Log entry to <span class="muted">video-links.txt</span> (metadata)</label>
+    <span id="prefStatus" class="muted" aria-live="polite"></span>
   </div>
   <div id="ffwarn" class="warn">⚠️ ffmpeg not found — high-res merges and MP3 conversion are disabled. Only combined (≤720p) formats will work.</div>
 
@@ -94,6 +95,33 @@ async function saveDir(){
     if(r.ok) $("dldir").textContent = val || $("dest").placeholder;
   } catch(e){ status.textContent = "error"; }
   finally { btn.disabled = false; setTimeout(() => { status.textContent = ""; }, 2500); }
+}
+
+// Persisted, env-scoped download options (date-prefix + metadata logging), remembered per
+// dev/prod in the host settings DB. Pre-fills the checkboxes on load; a change saves for the
+// box's own MAGI_ENV (POST with no env). A per-download toggle still overrides for that run.
+async function loadPrefs(){
+  try {
+    const r = await fetch("/api/settings");
+    const s = (await r.json()).settings || {};
+    if (s.youtube_date_prefix !== undefined && s.youtube_date_prefix !== null)
+      $("datePrefix").checked = s.youtube_date_prefix === "1";
+    if (s.youtube_write_meta !== undefined && s.youtube_write_meta !== null)
+      $("metaChk").checked = s.youtube_write_meta === "1";
+  } catch(e){}
+}
+async function savePref(key, checked){
+  const status = $("prefStatus");
+  status.textContent = "saving…";
+  try {
+    const r = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value: checked ? "1" : "0" }),
+    });
+    status.textContent = r.ok ? "saved ✓" : "error";
+  } catch(e){ status.textContent = "error"; }
+  finally { setTimeout(() => { status.textContent = ""; }, 2000); }
 }
 
 async function fetchInfo(){
@@ -250,8 +278,11 @@ $("fetch").addEventListener("click", fetchInfo);
 $("url").addEventListener("keydown", (e) => { if(e.key === "Enter") fetchInfo(); });
 $("saveDir").addEventListener("click", saveDir);
 $("dest").addEventListener("keydown", (e) => { if(e.key === "Enter") saveDir(); });
+$("datePrefix").addEventListener("change", () => savePref("youtube_date_prefix", $("datePrefix").checked));
+$("metaChk").addEventListener("change", () => savePref("youtube_write_meta", $("metaChk").checked));
 $("envName").textContent = document.documentElement.getAttribute("data-env") || "this machine";
 if (window.innerWidth > 860) $("url").focus();
 checkHealth();
+loadPrefs();
 </script>
 {% endblock %}

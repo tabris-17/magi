@@ -24,9 +24,13 @@ REMOTE="${MINI_USER}@${MINI_HOST}"
 # Every prod DB, as a path relative to the magi root (same layout on both machines).
 # A new function with its own DB joins by adding its data/<name>.db here.
 DBS=(
-  "data/magi.db"                              # host: common settings (theme, …)
+  "data/magi.db"                              # host: GLOBAL settings (theme, telegram, …)
+  "data/magiscope.prod.db"                    # host: PROD-scoped settings (prod = source of truth)
   "functions/betelgeuse/data/portfolio.db"    # betelgeuse: portfolio + transactions
 )
+# NOTE: data/magiscope.dev.db is deliberately NOT listed — dev OWNS its scoped settings,
+# so a deploy never overwrites them. magiscope.prod.db is mirrored down so dev can SEE
+# prod's scoped values without touching dev's own.
 
 stamp="$(date +%Y%m%d-%H%M%S)"
 echo "==> upgrade dev: pulling prod DBs from ${REMOTE}:${REMOTE_DIR}"

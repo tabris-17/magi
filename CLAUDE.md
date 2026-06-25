@@ -106,9 +106,9 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.7.0`); `host/db.py` is the common-settings
-  SQLite store at `data/magi.db` (key/value `settings` + a `meta` table stamping schema
-  + app version; `ensure_schema()` is idempotent — no migration engine for the host yet).
+  app version (`full_version()` → `magi-1.8.0`); `host/db.py` is the common-settings store —
+  GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
+  below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below);
   `host/dbtool.py` is the **read-only DB browser** behind Tools → Database (see Shared settings).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
@@ -124,7 +124,7 @@ isolated.
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.7.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.8.0` in the sidebar footer.
 
 ### Function contract
 
@@ -210,8 +210,9 @@ it to the default). **When the user calls a setting environment-specific (dev/pr
 this: edit it on the function page, don't add it to General → Config.**
 
 **Database browser (`host/dbtool.py`).** Read-only, schema-agnostic introspection over a `DATABASES`
-registry (each entry: `key`, `label`, `desc`, lazily-resolved `path`; magi → `hostdb.DB_PATH`,
-betelgeuse → its `portfolio.db`). `list_all()` → per-DB `{available, tables:[{name,row_count}]}`;
+registry (each entry: `key`, `label`, `desc`, lazily-resolved `path`; magi global → `hostdb.DB_PATH`,
+the two scope DBs → `hostdb.scope_db_path('dev'|'prod')`, betelgeuse → its `portfolio.db`).
+`list_all()` → per-DB `{available, tables:[{name,row_count}]}`;
 `table_data(dbkey, name, page, per_page)` → columns + a page of rows. Connections open with
 **`PRAGMA query_only=ON`** (physically reject writes — safe to point at betelgeuse's live WAL DB),
 run only SELECT/PRAGMA, and **validate the table name against the live `sqlite_master` whitelist**
@@ -219,16 +220,25 @@ before interpolating it. It reads a function's DB as a plain file — never impo
 Routes: `GET /api/db/tables`, `GET /api/db/<dbkey>/table/<name>`; the page server-renders the table
 list and fetches rows on click. A new function's DB shows up by adding a `DATABASES` entry.
 
-**Storage (`host/db.py`).** `SETTINGS` is the single registry (`allowed`/`default`/`scoped`
-per key); `/api/settings` (`GET` → `{version, env, prod_url, envs, env_config, functions,
-settings}`, `POST {key,value[,env]}` → upsert, validated against the registry) is the one
-endpoint. Env-scoped values share the one key/value table via a **`<key>@<env>` storage key**,
-so dev and prod keep DISTINCT values even though `./magi upgrade dev` copies the whole `magi.db`
-prod→dev — **no schema change, no migration engine** (which the host doesn't have).
-`get_setting`/`set_setting(key, value, env=…)` resolve against `MAGI_ENV` by default;
-`all_settings()` is the current-env-resolved flat map (the shell reads `theme` from it);
-`env_config()` returns `{key:{dev,prod}}` (still in the `/api/settings` payload, no longer
-rendered on a central page). The host injects a **resolver** into the otherwise self-contained
+**Storage — THREE DB files (`host/db.py`).** `SETTINGS` is the single registry
+(`allowed`/`default`/`scoped` per key); `/api/settings` (`GET` → `{version, env, prod_url, envs,
+env_config, functions, settings}`, `POST {key,value[,env]}` → upsert, validated against the registry)
+is the one endpoint. Settings are split by file so **deploy can treat them differently**:
+- **`data/magi.db`** — GLOBAL keys (one value, same dev/prod). **Prod is the source of truth**;
+  `./magi upgrade dev` copies it prod→dev.
+- **`data/magiscope.dev.db`** / **`data/magiscope.prod.db`** — SCOPED keys, **one file per env**
+  (stored under the **bare** key — the file *is* the env, no more `<key>@<env>` suffix).
+  **`magiscope.dev.db` is dev-owned and NEVER synced** (not in `pull-prod-dbs`'s `DBS`), so a
+  deploy can't wipe a dev value; `magiscope.prod.db` is mirrored prod→dev (prod = source of truth)
+  so dev can see prod's scoped values while keeping its own.
+
+`_path_for(key, env)` routes each key to its file; `get_setting`/`set_setting(key, value, env=…)`
+resolve against `MAGI_ENV` by default (a `env=` arg targets a specific scope DB — the dev/prod
+side-by-side path). `all_settings()` is the env-resolved flat map (global from `magi.db` + scoped
+from the env's scope DB; the shell reads `theme`); `env_config()` returns `{key:{dev,prod}}` read
+from the two scope DBs. `ensure_schema()` creates all three + purges any legacy `<key>@<env>` rows
+from `magi.db`. **No migration engine** (the host doesn't have one). The host injects a **resolver**
+into the otherwise self-contained
 function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the function reads the
 env-scoped setting **without importing the host** (precedence: setting → `MAGI_YOUTUBE_DIR` env
 → hardcoded default; see Conventions). A registry entry may also be flagged **`secret: True`**
@@ -300,7 +310,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.7.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.8.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -357,12 +367,14 @@ straight through).
   if it needs background work, a worker plist.
 
 **High-level workflow verbs** (over the above; `dev` = this machine, `prod` = the mini):
-- **`./magi upgrade dev`** → `deploy/pull-prod-dbs.sh` — copies **all** prod DBs (host
-  `data/magi.db` + `functions/betelgeuse/data/portfolio.db`, listed in the script's
-  `DBS` array — extend it when a new function ships a DB) down to local dev, backing up
-  each local copy first. It pulls a **consistent `sqlite3 .backup` snapshot** over SSH
-  and is READ-ONLY against prod. This **prod→dev** direction is the safe one; schema
-  still goes **up** to prod only via migrations, never by copying a DB file up.
+- **`./magi upgrade dev`** → `deploy/pull-prod-dbs.sh` — copies prod DBs in the script's
+  `DBS` array down to local dev (host `data/magi.db` + `data/magiscope.prod.db` +
+  `functions/betelgeuse/data/portfolio.db` — extend it when a new function ships a DB),
+  backing up each local copy first. **`data/magiscope.dev.db` is deliberately NOT in `DBS`** —
+  dev owns its scoped settings, so a deploy never overwrites them (the whole point of the
+  three-DB split; see Storage above). It pulls a **consistent `sqlite3 .backup` snapshot** over
+  SSH and is READ-ONLY against prod (missing remote DBs are skipped). This **prod→dev** direction
+  is the safe one; schema still goes **up** to prod only via migrations, never by copying a DB up.
 - **`./magi upgrade prod`** = `deploy all --env prod` — ship code to the mini, no prod
   DB touched (the deploy's data protections guarantee it), then it restarts prod.
 - **`./magi launch prod`** → `deploy/kickstart-mini.sh` — ssh-start the mini's
@@ -445,9 +457,14 @@ inside `functions/betelgeuse/`), with only settings shared.
 
 - The YouTube function is **machine-local**. The active download dir is
   `logic.current_download_dir()`, precedence: the **env-scoped `youtube_download_dir`
-  host setting** (injected by the host via `set_download_dir_resolver` — set per-env on
-  `/settings`) → `MAGI_YOUTUBE_DIR` env → `DEFAULT_DOWNLOAD_DIR` (a path under
-  `/Users/kai`); a per-request `dest` still overrides. `video-links.txt` is written into
+  host setting** (injected by the host via `set_download_dir_resolver` — set per-env via the
+  **Save** button on the YouTube page's "Save to" field) → `MAGI_YOUTUBE_DIR` env →
+  `DEFAULT_DOWNLOAD_DIR` (a path under `/Users/kai`); a per-request `dest` still overrides.
+  The two download **toggles** (`youtube_date_prefix`, `youtube_write_meta`) are likewise
+  **env-scoped host settings** ("0"/"1", default "1") — the YouTube page pre-fills the
+  checkboxes from them (read straight off `/api/settings`) and saves on change (`POST
+  /api/settings`, no `env` → running env); the per-download checkbox state still wins for
+  that download. `video-links.txt` is written into
   whatever folder the videos land in (`metadata_file(dest)`). The
   download dir is created **lazily at download time** (`os.makedirs(dest, …)` inside
   `run_download`) — importing the module must NOT touch the filesystem, or a path that

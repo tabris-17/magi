@@ -32,8 +32,15 @@ def _betelgeuse_db_path():
 # entry here; `path` is a callable so a missing/renamed file degrades to "not found" rather
 # than breaking import.
 DATABASES = [
-    {"key": "magi", "label": "magi", "desc": "Host settings & common store (data/magi.db)",
+    {"key": "magi", "label": "magi (global)",
+     "desc": "Global settings — same dev/prod (data/magi.db)",
      "path": lambda: hostdb.DB_PATH},
+    {"key": "magiscope-dev", "label": "magi · dev scope",
+     "desc": "Per-machine dev settings (magiscope.dev.db, never synced)",
+     "path": lambda: hostdb.scope_db_path("dev")},
+    {"key": "magiscope-prod", "label": "magi · prod scope",
+     "desc": "Per-machine prod settings (magiscope.prod.db)",
+     "path": lambda: hostdb.scope_db_path("prod")},
     {"key": "betelgeuse", "label": "Betelgeuse",
      "desc": "Portfolio, transactions, market-data cache (portfolio.db)",
      "path": _betelgeuse_db_path},
