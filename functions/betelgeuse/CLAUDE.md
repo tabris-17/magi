@@ -159,8 +159,11 @@ from `/api/settings` on load (`marketProvider`/`loadExpandedCharts` special-case
 `'yfinance'` reuses the JP/US render path (`/api/stock/hk/<symbol>/chart/<period>`).
 
 **Settings page** (`settings.html`): master-detail. Left nav (**Admin** → General, Static Data,
-Market Data, FX Rates, Telegram, Tools; **Markets** → HK, Crypto). **Tools** is a tabbed workbench:
-**Database** (the introspective table browser) · **Application Health** · **Migrations**.
+Market Data, FX Rates, Tools; **Markets** → HK, Crypto). **Tools** is a tabbed workbench:
+**Application Health** · **Migrations**. (Vendored-only inside magi: the Telegram panel and the
+Database tool were removed — Telegram is the host's Tools → Telegram and the DB browser is the
+host's Tools → Database, which reads `portfolio.db` directly. The `/api/admin/db/*` routes remain
+in `app.py` (byte-identical to prod) but are unused here.)
 
 **Sub-tab convention (MUST OBEY): when one Settings panel hosts several distinct things, group them
 under a sub-tab strip — don't stack them as separate cards and don't split into more left-nav items.**
@@ -547,10 +550,12 @@ a symbol you've moved on from (a `prefillSeq` token + `AbortController` guard it
 
 ### Database Tool (admin)
 
-Generic introspective browser (Settings → Admin → Tools). **Schema-agnostic**: reads
-`sqlite_master` + `PRAGMA table_info` — nothing to update when adding a table. Constraints:
-**read-only (SELECT only)**, `<name>` validated against the live `sqlite_master` whitelist before
-interpolation, front-end HTML-escapes cell values.
+The `GET /api/admin/db/tables` + `/table/<name>` backend (generic, schema-agnostic, read-only:
+reads `sqlite_master` + `PRAGMA table_info`, validates `<name>` against the live whitelist before
+interpolation) still ships in `app.py`. **Its UI was removed in the magi-vendored copy** (the
+Tools → Database sub-tab + its JS), because magi's own Tools → Database now browses every
+magi-owned DB — including this app's `portfolio.db` — centrally. Standalone betelgeuse keeps the
+routes; only the in-app browser tab is gone. (Vendored-only: re-apply after re-vendoring.)
 
 ## Testing
 

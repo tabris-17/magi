@@ -135,26 +135,6 @@
             display: block;
         }
 
-        .db-table-chip {
-            background: rgba(var(--bt-accent-rgb), 0.08);
-            border: 1px solid rgba(var(--bt-accent2-rgb), 0.2);
-            color: var(--bt-fg-2);
-            padding: 0.4rem 0.85rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            font-family: inherit;
-            transition: all 0.15s ease;
-        }
-        .db-table-chip:hover {
-            background: rgba(var(--bt-accent-rgb), 0.18);
-            color: var(--bt-fg);
-        }
-        .db-table-chip.active {
-            background: linear-gradient(135deg, var(--bt-accent), var(--bt-accent-2));
-            border-color: transparent;
-            color: #fff;
-        }
 
         .settings-section {
             background: linear-gradient(135deg, rgba(var(--bt-surface-rgb), 0.5) 0%, rgba(var(--bt-bg-rgb), 0.5) 100%);
@@ -781,9 +761,6 @@
                                 <button id="usDownloadBtn" class="btn btn-primary" onclick="downloadUsSecurities()" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
                                     ⬇️ Download / Refresh
                                 </button>
-                                <button class="btn btn-secondary" onclick="selectPanel('database-tool')" style="font-size:0.85rem;padding:0.5rem 1.25rem;">
-                                    📋 Browse in Tools
-                                </button>
                             </div>
                             <div class="static-url-block">
                                 <label class="static-url-toggle">
@@ -961,47 +938,15 @@
                         .mig-readonly code { background:rgba(var(--bt-bg-rgb), 0.7); padding:0.15rem 0.45rem; border-radius:6px; color:var(--bt-accent-3); }
                     </style>
 
+                    {# The Database tool was removed — magi's Settings → Tools → Database now
+                       browses every magi-owned DB (incl. this app's portfolio.db) centrally. #}
                     <div class="tools-tabstrip">
-                        <div class="tools-tab active" data-tool="database" onclick="selectTool('database', this)"><span class="tools-tab-ico">🗄️</span> Database</div>
-                        <div class="tools-tab" data-tool="health" onclick="selectTool('health', this)"><span class="tools-tab-ico">🩺</span> Application Health</div>
+                        <div class="tools-tab active" data-tool="health" onclick="selectTool('health', this)"><span class="tools-tab-ico">🩺</span> Application Health</div>
                         <div class="tools-tab" data-tool="migrations" onclick="selectTool('migrations', this)"><span class="tools-tab-ico">🧬</span> Migrations</div>
                     </div>
 
-                    <!-- Tool: Database browser -->
-                    <div class="tools-view active" data-tool-view="database">
-                        <div class="settings-section">
-                            <div class="settings-title">
-                                <span class="settings-icon">🗄️</span>
-                                Database Tool
-                            </div>
-                            <div style="font-size:0.85rem;color:var(--bt-fg-muted);margin-bottom:1rem;line-height:1.6;">
-                                Browse every table in <code style="color:#79c0ff;">portfolio.db</code>. Tables are auto-discovered from the database — any new table appears here automatically. Read-only.
-                            </div>
-                            <div id="dbTableList" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;">
-                                <span style="color:var(--bt-fg-subtle);font-size:0.85rem;">Loading tables…</span>
-                            </div>
-                            <div id="dbTableView" style="display:none;">
-                                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem;">
-                                    <span id="dbTableName" style="font-weight:700;color:var(--bt-fg);font-size:1rem;"></span>
-                                    <span id="dbTableCount" class="sec-count"></span>
-                                </div>
-                                <div class="sec-table-wrap">
-                                    <table class="sec-table">
-                                        <thead><tr id="dbTableHead"></tr></thead>
-                                        <tbody id="dbTableBody"></tbody>
-                                    </table>
-                                </div>
-                                <div class="sec-pagination">
-                                    <button class="sec-page-btn" id="dbPrevBtn" onclick="loadDbTable(dbCurrentTable, dbCurrentPage - 1)">‹ Prev</button>
-                                    <span class="sec-page-info" id="dbPageInfo"></span>
-                                    <button class="sec-page-btn" id="dbNextBtn" onclick="loadDbTable(dbCurrentTable, dbCurrentPage + 1)">Next ›</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Tool: Application Health -->
-                    <div class="tools-view" data-tool-view="health">
+                    <div class="tools-view active" data-tool-view="health">
                         <div class="settings-section">
                             <div class="settings-title">
                                 <span class="settings-icon">🩺</span>
@@ -1196,7 +1141,7 @@
         // The three former Admin panels are now sub-tabs of one "Tools" panel. Map their
         // old panel ids → (tools panel, sub-tool) so existing callers + #hash deep-links
         // (e.g. the static-data "Browse in Tools" button, /settings#app-health) keep working.
-        const TOOL_ALIASES = { 'database-tool': 'database', 'app-health': 'health', 'db-migrations': 'migrations' };
+        const TOOL_ALIASES = { 'app-health': 'health', 'db-migrations': 'migrations' };
 
         // Switch the right-hand detail panel based on the clicked nav item
         function selectPanel(panelId, clickedEl) {
@@ -1210,20 +1155,19 @@
             document.querySelectorAll('.settings-panel').forEach(p => {
                 p.classList.toggle('active', p.dataset.panelId === panelId);
             });
-            if (panelId === 'tools') { selectTool(tool || 'database'); return; }
+            if (panelId === 'tools') { selectTool(tool || 'health'); return; }
             if (panelId === 'market-data') loadMarketData();
             if (panelId === 'fx-rates') loadFx();
         }
 
-        // Switch the active sub-tool inside the Tools panel (Database · Health · Migrations)
-        // and lazy-load that tool's data. `clickedEl` is optional (programmatic switches
+        // Switch the active sub-tool inside the Tools panel (Health · Migrations) and
+        // lazy-load that tool's data. `clickedEl` is optional (programmatic switches
         // resolve the tab by data-tool).
         function selectTool(tool, clickedEl) {
             document.querySelectorAll('.tools-tab').forEach(t =>
                 t.classList.toggle('active', t.dataset.tool === tool));
             document.querySelectorAll('.tools-view').forEach(v =>
                 v.classList.toggle('active', v.dataset.toolView === tool));
-            if (tool === 'database') loadDbTables();
             if (tool === 'health') loadAppHealth();
             if (tool === 'migrations') loadMigrations();
         }
@@ -1733,7 +1677,7 @@
 
         // Deep-link support: /settings#static-data opens that panel (expanding its
         // nav group). Used by the "data is stale" prompt in header.html. A Tools-alias
-        // hash (#app-health / #db-migrations / #database-tool) resolves to the Tools nav item.
+        // hash (#app-health / #db-migrations) resolves to the Tools nav item.
         function openPanelFromHash() {
             const panelId = (location.hash || '').replace('#', '');
             if (!panelId) return;
@@ -2018,67 +1962,12 @@
                     </tr>`).join('');
         }
 
-        // Database Tool — generic, introspective table browser
-        let dbCurrentTable = null;
-        let dbCurrentPage = 1;
-
-        async function loadDbTables() {
-            const list = document.getElementById('dbTableList');
-            try {
-                const res = await fetch('/betelgeuse/api/admin/db/tables');
-                const data = await res.json();
-                if (!data.tables || !data.tables.length) {
-                    list.innerHTML = '<span style="color:var(--bt-fg-subtle);font-size:0.85rem;">No tables found.</span>';
-                    return;
-                }
-                list.innerHTML = data.tables.map(t =>
-                    `<button class="db-table-chip${t.name === dbCurrentTable ? ' active' : ''}" data-table="${t.name}" onclick="loadDbTable('${t.name}', 1)">${t.name} <span style="opacity:0.6;">(${t.row_count.toLocaleString()})</span></button>`
-                ).join('');
-            } catch (e) {
-                list.innerHTML = `<span style="color:#f85149;font-size:0.85rem;">Error loading tables: ${e.message}</span>`;
-            }
-        }
-
+        // Shared cell-escaper (used by the market-data + static-data tables below).
         function escapeDbCell(v) {
             if (v === null || v === undefined) return '<span style="color:var(--bt-fg-faint);">NULL</span>';
             let s = String(v);
             if (s.length > 160) s = s.slice(0, 160) + '…';
             return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        }
-
-        async function loadDbTable(name, page) {
-            dbCurrentTable = name;
-            dbCurrentPage = page;
-            document.querySelectorAll('.db-table-chip').forEach(b =>
-                b.classList.toggle('active', b.dataset.table === name));
-
-            const view = document.getElementById('dbTableView');
-            view.style.display = 'block';
-            const head = document.getElementById('dbTableHead');
-            const body = document.getElementById('dbTableBody');
-            body.innerHTML = '<tr><td style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Loading…</td></tr>';
-
-            const res = await fetch(`/betelgeuse/api/admin/db/table/${encodeURIComponent(name)}?page=${page}&per_page=50`);
-            const data = await res.json();
-            if (data.error) {
-                head.innerHTML = '';
-                body.innerHTML = `<tr><td style="color:#f85149;padding:1rem;">${data.error}</td></tr>`;
-                return;
-            }
-
-            document.getElementById('dbTableName').textContent = data.name;
-            document.getElementById('dbTableCount').textContent =
-                `${data.total.toLocaleString()} row${data.total !== 1 ? 's' : ''}`;
-            head.innerHTML = data.columns.map(c => `<th>${escapeDbCell(c)}</th>`).join('');
-            document.getElementById('dbPageInfo').textContent = `Page ${data.page} of ${data.pages}`;
-            document.getElementById('dbPrevBtn').disabled = data.page <= 1;
-            document.getElementById('dbNextBtn').disabled = data.page >= data.pages;
-
-            body.innerHTML = data.rows.length === 0
-                ? `<tr><td colspan="${data.columns.length || 1}" style="text-align:center;color:var(--bt-fg-subtle);padding:2rem;">Empty table</td></tr>`
-                : data.rows.map(r =>
-                    `<tr>${data.columns.map(c => `<td>${escapeDbCell(r[c])}</td>`).join('')}</tr>`
-                ).join('');
         }
 
         // ── Market Data panel ──────────────────────────────────────────────

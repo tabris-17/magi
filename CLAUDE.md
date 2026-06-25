@@ -155,11 +155,13 @@ Two styles, both registered in the `FUNCTIONS` list in **`magi.py`** and both
   - **Settings tree promoted into the sidebar.** On the betelgeuse **Settings** page
     its admin/markets panels are surfaced as a **second-level sub-nav** under
     Betelgeuse → Settings (`header.html`, `.magi-nav-sub2` in `shell.css`): General,
-    Static Data, Market Data, FX Rates, Telegram, Database, HK, Crypto — each a
+    Static Data, Market Data, FX Rates, HK, Crypto — each a
     `#<hash>` deep-link resolved by `settings.html`'s existing `openPanelFromHash`
     (a `hashchange` listener handles same-page switches; a small script syncs the
     active sidebar item). **Excludes** Tools → Application Health and Tools →
     Migrations — they stay inside the Settings page's Tools workbench, not the sidebar.
+    (Telegram was promoted to the host's Tools → Telegram; the Database tool was removed —
+    magi's Tools → Database now browses betelgeuse's `portfolio.db` centrally.)
     When rendered **inside magi** (`nav_functions` present) the page's own in-page
     `.settings-nav` is hidden (`.settings-shell.embedded`) so the sidebar is the sole
     nav and the panel fills the width; standalone betelgeuse keeps its in-page nav.
