@@ -503,12 +503,14 @@ send + scheduled job). `send_scheduled_portfolio_notification()` is the APSchedu
 `reschedule_portfolio_notifications()` re-reads schedule at startup + after every `POST
 /api/settings`. The scheduler runs in `worker.py`, not `app.py`.
 
-**When vendored inside magi (vendored-only edit), the bot is APP-WIDE:** `send_telegram_message`
-reads its credentials from magi's host settings DB (`_read_telegram_credentials()` →
-`_host_settings_db()`, found via `MAGI_HOST_DB`/`MAGI_DATA_DIR`/the relative layout) instead of this
-app's own `settings` table — so the token/chat id are configured once at magi → Settings → Tools →
-Telegram and shared across functions. Standalone betelgeuse (no host DB) falls back to its own
-`settings` unchanged. The web app + the worker both resolve it (the worker never imports the host).
+**When vendored inside magi (vendored-only edit), betelgeuse has its OWN host-resolved bot:**
+`send_telegram_message` reads betelgeuse's per-consumer credentials from magi's host settings DB
+(`_read_telegram_credentials()` → `_host_settings_db()`, found via `MAGI_HOST_DB`/`MAGI_DATA_DIR`/the
+relative layout) — keys **`telegram_betelgeuse_bot_token`/`telegram_betelgeuse_chat_id`** (each magi
+consumer owns its own bot; there is no shared bot), configured at magi → Settings → Tools → Telegram →
+betelgeuse. Standalone betelgeuse (no host DB) falls back to its own `settings` table
+(`telegram_bot_token`/`telegram_chat_id`) unchanged. The web app + the worker both resolve it (the
+worker never imports the host).
 The in-app Telegram **config** panel (Settings → Admin → Telegram) was removed here; only the
 Notifications page (portfolio send/schedule) remains.
 

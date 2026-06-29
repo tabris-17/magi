@@ -4,6 +4,42 @@
 <h1 class="view-title">Telegram · {{ consumer_label }}</h1>
 <p class="lead">{{ lead_html | safe }}</p>
 
+<div class="tg-info">
+  <strong>This consumer's own bot.</strong> <code>@BotFather</code> → <code>/newbot</code> → copy
+  token · send your new bot <code>/start</code> · paste it below, <strong>Auto-detect</strong> the
+  Chat ID, <strong>Save</strong>, then <strong>Test</strong>.
+</div>
+
+<!-- ── Bot connection (global; same dev/prod) ── -->
+<div class="tg-form">
+  <div class="tg-field">
+    <label for="tgToken">Bot Token</label>
+    <div class="tg-row">
+      <input type="password" id="tgToken" class="tg-input" placeholder="123456789:ABCdef…"
+             autocomplete="off" spellcheck="false" value="{{ bot_token }}">
+      <button type="button" class="btn" id="tgTokenToggle" onclick="tgToggleToken()">👁 Show</button>
+    </div>
+  </div>
+
+  <div class="tg-field">
+    <label for="tgChatId">Chat ID</label>
+    <div class="tg-row">
+      <input type="text" id="tgChatId" class="tg-input" placeholder="e.g. 987654321"
+             value="{{ chat_id }}">
+      <button type="button" class="btn" id="tgDetectBtn" onclick="tgDetectChatId()">🔍 Auto-detect</button>
+    </div>
+    <div class="tg-note" id="tgDetectMsg"></div>
+  </div>
+
+  <div class="tg-actions">
+    <button type="button" class="btn primary" id="tgSaveBtn" onclick="tgSave()">Save</button>
+    <button type="button" class="btn" id="tgTestBtn" onclick="tgTest()">🧪 Test Connection</button>
+    <span class="env-status" id="tgStatus" aria-live="polite"></span>
+  </div>
+</div>
+
+<!-- ── Per-env enable ── -->
+<h2 class="tg-subhead">Enable per environment</h2>
 <div class="tg-consumer">
   {% for env in envs %}
   <div class="tg-consumer-env">
@@ -25,17 +61,87 @@
 <p class="tg-consumer-note">{{ note_html | safe }}</p>
 
 <script>
-  const TGC_KEY = {{ consumer_key | tojson }};
+  const CONSUMER = {{ consumer | tojson }};
+  const TOKEN_KEY = {{ token_key | tojson }};
+  const CHAT_KEY = {{ chat_key | tojson }};
+  const ENABLE_KEY = {{ enable_key | tojson }};
+
+  function tgToggleToken() {
+    const inp = document.getElementById('tgToken'), btn = document.getElementById('tgTokenToggle');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈 Hide'; }
+    else { inp.type = 'password'; btn.textContent = '👁 Show'; }
+  }
+  function tgSetStatus(text, kind) {
+    const el = document.getElementById('tgStatus');
+    el.textContent = text;
+    el.style.color = kind === 'ok' ? 'var(--success-fg)'
+                   : kind === 'err' ? 'var(--danger-fg)' : 'var(--fg-muted)';
+  }
+  async function tgSaveSetting(key, value) {
+    const res = await fetch('/api/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: key, value: value })
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.error || ('Save failed for ' + key));
+    }
+  }
+  async function tgSave() {
+    const btn = document.getElementById('tgSaveBtn');
+    const token = document.getElementById('tgToken').value.trim();
+    const chatId = document.getElementById('tgChatId').value.trim();
+    btn.disabled = true; tgSetStatus('Saving…', 'muted');
+    try {
+      await tgSaveSetting(TOKEN_KEY, token);
+      await tgSaveSetting(CHAT_KEY, chatId);
+      tgSetStatus('✓ Saved', 'ok');
+      setTimeout(() => tgSetStatus('', 'muted'), 3000);
+    } catch (e) { tgSetStatus('✗ ' + e.message, 'err'); }
+    finally { btn.disabled = false; }
+  }
+  async function tgDetectChatId() {
+    const btn = document.getElementById('tgDetectBtn'), msg = document.getElementById('tgDetectMsg');
+    btn.disabled = true; msg.style.color = 'var(--fg-muted)';
+    msg.textContent = '⏳ Checking Telegram for recent messages…';
+    try {
+      const res = await fetch('/api/telegram/detect-chat-id', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consumer: CONSUMER })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('tgChatId').value = data.chat_id;
+        msg.style.color = 'var(--success-fg)';
+        msg.textContent = '✓ Chat ID detected! Click Save to persist it.';
+      } else { msg.style.color = 'var(--danger-fg)'; msg.textContent = '✗ ' + data.error; }
+    } catch (e) { msg.style.color = 'var(--danger-fg)'; msg.textContent = '✗ Network error: ' + e.message; }
+    finally { btn.disabled = false; }
+  }
+  async function tgTest() {
+    const btn = document.getElementById('tgTestBtn'), orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '⏳ Sending…'; tgSetStatus('', 'muted');
+    try {
+      const res = await fetch('/api/telegram/test', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consumer: CONSUMER })
+      });
+      const data = await res.json();
+      if (res.ok) tgSetStatus('✓ Test message sent! Check your Telegram.', 'ok');
+      else tgSetStatus('✗ ' + (data.error || 'Test failed'), 'err');
+    } catch (e) { tgSetStatus('✗ Network error: ' + e.message, 'err'); }
+    finally { btn.disabled = false; btn.textContent = orig; }
+  }
+
+  // Per-env enable toggle
   async function tgcSave(input) {
-    const env = input.dataset.env;
-    const value = input.checked ? '1' : '0';
+    const env = input.dataset.env, value = input.checked ? '1' : '0';
     const status = document.getElementById('tgcStatus-' + env);
-    input.disabled = true;
-    status.textContent = 'saving…'; status.className = 'tg-consumer-status';
+    input.disabled = true; status.textContent = 'saving…'; status.className = 'tg-consumer-status';
     try {
       const res = await fetch('/api/settings', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: TGC_KEY, value: value, env: env })
+        body: JSON.stringify({ key: ENABLE_KEY, value: value, env: env })
       });
       const d = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -43,12 +149,10 @@
         status.className = 'tg-consumer-status ' + (value === '1' ? 'on' : 'off');
       } else {
         status.textContent = '✗ ' + (d.error || 'error');
-        status.className = 'tg-consumer-status err';
-        input.checked = !input.checked;  // revert on failure
+        status.className = 'tg-consumer-status err'; input.checked = !input.checked;
       }
     } catch (e) {
-      status.textContent = '✗ ' + e.message;
-      status.className = 'tg-consumer-status err';
+      status.textContent = '✗ ' + e.message; status.className = 'tg-consumer-status err';
       input.checked = !input.checked;
     } finally {
       input.disabled = false;

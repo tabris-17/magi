@@ -133,6 +133,21 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .tg-note { font-size: 12px; min-height: 16px; color: var(--fg-muted); }
 .tg-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 
+/* ---- tools · telegram overview + per-consumer pages --------------- */
+.tg-subhead { font-size: 15px; font-weight: 600; color: var(--fg); margin: 26px 0 12px; }
+.tg-overview { display: grid; gap: 12px; max-width: 760px; }
+.tg-ovcard {
+  display: block; padding: 16px 18px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--fg); text-decoration: none; transition: border-color .15s;
+}
+.tg-ovcard:hover { border-color: var(--accent); text-decoration: none; }
+.tg-ovhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tg-ovname { font-size: 15px; font-weight: 600; }
+.tg-ovstatus { font-size: 12px; font-weight: 600; }
+.tg-ovstatus.ok { color: var(--success-fg); }
+.tg-ovstatus.off { color: var(--fg-subtle); }
+.tg-ovdesc { color: var(--fg-muted); font-size: 13px; margin-top: 4px; }
+
 /* ---- tools · telegram per-consumer enable (dev/prod toggles) ------- */
 .tg-consumer { display: flex; gap: 14px; flex-wrap: wrap; max-width: 760px; margin-bottom: 14px; }
 .tg-consumer-env {

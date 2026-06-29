@@ -245,59 +245,71 @@ def create_host_app():
 
     @app.route("/tools/telegram")
     def tools_telegram():
-        # Settings -> Tools -> Telegram: the APP-WIDE notification bot. The token + chat id
-        # are GLOBAL host settings (data/magi.db); every function sends through this one bot
-        # (betelgeuse is a consumer). Config is rendered server-side (the token is secret —
-        # not in the broadcast /api/settings payload). Save reuses POST /api/settings.
-        cfg = host_telegram.get_config()
-        return render_template("tools_telegram.html", active="telegram",
-                               telegram_bot_token=cfg["telegram_bot_token"],
-                               telegram_chat_id=cfg["telegram_chat_id"],
-                               telegram_configured=host_telegram.is_configured())
+        # Settings -> Tools -> Telegram: a short OVERVIEW. There is no shared bot — each
+        # consumer (magi control, betelgeuse) owns its own bot, configured on its sub-page.
+        consumers = [
+            {"id": "magi", "label": "magi control", "url": "/tools/telegram/magi",
+             "desc": "magi's own notifications (the Notifier function).",
+             "configured": host_telegram.is_configured("magi")},
+            {"id": "betelgeuse", "label": "betelgeuse", "url": "/tools/telegram/betelgeuse",
+             "desc": "Betelgeuse's portfolio summaries.",
+             "configured": host_telegram.is_configured("betelgeuse")},
+        ]
+        return render_template("tools_telegram.html", active="telegram", consumers=consumers)
 
-    def _render_telegram_consumer(*, active, label, key, lead_html, note_html):
-        # Settings -> Tools -> Telegram -> {magi control | betelgeuse}: a per-env (dev/prod)
-        # enable toggle for one notification consumer. The key is SCOPED, so each env holds its
-        # own value (magiscope.<env>.db); the page shows both side by side and saves each via
-        # POST /api/settings {key,value,env}. env_config(key) -> {key: {dev,prod}}.
-        enabled = hostdb.env_config(key).get(key, {})
-        return render_template("tools_telegram_consumer.html", active=active,
-                               envs=list(hostdb.ENVS), current_env=APP_ENV,
-                               consumer_label=label, consumer_key=key, enabled=enabled,
-                               lead_html=lead_html, note_html=note_html)
+    def _render_telegram_consumer(*, active, consumer, label, lead_html, note_html):
+        # Settings -> Tools -> Telegram -> {magi control | betelgeuse}: this consumer's OWN bot
+        # (token + chat id, GLOBAL — rendered server-side since the token is secret) PLUS a
+        # per-env (dev/prod) enable toggle (telegram_<consumer>_enabled, SCOPED). Bot creds save
+        # via POST /api/settings {key,value}; the enables via {key,value,env}. Test/Auto-detect
+        # POST {consumer} to the /api/telegram/* routes.
+        enable_key = f"telegram_{consumer}_enabled"
+        cfg = host_telegram.get_config(consumer)
+        return render_template(
+            "tools_telegram_consumer.html", active=active, consumer=consumer,
+            consumer_label=label, envs=list(hostdb.ENVS), current_env=APP_ENV,
+            enable_key=enable_key, enabled=hostdb.env_config(enable_key).get(enable_key, {}),
+            token_key=f"telegram_{consumer}_bot_token", chat_key=f"telegram_{consumer}_chat_id",
+            bot_token=cfg["bot_token"], chat_id=cfg["chat_id"],
+            configured=host_telegram.is_configured(consumer),
+            lead_html=lead_html, note_html=note_html)
 
     @app.route("/tools/telegram/magi")
     def tools_telegram_magi():
         return _render_telegram_consumer(
-            active="telegram-magi", label="magi control", key="telegram_magi_enabled",
-            lead_html=("Enable <strong>magi's own</strong> notifications (the "
-                       "<strong>Notifier</strong> function) per environment. When off for an "
-                       "environment, that box sends no magi-originated Telegram messages."),
+            active="telegram-magi", consumer="magi", label="magi control",
+            lead_html=("<strong>magi's own</strong> notification bot (the <strong>Notifier</strong> "
+                       "function). Configure its bot below, then enable it per environment."),
             note_html=("Compose &amp; schedule reminders under "
                        "<a href=\"/notifier/\">Home → Notifier</a>."))
 
     @app.route("/tools/telegram/betelgeuse")
     def tools_telegram_betelgeuse():
         return _render_telegram_consumer(
-            active="telegram-betelgeuse", label="betelgeuse", key="telegram_betelgeuse_enabled",
-            lead_html=("Enable <strong>Betelgeuse's</strong> Telegram notifications per "
-                       "environment. When off for an environment, Betelgeuse won't send portfolio "
-                       "summaries (manual or scheduled) on that box."),
+            active="telegram-betelgeuse", consumer="betelgeuse", label="betelgeuse",
+            lead_html=("<strong>Betelgeuse's</strong> notification bot (portfolio summaries). "
+                       "Configure its bot below, then enable it per environment."),
             note_html=("Betelgeuse composes &amp; schedules its summaries on its own "
                        "<a href=\"/betelgeuse/notifications\">Notifications</a> page."))
 
     @app.route("/api/telegram/test", methods=["POST"])
     def api_telegram_test():
-        """Send a connectivity test message via the app-wide bot."""
-        ok, err = host_telegram.test()
+        """Send a connectivity test message via one consumer's bot (JSON {consumer})."""
+        consumer = (request.get_json(silent=True) or {}).get("consumer")
+        if consumer not in host_telegram.CONSUMERS:
+            return jsonify(error="unknown consumer"), 400
+        ok, err = host_telegram.test(consumer)
         if ok:
             return jsonify(success=True)
         return jsonify(error=err), 400
 
     @app.route("/api/telegram/detect-chat-id", methods=["POST"])
     def api_telegram_detect_chat_id():
-        """Auto-detect the chat id from the bot's recent updates (after /start)."""
-        chat_id, err = host_telegram.detect_chat_id()
+        """Auto-detect the chat id from one consumer's bot recent updates (JSON {consumer})."""
+        consumer = (request.get_json(silent=True) or {}).get("consumer")
+        if consumer not in host_telegram.CONSUMERS:
+            return jsonify(error="unknown consumer"), 400
+        chat_id, err = host_telegram.detect_chat_id(consumer)
         if chat_id:
             return jsonify(chat_id=chat_id)
         return jsonify(error=err), 400

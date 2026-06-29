@@ -111,7 +111,7 @@ isolated.
   app version (`full_version()` → `magi-1.9.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
-  `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below);
+  `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
   `host/dbtool.py` is the **read-only DB browser** behind Tools → Database (see Shared settings).
 - **`functions/<name>/`** — a self-contained function package. Nothing here
   imports the host or another function. Each contributes a **`META`** dict
@@ -185,13 +185,13 @@ first child) that reveals its children only when you're inside it (collapse-when
   `templates/general_config.html`.
 - **General → Appearance** (`/settings`, active `appearance`) — the host's own look (theme) only.
 - **Tools → Health** (`/health`, active `health`) — the Application Health page (below).
-- **Tools → Telegram** (`/tools/telegram`, active `telegram`) — the **app-wide bot connection**
-  (token + chat id + Test/Auto-detect), with a **second-level sub-nav** (`.magi-nav-sub2`) of
-  per-consumer **per-env enable** pages: **magi control** (`/tools/telegram/magi`, active
-  `telegram-magi`, key `telegram_magi_enabled`) on top, then **betelgeuse**
-  (`/tools/telegram/betelgeuse`, active `telegram-betelgeuse`, key `telegram_betelgeuse_enabled`).
-  Both render the shared `templates/tools_telegram_consumer.html` (a dev toggle + a prod toggle,
-  each saving via `POST /api/settings {key,value,env}`). See Application Telegram below.
+- **Tools → Telegram** (`/tools/telegram`, active `telegram`) — a short **overview**; each consumer
+  owns its **own bot**, configured on a **second-level sub-nav** (`.magi-nav-sub2`) page: **magi
+  control** (`/tools/telegram/magi`, active `telegram-magi`) on top, then **betelgeuse**
+  (`/tools/telegram/betelgeuse`, active `telegram-betelgeuse`). Each consumer page (shared
+  `templates/tools_telegram_consumer.html`) has its **bot** (`telegram_<consumer>_bot_token` secret +
+  `telegram_<consumer>_chat_id`, global; Test + Auto-detect) **plus** a per-env enable toggle
+  (`telegram_<consumer>_enabled`, scoped — a dev + a prod toggle). See Application Telegram below.
 - **Tools → Database** (`/tools/database`, active `database`) — a **read-only DB browser**, NOT a
   settings page: it lists every magi-owned database's tables (host `data/magi.db` + each function's
   DB, categorized) and shows a table's rows on click. Powered by **`host/dbtool.py`** +
@@ -254,40 +254,50 @@ into the otherwise self-contained
 function (`magi.py` → `youtube_logic.set_download_dir_resolver`), so the function reads the
 env-scoped setting **without importing the host** (precedence: setting → `MAGI_YOUTUBE_DIR` env
 → hardcoded default; see Conventions). A registry entry may also be flagged **`secret: True`**
-(`telegram_bot_token`) — those are **excluded from `all_settings()`** so the value is NOT
+(the per-consumer `telegram_<consumer>_bot_token`) — those are **excluded from `all_settings()`** so the value is NOT
 broadcast in the `/api/settings` GET payload (every function page reads that); the owning page
 renders it server-side instead.
 
-### Application Telegram (the app-wide notification bot)
+### Application Telegram (per-consumer notification bots)
 
-A single **Telegram bot** is shared by all functions, surfaced at **Settings → Tools → Telegram**
-(`/tools/telegram`, `templates/tools_telegram.html`). **`host/telegram.py`** is the service:
-`get_config()`/`is_configured()`, `send_message(text)` → `(ok, err)`, `test()`, and
-`detect_chat_id()` — all over **`urllib`** (stdlib; the host does NOT depend on `requests`). The
-bot token + chat id are **global host settings** (`telegram_bot_token` secret + `telegram_chat_id`
-in `host/db.py`'s registry), edited on the Tools → Telegram page. The host routes (`magi.py`):
-`GET /tools/telegram` (renders config server-side), `POST /api/telegram/test`,
-`POST /api/telegram/detect-chat-id`; **save reuses `POST /api/settings`** (the keys are registered,
-so no extra endpoint). The sidebar **Telegram** child sits next to **Database** under **Tools**.
+**Each consumer owns its OWN Telegram bot** — there is NO shared bot. Surfaced at **Settings →
+Tools → Telegram** (`/tools/telegram`, `templates/tools_telegram.html` = a short **overview** linking
+the consumers) with a `.magi-nav-sub2` of per-consumer pages: **magi control** + **betelgeuse**, each
+`templates/tools_telegram_consumer.html`. A consumer page configures **its own bot** (Bot Token +
+Chat ID + Test + Auto-detect) **and** a per-env enable toggle.
 
-**Per-consumer, per-env enable gates.** Telegram is a parent with two sub-pages (a `.magi-nav-sub2`):
-**magi control** (`telegram_magi_enabled`) and **betelgeuse** (`telegram_betelgeuse_enabled`) — both
-**scoped** settings (one value per env in `magiscope.<env>.db`; magi defaults OFF/opt-in, betelgeuse
-defaults ON to preserve behavior). Routes `tools_telegram_magi` / `tools_telegram_betelgeuse` render
-the shared `tools_telegram_consumer.html` (a dev + a prod toggle, each `POST /api/settings
-{key,value,env}`). Each **consumer checks its own gate at send time** for the running env: the
-**Notifier** (magi control) in `functions/notifier/logic.send_message`; **betelgeuse** in its
-vendored `core/notifications.send_telegram_message`.
+**`host/telegram.py`** is the connection/test service, **parameterized by consumer**:
+`get_config(consumer)`/`is_configured(consumer)`/`send_message(consumer, text)`/`test(consumer)`/
+`detect_chat_id(consumer)` (`CONSUMERS = ("magi","betelgeuse")`) — all over **`urllib`** (stdlib; the
+host does NOT depend on `requests`). Each consumer's creds are **global host settings**
+`telegram_<consumer>_bot_token` (secret) + `telegram_<consumer>_chat_id` in `host/db.py`'s registry.
+Host routes (`magi.py`): `GET /tools/telegram` (overview), `tools_telegram_magi`/`_betelgeuse`
+(render bot creds server-side — token is secret), `POST /api/telegram/{test,detect-chat-id}` (take
+`{consumer}` in the JSON body); **bot creds + enables save via `POST /api/settings`** (keys are
+registered, so no extra endpoint).
 
-**Betelgeuse is a consumer, not the host.** Its Telegram config panel was removed
+**Migration:** the old single shared bot (`telegram_bot_token`/`telegram_chat_id`) was split; a
+one-time idempotent backfill in `host/db.ensure_schema()` (`_backfill_consumer_telegram`) seeds BOTH
+consumers from the old shared creds when present, so existing notifications keep working until the
+user points a consumer at a different bot.
+
+**Per-consumer, per-env enable gates.** Each consumer also has a **scoped** enable
+(`telegram_<consumer>_enabled`, one value per env in `magiscope.<env>.db`; magi defaults OFF/opt-in,
+betelgeuse defaults ON to preserve behavior) — a dev + a prod toggle on the consumer page (each `POST
+/api/settings {key,value,env}`). Each **consumer checks its own gate + reads its own bot creds at send
+time** for the running env: the **Notifier** (magi control) in `functions/notifier/logic` (reads
+`telegram_magi_*`); **betelgeuse** in its vendored `core/notifications` (reads `telegram_betelgeuse_*`).
+
+**Betelgeuse is a consumer with its own bot.** Its Telegram config panel was removed
 (`functions/betelgeuse/templates/settings.html` + the `header.html` settings sub-nav); its
-`core/notifications.send_telegram_message` now reads the **host** credentials. `_host_settings_db()`
-resolves magi's `data/magi.db` (env **`MAGI_HOST_DB`**, which `magi.py` sets for the in-process web
-process → `MAGI_DATA_DIR` → the vendored relative layout three dirs up), so **both** the mounted web
-app and the standalone **worker** (which never imports the host) send through the one app-wide bot;
-standalone betelgeuse / pytest (no host DB found) fall back to its own settings table unchanged
-(265 tests stay green). Betelgeuse keeps its portfolio-specific message building + scheduler — only
-the credential/send primitive is centralized. Its `send_telegram_message` is also **gated** on the
+`core/notifications.send_telegram_message` reads betelgeuse's **own per-consumer bot** from the host
+DB (`telegram_betelgeuse_bot_token`/`_chat_id`). `_host_settings_db()` resolves magi's `data/magi.db`
+(env **`MAGI_HOST_DB`**, which `magi.py` sets for the in-process web process → `MAGI_DATA_DIR` → the
+vendored relative layout three dirs up), so **both** the mounted web app and the standalone **worker**
+(which never imports the host) send through betelgeuse's bot; standalone betelgeuse / pytest (no host
+DB found) fall back to its own settings table (`telegram_bot_token`/`telegram_chat_id`) unchanged (265
+tests stay green). Betelgeuse keeps its portfolio-specific message building + scheduler — only the
+credential/send primitive is host-resolved. Its `send_telegram_message` is also **gated** on the
 host's per-env `telegram_betelgeuse_enabled` (`_betelgeuse_notifications_enabled()` reads
 `magiscope.<env>.db`, resolved ONLY from `MAGI_DATA_DIR`/`MAGI_HOST_DB` — no relative fallback, so
 pytest/standalone are never gated; unset → ON). The `com.magi.betelgeuse-worker` plist sets
@@ -541,8 +551,9 @@ inside `functions/betelgeuse/`), with only settings shared.
   interface; the same `logic.send_message()` powers the page's **Send Now**. It owns
   `functions/notifier/data/notifier.db` (a key/value `settings` table — `reminder_text`/`enabled`/
   `days`/`times`/`timezone`/`last_sent`; **no migration engine, lazy idempotent `ensure_schema()`**,
-  like the host's own store). Like youtube/taxation it **never imports the host**: it reads the
-  app-wide bot creds from `magi.db` and the per-env `telegram_magi_enabled` gate from
+  like the host's own store). Like youtube/taxation it **never imports the host**: it reads its OWN
+  magi-control bot creds (`telegram_magi_bot_token`/`_chat_id`) from `magi.db` and the per-env
+  `telegram_magi_enabled` gate from
   `magiscope.<env>.db` as plain files (resolved via `MAGI_DATA_DIR`/`MAGI_HOST_DB`/relative), and
   sends over **urllib + truststore** (no `requests`). The schedule model + UI mirror betelgeuse's
   Notifications page but in the magi shell/theme tokens. **Importing touches no network/FS** (lazy

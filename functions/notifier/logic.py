@@ -115,9 +115,12 @@ def _read_kv(path, *keys):
 
 
 def _read_credentials():
+    """The magi-control bot's own token + chat id from magi.db (Tools → Telegram → magi
+    control). The Notifier has its OWN bot, separate from betelgeuse's."""
     cfg = _read_kv(os.path.join(_host_data_dir(), "magi.db"),
-                   "telegram_bot_token", "telegram_chat_id")
-    return (cfg.get("telegram_bot_token") or "").strip(), (cfg.get("telegram_chat_id") or "").strip()
+                   "telegram_magi_bot_token", "telegram_magi_chat_id")
+    return ((cfg.get("telegram_magi_bot_token") or "").strip(),
+            (cfg.get("telegram_magi_chat_id") or "").strip())
 
 
 def gate_enabled():

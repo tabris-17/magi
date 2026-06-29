@@ -45,22 +45,25 @@ def _host_settings_db():
 
 
 def _read_telegram_credentials():
-    """(token, chat_id) for the bot — from magi's host DB when available, else from
-    betelgeuse's own settings table (standalone fallback)."""
+    """(token, chat_id) for betelgeuse's bot. Inside magi: betelgeuse's OWN per-consumer bot
+    from the host DB (`telegram_betelgeuse_bot_token`/`_chat_id` — each consumer has its own
+    bot now, no shared bot). Standalone: betelgeuse's own settings table
+    (`telegram_bot_token`/`telegram_chat_id`), unchanged."""
     host_db = _host_settings_db()
     if host_db:
         conn = sqlite3.connect(host_db)
         conn.row_factory = sqlite3.Row
+        tok_key, chat_key = 'telegram_betelgeuse_bot_token', 'telegram_betelgeuse_chat_id'
     else:
         conn = get_db_connection()
+        tok_key, chat_key = 'telegram_bot_token', 'telegram_chat_id'
     try:
         c = conn.cursor()
-        c.execute('SELECT key, value FROM settings WHERE key IN (?,?)',
-                  ('telegram_bot_token', 'telegram_chat_id'))
+        c.execute('SELECT key, value FROM settings WHERE key IN (?,?)', (tok_key, chat_key))
         cfg = {row['key']: row['value'] for row in c.fetchall()}
     finally:
         conn.close()
-    return (cfg.get('telegram_bot_token') or '').strip(), (cfg.get('telegram_chat_id') or '').strip()
+    return (cfg.get(tok_key) or '').strip(), (cfg.get(chat_key) or '').strip()
 
 
 def _magi_data_dir():

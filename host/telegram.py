@@ -1,10 +1,10 @@
-"""magi host Telegram service — the app-wide notification bot.
+"""magi host Telegram service — per-consumer notification bots.
 
-Promoted out of betelgeuse so EVERY magi function can send Telegram messages through
-one shared bot. The bot token + chat id are GLOBAL host settings (data/magi.db, edited
-on Settings -> Tools -> Telegram); functions are consumers. Betelgeuse reads the same
-credentials from the host DB (see functions/betelgeuse/core/notifications.py) instead of
-hosting its own.
+Each consumer (magi control, betelgeuse) has its OWN bot: a `telegram_<consumer>_bot_token`
++ `telegram_<consumer>_chat_id` pair in the host settings DB (data/magi.db), edited on
+Settings → Tools → Telegram → <consumer>. This module is the connection/test helper behind
+those pages; the actual notification senders live in each consumer (the Notifier's
+`functions/notifier/logic.py`, betelgeuse's `core/notifications.py`) and read the same keys.
 
 Uses stdlib urllib (the host deliberately avoids the `requests` dependency — same rule
 as /api/prod/health). All calls return (value, error) tuples; never raise to the route.
@@ -19,6 +19,9 @@ from host import db as hostdb
 API = "https://api.telegram.org/bot{token}/{method}"
 TIMEOUT = 10
 
+# The consumers that own a bot (each maps to telegram_<consumer>_{bot_token,chat_id}).
+CONSUMERS = ("magi", "betelgeuse")
+
 
 def _ssl_context():
     """Verify TLS against the OS trust store via truststore, so a corporate/firewall
@@ -32,17 +35,22 @@ def _ssl_context():
         return None  # urlopen(context=None) uses the default verifying context
 
 
-def get_config():
-    """Current bot token + chat id from the host settings DB (both may be empty)."""
+def _keys(consumer):
+    return f"telegram_{consumer}_bot_token", f"telegram_{consumer}_chat_id"
+
+
+def get_config(consumer):
+    """One consumer's bot token + chat id from the host settings DB (both may be empty)."""
+    tok_key, chat_key = _keys(consumer)
     return {
-        "telegram_bot_token": (hostdb.get_setting("telegram_bot_token") or "").strip(),
-        "telegram_chat_id": (hostdb.get_setting("telegram_chat_id") or "").strip(),
+        "bot_token": (hostdb.get_setting(tok_key) or "").strip(),
+        "chat_id": (hostdb.get_setting(chat_key) or "").strip(),
     }
 
 
-def is_configured():
-    cfg = get_config()
-    return bool(cfg["telegram_bot_token"] and cfg["telegram_chat_id"])
+def is_configured(consumer):
+    cfg = get_config(consumer)
+    return bool(cfg["bot_token"] and cfg["chat_id"])
 
 
 def _call(token, method, *, params=None, post=False):
@@ -68,13 +76,13 @@ def _call(token, method, *, params=None, post=False):
         return None, str(e)
 
 
-def send_message(text, parse_mode="HTML"):
-    """Send a message via the configured bot. Returns (ok: bool, error: str|None)."""
-    cfg = get_config()
-    token, chat_id = cfg["telegram_bot_token"], cfg["telegram_chat_id"]
+def send_message(consumer, text, parse_mode="HTML"):
+    """Send a message via one consumer's bot. Returns (ok: bool, error: str|None)."""
+    cfg = get_config(consumer)
+    token, chat_id = cfg["bot_token"], cfg["chat_id"]
     if not token or not chat_id:
-        return False, ("Telegram not configured — set Bot Token and Chat ID in "
-                       "Settings → Tools → Telegram")
+        return False, (f"{consumer} Telegram bot not configured — set its Bot Token and Chat "
+                       f"ID in Settings → Tools → Telegram → {consumer}")
     data, err = _call(token, "sendMessage", post=True,
                       params={"chat_id": chat_id, "text": text, "parse_mode": parse_mode})
     if err:
@@ -84,15 +92,16 @@ def send_message(text, parse_mode="HTML"):
     return False, data.get("description", "Telegram rejected the message")
 
 
-def test():
-    """Send a connectivity test message. Returns (ok, error)."""
-    return send_message("🐱 magi is connected! Telegram notifications are working.")
+def test(consumer):
+    """Send a connectivity test message via one consumer's bot. Returns (ok, error)."""
+    return send_message(
+        consumer, f"🐱 magi is connected! Telegram notifications are working ({consumer} bot).")
 
 
-def detect_chat_id():
-    """Poll getUpdates to auto-detect the most recent chat id (user must have sent the
-    bot /start first). Returns (chat_id: str|None, error: str|None)."""
-    token = get_config()["telegram_bot_token"]
+def detect_chat_id(consumer):
+    """Poll getUpdates to auto-detect the most recent chat id for one consumer's bot (user
+    must have sent that bot /start first). Returns (chat_id: str|None, error: str|None)."""
+    token = get_config(consumer)["bot_token"]
     if not token:
         return None, "Bot token not saved yet — save it first then retry"
     data, err = _call(token, "getUpdates")

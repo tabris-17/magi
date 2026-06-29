@@ -54,16 +54,18 @@ SETTINGS = {
         "default": "https://www.rba.gov.au/statistics/tables/xls-hist/2023-current.xls",
         "scoped": False,
     },
-    # App-wide Telegram notification bot (global; same token/chat across functions).
-    # `secret` keeps the token out of the broadcast /api/settings payload (it's read
-    # server-side on the Tools -> Telegram page instead). chat_id is not a secret.
-    "telegram_bot_token": {"allowed": None, "default": None, "scoped": False, "secret": True},
-    "telegram_chat_id": {"allowed": None, "default": None, "scoped": False},
-    # Per-env (dev/prod) Telegram enable gates, one per consumer — edited on
-    # Tools -> Telegram -> {magi control, betelgeuse}. SCOPED so each environment holds its
-    # own on/off (lives in magiscope.<env>.db). magi control gates the Notifier function's
-    # sends (default OFF — opt-in); betelgeuse gates betelgeuse's sends (default ON — preserves
-    # its existing behavior so a deploy never silently stops prod notifications).
+    # Per-consumer Telegram bots — each consumer (magi control, betelgeuse) has its OWN bot
+    # token + chat id (GLOBAL; same value dev/prod). Tokens are `secret` (kept out of the
+    # broadcast /api/settings payload — the consumer page renders them server-side); chat ids
+    # are not. Edited on Tools -> Telegram -> {magi control | betelgeuse}.
+    "telegram_magi_bot_token": {"allowed": None, "default": None, "scoped": False, "secret": True},
+    "telegram_magi_chat_id": {"allowed": None, "default": None, "scoped": False},
+    "telegram_betelgeuse_bot_token": {"allowed": None, "default": None, "scoped": False, "secret": True},
+    "telegram_betelgeuse_chat_id": {"allowed": None, "default": None, "scoped": False},
+    # Per-env (dev/prod) enable gate, one per consumer — SCOPED so each environment holds its
+    # own on/off (magiscope.<env>.db). magi control gates the Notifier function's sends
+    # (default OFF — opt-in); betelgeuse gates betelgeuse's sends (default ON — preserves its
+    # existing behavior so a deploy never silently stops prod notifications).
     "telegram_magi_enabled": {"allowed": {"0", "1"}, "default": "0", "scoped": True},
     "telegram_betelgeuse_enabled": {"allowed": {"0", "1"}, "default": "1", "scoped": True},
 }
@@ -100,6 +102,27 @@ def _ensure_settings_table(conn):
     conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
 
 
+def _backfill_consumer_telegram(conn):
+    """One-time migration: the app-wide shared bot (`telegram_bot_token`/`telegram_chat_id`)
+    was split into per-consumer bots. If the old shared creds still exist and a consumer's own
+    creds are unset, seed BOTH consumers from the shared bot — so existing notifications keep
+    working across the change (the user can then point either consumer at a different bot).
+    Idempotent: once a consumer key exists (even cleared to ""), it's left alone."""
+    def get(k):
+        row = conn.execute("SELECT value FROM settings WHERE key = ?", (k,)).fetchone()
+        return row["value"] if row else None
+
+    shared = {"bot_token": get("telegram_bot_token"), "chat_id": get("telegram_chat_id")}
+    if not shared["bot_token"] and not shared["chat_id"]:
+        return
+    for consumer in ("magi", "betelgeuse"):
+        for suffix, value in shared.items():
+            key = f"telegram_{consumer}_{suffix}"
+            if value and get(key) is None:
+                conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                             (key, value))
+
+
 def ensure_schema():
     """Create magi.db (global) + both magiscope.<env>.db files if missing; stamp magi.db's
     meta. Also drop any legacy `<key>@<env>` rows from magi.db (scoped values moved to the
@@ -115,6 +138,7 @@ def ensure_schema():
         # Legacy cleanup: scoped values used to live here as `<key>@<env>`; they're now in
         # magiscope.<env>.db. Purge the stale rows (intentionally discarded — re-entered per box).
         conn.execute("DELETE FROM settings WHERE key LIKE '%@dev' OR key LIKE '%@prod'")
+        _backfill_consumer_telegram(conn)
         conn.commit()
     finally:
         conn.close()
