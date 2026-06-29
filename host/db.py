@@ -59,6 +59,13 @@ SETTINGS = {
     # server-side on the Tools -> Telegram page instead). chat_id is not a secret.
     "telegram_bot_token": {"allowed": None, "default": None, "scoped": False, "secret": True},
     "telegram_chat_id": {"allowed": None, "default": None, "scoped": False},
+    # Per-env (dev/prod) Telegram enable gates, one per consumer — edited on
+    # Tools -> Telegram -> {magi control, betelgeuse}. SCOPED so each environment holds its
+    # own on/off (lives in magiscope.<env>.db). magi control gates the Notifier function's
+    # sends (default OFF — opt-in); betelgeuse gates betelgeuse's sends (default ON — preserves
+    # its existing behavior so a deploy never silently stops prod notifications).
+    "telegram_magi_enabled": {"allowed": {"0", "1"}, "default": "0", "scoped": True},
+    "telegram_betelgeuse_enabled": {"allowed": {"0", "1"}, "default": "1", "scoped": True},
 }
 
 # Derived views kept for any external reference (the registry above is the source of truth).

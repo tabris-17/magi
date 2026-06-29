@@ -55,8 +55,9 @@ each function's deps (`pip install -r functions/betelgeuse/requirements.txt`).
 `ffmpeg` is needed for the YouTube function.
 
 There is **one front end** — the magi host. The old stdlib single-file SPA
-(`start.sh` / `server.py` / `static/index.html`) has been **retired** (M4). The only
-other process is betelgeuse's background worker, run separately (see Deploy).
+(`start.sh` / `server.py` / `static/index.html`) has been **retired** (M4). Two background
+worker processes run separately (see Deploy): betelgeuse's own worker and the **shared magi
+worker** (`worker.py`, host-native function jobs — currently the Notifier).
 
 ### dev / prod mode
 
@@ -107,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.8.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.9.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **app-wide Telegram notification service** (see Telegram below);
@@ -120,12 +121,13 @@ isolated.
   (betelgeuse).
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
-  short prefix — youtube → **`yd-1.0.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  short prefix — youtube → **`yd-1.0.0`**; taxation → **`tax-1.0.0`**; notifier →
+  **`notifier-1.0.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.8.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.9.0` in the sidebar footer.
 
 ### Function contract
 
@@ -183,8 +185,13 @@ first child) that reveals its children only when you're inside it (collapse-when
   `templates/general_config.html`.
 - **General → Appearance** (`/settings`, active `appearance`) — the host's own look (theme) only.
 - **Tools → Health** (`/health`, active `health`) — the Application Health page (below).
-- **Tools → Telegram** (`/tools/telegram`, active `telegram`) — the **app-wide Telegram bot**
-  config (Application Telegram below).
+- **Tools → Telegram** (`/tools/telegram`, active `telegram`) — the **app-wide bot connection**
+  (token + chat id + Test/Auto-detect), with a **second-level sub-nav** (`.magi-nav-sub2`) of
+  per-consumer **per-env enable** pages: **magi control** (`/tools/telegram/magi`, active
+  `telegram-magi`, key `telegram_magi_enabled`) on top, then **betelgeuse**
+  (`/tools/telegram/betelgeuse`, active `telegram-betelgeuse`, key `telegram_betelgeuse_enabled`).
+  Both render the shared `templates/tools_telegram_consumer.html` (a dev toggle + a prod toggle,
+  each saving via `POST /api/settings {key,value,env}`). See Application Telegram below.
 - **Tools → Database** (`/tools/database`, active `database`) — a **read-only DB browser**, NOT a
   settings page: it lists every magi-owned database's tables (host `data/magi.db` + each function's
   DB, categorized) and shows a table's rows on click. Powered by **`host/dbtool.py`** +
@@ -193,8 +200,9 @@ first child) that reveals its children only when you're inside it (collapse-when
 
 **Sidebar groups (collapse-when-active).** Both **General** (children Config, Appearance) and
 **Tools** (children Health, Telegram, Database) are gated by `active` in `base.html`
-(`{% if active in ['config','appearance'] %}` / `['health','telegram','database']`); the parent
-links to its first child. **Betelgeuse** likewise shows its pages only on betelgeuse pages. Children
+(`{% if active in ['config','appearance'] %}` / Tools shows for `health`/`database` + the three
+telegram values); the parent links to its first child. **Telegram** itself is a parent: when on any
+telegram page it reveals a `.magi-nav-sub2` with **magi control** + **betelgeuse**. **Betelgeuse** likewise shows its pages only on betelgeuse pages. Children
 are text-only, drawn with CSS tree connectors (`.magi-nav-sub .magi-nav-item::before/::after` in
 `shell.css` — a vertical rail + an elbow tick per child, last child = `└`). betelgeuse's
 `header.html` mirrors the two parents (General, Tools) as plain links into the host shell — you're
@@ -214,7 +222,8 @@ this: edit it on the function page, don't add it to General → Config.**
 
 **Database browser (`host/dbtool.py`).** Read-only, schema-agnostic introspection over a `DATABASES`
 registry (each entry: `key`, `label`, `desc`, lazily-resolved `path`; magi global → `hostdb.DB_PATH`,
-the two scope DBs → `hostdb.scope_db_path('dev'|'prod')`, betelgeuse → its `portfolio.db`).
+the two scope DBs → `hostdb.scope_db_path('dev'|'prod')`, betelgeuse → its `portfolio.db`, notifier →
+its `notifier.db`).
 `list_all()` → per-DB `{available, tables:[{name,row_count}]}`;
 `table_data(dbkey, name, page, per_page)` → columns + a page of rows. Connections open with
 **`PRAGMA query_only=ON`** (physically reject writes — safe to point at betelgeuse's live WAL DB),
@@ -261,6 +270,15 @@ in `host/db.py`'s registry), edited on the Tools → Telegram page. The host rou
 `POST /api/telegram/detect-chat-id`; **save reuses `POST /api/settings`** (the keys are registered,
 so no extra endpoint). The sidebar **Telegram** child sits next to **Database** under **Tools**.
 
+**Per-consumer, per-env enable gates.** Telegram is a parent with two sub-pages (a `.magi-nav-sub2`):
+**magi control** (`telegram_magi_enabled`) and **betelgeuse** (`telegram_betelgeuse_enabled`) — both
+**scoped** settings (one value per env in `magiscope.<env>.db`; magi defaults OFF/opt-in, betelgeuse
+defaults ON to preserve behavior). Routes `tools_telegram_magi` / `tools_telegram_betelgeuse` render
+the shared `tools_telegram_consumer.html` (a dev + a prod toggle, each `POST /api/settings
+{key,value,env}`). Each **consumer checks its own gate at send time** for the running env: the
+**Notifier** (magi control) in `functions/notifier/logic.send_message`; **betelgeuse** in its
+vendored `core/notifications.send_telegram_message`.
+
 **Betelgeuse is a consumer, not the host.** Its Telegram config panel was removed
 (`functions/betelgeuse/templates/settings.html` + the `header.html` settings sub-nav); its
 `core/notifications.send_telegram_message` now reads the **host** credentials. `_host_settings_db()`
@@ -269,9 +287,13 @@ process → `MAGI_DATA_DIR` → the vendored relative layout three dirs up), so 
 app and the standalone **worker** (which never imports the host) send through the one app-wide bot;
 standalone betelgeuse / pytest (no host DB found) fall back to its own settings table unchanged
 (265 tests stay green). Betelgeuse keeps its portfolio-specific message building + scheduler — only
-the credential/send primitive is centralized. **Vendored-only:** re-apply these `notifications.py` /
-`settings.html` / `header.html` edits after re-vendoring betelgeuse from prod (like the prefix/
-tokenize scripts).
+the credential/send primitive is centralized. Its `send_telegram_message` is also **gated** on the
+host's per-env `telegram_betelgeuse_enabled` (`_betelgeuse_notifications_enabled()` reads
+`magiscope.<env>.db`, resolved ONLY from `MAGI_DATA_DIR`/`MAGI_HOST_DB` — no relative fallback, so
+pytest/standalone are never gated; unset → ON). The `com.magi.betelgeuse-worker` plist sets
+`MAGI_ENV`+`MAGI_DATA_DIR` so the worker reads the right env's gate. **Vendored-only:** re-apply these
+`notifications.py` / `settings.html` / `header.html` edits after re-vendoring betelgeuse from prod
+(like the prefix/tokenize scripts).
 
 ### Application Health (the second cross-function aggregation)
 
@@ -313,7 +335,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.8.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.9.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -362,17 +384,31 @@ straight through).
   it; the `com.magi.web` plist calls it directly). Sets `MAGI_ENV` then serves
   `magi.application`: `--env dev` → werkzeug on `127.0.0.1`, `--env prod` → waitress on
   `0.0.0.0` (default env prod). **`deploy/setup-mini.sh`** — one-time bootstrap on the
-  mini (venv, deps, data dirs, install/load the two LaunchAgents in
+  mini (venv, deps, data dirs, install/load the **three** LaunchAgents in
   `deploy/launchd/`, disable sleep). See `deploy/README.md`.
 - The betelgeuse **worker** runs as its own LaunchAgent (`com.magi.betelgeuse-worker`)
   with `WorkingDirectory` inside the package — never started by the web process.
-- A new function joins for free: drop a `migrate.py` (picked up by `migrate_all`) and,
-  if it needs background work, a worker plist.
+- **The shared magi worker (`worker.py` + `com.magi.worker`) — the app-wide background-job
+  runner for HOST-NATIVE functions.** One always-on process owns an APScheduler and fires
+  host-native functions' scheduled jobs (currently the **Notifier**'s personal reminders).
+  Generalized over a `SCHEDULABLE` list — each module exposes `schedule_fingerprint()` +
+  `reschedule(scheduler)`; the worker polls every 30s and reschedules on change (DB-driven,
+  no cross-process RPC — betelgeuse's worker pattern lifted to the host). `WorkingDirectory`
+  is the magi root (so `from functions.* import` resolves); the plist sets `MAGI_ENV` +
+  `MAGI_DATA_DIR` so the function send-helpers find the app-wide bot creds + per-env enable
+  gate. It **never imports betelgeuse** — betelgeuse keeps its OWN worker (it also does
+  market-data/FX/rebuilds and stays byte-identical to prod). `deploy.sh` kickstarts `worker`
+  on the `all` + `host` targets; `setup-mini.sh`/`kickstart-mini.sh`/`stop-mini.sh` manage all
+  three services. Needs `APScheduler`+`pytz` (in `requirements.txt`, pinned to betelgeuse's).
+- A new function joins for free: drop a `migrate.py` (picked up by `migrate_all`); if it needs
+  background work, either ship its own worker plist OR (host-native) add its logic module to
+  the shared worker's `SCHEDULABLE` list — no new process.
 
 **High-level workflow verbs** (over the above; `dev` = this machine, `prod` = the mini):
 - **`./magi upgrade dev`** → `deploy/pull-prod-dbs.sh` — copies prod DBs in the script's
   `DBS` array down to local dev (host `data/magi.db` + `data/magiscope.prod.db` +
-  `functions/betelgeuse/data/portfolio.db` — extend it when a new function ships a DB),
+  `functions/betelgeuse/data/portfolio.db` + `functions/notifier/data/notifier.db` — extend
+  it when a new function ships a DB),
   backing up each local copy first. **`data/magiscope.dev.db` is deliberately NOT in `DBS`** —
   dev owns its scoped settings, so a deploy never overwrites them (the whole point of the
   three-DB split; see Storage above). It pulls a **consistent `sqlite3 .backup` snapshot** over
@@ -499,5 +535,18 @@ inside `functions/betelgeuse/`), with only settings shared.
   in `functions/taxation/data/rba-cache.xls` (rsync-excluded + gitignored → regenerated per
   box) with a ~12h TTL + a manual Refresh; **importing the module touches no network/FS**
   (same crash-loop lesson as youtube).
+- The **Notifier** function (a blueprint, `/notifier/`) sends **personal reminders** — free-text
+  Telegram messages on a recurring schedule. It's the first consumer of the **shared magi worker**
+  (above): `logic.schedule_fingerprint()`/`reschedule()`/`send_scheduled()` are the worker
+  interface; the same `logic.send_message()` powers the page's **Send Now**. It owns
+  `functions/notifier/data/notifier.db` (a key/value `settings` table — `reminder_text`/`enabled`/
+  `days`/`times`/`timezone`/`last_sent`; **no migration engine, lazy idempotent `ensure_schema()`**,
+  like the host's own store). Like youtube/taxation it **never imports the host**: it reads the
+  app-wide bot creds from `magi.db` and the per-env `telegram_magi_enabled` gate from
+  `magiscope.<env>.db` as plain files (resolved via `MAGI_DATA_DIR`/`MAGI_HOST_DB`/relative), and
+  sends over **urllib + truststore** (no `requests`). The schedule model + UI mirror betelgeuse's
+  Notifications page but in the magi shell/theme tokens. **Importing touches no network/FS** (lazy
+  schema; apscheduler/pytz imported lazily inside the schedule fns). The reminder fires only when
+  **magi control** is enabled for the running env (Tools → Telegram → magi control).
 - The host binds to `127.0.0.1`. For phone/LAN access bind `0.0.0.0` (trusted
   networks only).

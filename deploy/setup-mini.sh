@@ -41,7 +41,7 @@ mkdir -p "$ROOT/functions/betelgeuse/data/charts" \
 
 echo "==> install + (re)load LaunchAgents"
 mkdir -p "$HOME/Library/LaunchAgents"
-for svc in web betelgeuse-worker; do
+for svc in web betelgeuse-worker worker; do
   dst="$HOME/Library/LaunchAgents/com.magi.$svc.plist"
   sed -e "s|__ROOT__|$ROOT|g" -e "s|__PYTHON__|$PY|g" -e "s|__ENV__|$ENV|g" \
       "$HERE/launchd/com.magi.$svc.plist" > "$dst"

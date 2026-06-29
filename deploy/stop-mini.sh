@@ -20,7 +20,7 @@ echo "==> stop prod: stopping services on ${MINI_HOST}"
 ssh "${MINI_USER}@${MINI_HOST}" 'bash -l -s' <<'REMOTE'
   set -e
   uid=$(id -u)
-  for svc in web betelgeuse-worker; do
+  for svc in web betelgeuse-worker worker; do
     if launchctl bootout "gui/$uid/com.magi.$svc" 2>/dev/null; then
       echo "  -> com.magi.$svc stopped (booted out)"
     else

@@ -2,28 +2,27 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Placeholders __PYTHON__ / __ROOT__ / __ENV__ are filled in by deploy/setup-mini.sh
      (__ENV__ from MAGI_ENV in deploy/config.sh, default prod).
-     The betelgeuse function's background scheduler. Runs as its OWN process with
-     WorkingDirectory inside the function package, so its imports/paths resolve
-     exactly as standalone (the isolation contract). -->
+     The APP-WIDE magi worker: runs host-native functions' scheduled jobs (the Notifier's
+     personal reminders today). WorkingDirectory is the magi root so `from functions.* import`
+     resolves. MAGI_DATA_DIR points the function send-helpers at the host DB + per-env scope DB
+     (app-wide Telegram creds + enable gates). Betelgeuse has its OWN worker (com.magi.betelgeuse-worker). -->
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.magi.betelgeuse-worker</string>
+    <string>com.magi.worker</string>
     <key>ProgramArguments</key>
     <array>
         <string>__PYTHON__</string>
-        <string>__ROOT__/functions/betelgeuse/worker.py</string>
+        <string>__ROOT__/worker.py</string>
         <string>--env</string>
         <string>__ENV__</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>__ROOT__/functions/betelgeuse</string>
+    <string>__ROOT__</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
-        <!-- So betelgeuse's send path reads magi's app-wide bot creds (magi.db) + the per-env
-             betelgeuse enable gate (magiscope.__ENV__.db). __ENV__ filled by setup-mini.sh. -->
         <key>MAGI_ENV</key>
         <string>__ENV__</string>
         <key>MAGI_DATA_DIR</key>
@@ -34,8 +33,8 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>__ROOT__/functions/betelgeuse/data/logs/worker.out.log</string>
+    <string>__ROOT__/data/logs/worker.out.log</string>
     <key>StandardErrorPath</key>
-    <string>__ROOT__/functions/betelgeuse/data/logs/worker.err.log</string>
+    <string>__ROOT__/data/logs/worker.err.log</string>
 </dict>
 </plist>

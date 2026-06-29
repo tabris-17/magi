@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}magi · Notifier{% endblock %}
+{% block content %}
+<h1 class="view-title">Notifier</h1>
+<p class="lead">Send yourself Telegram reminders — free text on a recurring schedule, through the
+app-wide bot. Enable sending under <a href="/tools/telegram/magi">Tools → Telegram → magi control</a>.</p>
+
+<div class="ntf-shell">
+  <!-- Left mini-nav (room for more reminder types later) -->
+  <nav class="ntf-nav">
+    <div class="ntf-nav-label">Reminders</div>
+    <a class="ntf-nav-item active">🔔 Personal Reminder <span class="ntf-dot" id="ntfDot"></span></a>
+  </nav>
+
+  <!-- Right detail -->
+  <div class="ntf-detail">
+    <div class="card ntf-card">
+      <div class="ntf-head">
+        <div class="ntf-title">🔔 Personal Reminder</div>
+        <label class="tg-switch" title="Enable or disable this reminder">
+          <input type="checkbox" id="ntfEnabled" onchange="onToggleMaster()">
+          <span class="tg-switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="ntf-warn" id="ntfWarn" style="display:none;"></div>
+      <div class="ntf-paused" id="ntfPaused" style="display:none;">⏸ Reminder is paused — enable the toggle above to schedule it.</div>
+
+      <div class="ntf-body" id="ntfBody">
+
+        <!-- Message -->
+        <div class="ntf-section-label">Message</div>
+        <div class="ntf-format" id="ntfFormat">
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;b&gt;','&lt;/b&gt;')"><b>B</b></button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;i&gt;','&lt;/i&gt;')"><i>I</i></button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;u&gt;','&lt;/u&gt;')"><u>U</u></button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;s&gt;','&lt;/s&gt;')"><s>S</s></button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;code&gt;','&lt;/code&gt;')"><code>code</code></button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;pre&gt;','&lt;/pre&gt;')">pre</button>
+          <button type="button" class="ntf-fbtn" onclick="wrap('&lt;tg-spoiler&gt;','&lt;/tg-spoiler&gt;')">spoiler</button>
+          <button type="button" class="ntf-fbtn" onclick="insertLink()">🔗 link</button>
+        </div>
+        <textarea id="ntfText" class="ntf-text" rows="5" oninput="renderPreview()"
+                  placeholder="e.g. &lt;b&gt;Stand up&lt;/b&gt; and stretch 🧘  ·  &lt;i&gt;Drink water&lt;/i&gt;"></textarea>
+        <div class="ntf-help">
+          Telegram <strong>HTML</strong> formatting:
+          <code>&lt;b&gt;</code> bold · <code>&lt;i&gt;</code> italic · <code>&lt;u&gt;</code> underline ·
+          <code>&lt;s&gt;</code> strike · <code>&lt;code&gt;</code> mono · <code>&lt;pre&gt;</code> block ·
+          <code>&lt;tg-spoiler&gt;</code> spoiler · <code>&lt;a href="…"&gt;</code> link.
+          Emoji work as-is. Other tags are sent literally.
+        </div>
+
+        <!-- Preview -->
+        <div class="ntf-section-label">Preview</div>
+        <div class="ntf-preview" id="ntfPreview"><span class="ntf-empty">Your message preview appears here.</span></div>
+
+        <!-- Send now -->
+        <div class="ntf-send-row">
+          <div class="ntf-last">Last sent: <span id="ntfLastSent">—</span></div>
+          <button class="btn primary" id="ntfSendBtn" onclick="sendNow()">📬 Send Now</button>
+        </div>
+        <div class="ntf-status" id="ntfSendStatus" aria-live="polite"></div>
+
+        <hr class="ntf-divider">
+
+        <!-- Schedule -->
+        <div class="ntf-section-head">📅 Recurring Schedule</div>
+
+        <div class="ntf-section-label">Days</div>
+        <div class="ntf-days" id="ntfDays">
+          <button class="ntf-day" data-day="mon" onclick="toggleDay(this)">Mon</button>
+          <button class="ntf-day" data-day="tue" onclick="toggleDay(this)">Tue</button>
+          <button class="ntf-day" data-day="wed" onclick="toggleDay(this)">Wed</button>
+          <button class="ntf-day" data-day="thu" onclick="toggleDay(this)">Thu</button>
+          <button class="ntf-day" data-day="fri" onclick="toggleDay(this)">Fri</button>
+          <button class="ntf-day" data-day="sat" onclick="toggleDay(this)">Sat</button>
+          <button class="ntf-day" data-day="sun" onclick="toggleDay(this)">Sun</button>
+        </div>
+        <div class="ntf-presets">
+          <button class="btn" onclick="setDayPreset('weekdays')">Weekdays</button>
+          <button class="btn" onclick="setDayPreset('all')">Every day</button>
+          <button class="btn" onclick="setDayPreset('none')">Clear</button>
+        </div>
+
+        <div class="ntf-section-label">Times <span class="ntf-tz-wrap">in <input class="ntf-tz-input" id="ntfTz" spellcheck="false" placeholder="Australia/Sydney"></span></div>
+        <div class="ntf-times">
+          <div class="ntf-time-slot">
+            <input class="ntf-time" type="time" id="ntfTime1">
+            <span class="ntf-req">1st (required)</span>
+          </div>
+          <div class="ntf-time-slot">
+            <label class="ntf-time-en"><input type="checkbox" id="ntfTime2En" onchange="toggleTimeSlot(2)"> 2nd</label>
+            <input class="ntf-time" type="time" id="ntfTime2" disabled>
+          </div>
+          <div class="ntf-time-slot">
+            <label class="ntf-time-en"><input type="checkbox" id="ntfTime3En" onchange="toggleTimeSlot(3)"> 3rd</label>
+            <input class="ntf-time" type="time" id="ntfTime3" disabled>
+          </div>
+        </div>
+
+        <button class="btn primary" id="ntfSaveBtn" onclick="saveReminder()">💾 Save Reminder</button>
+        <div class="ntf-status" id="ntfSaveStatus" aria-live="polite"></div>
+
+        <div class="ntf-nextruns" id="ntfNextRuns" style="display:none;">
+          <div class="ntf-nextruns-title">Next scheduled runs</div>
+          <div id="ntfNextRunsList"></div>
+        </div>
+
+      </div><!-- /ntf-body -->
+    </div><!-- /card -->
+  </div>
+</div>
+
+<script>
+  let LAST_NEXT_RUNS = [];
+
+  // ── Formatting ─────────────────────────────────────────────────────────
+  function wrap(open, close) {
+    const ta = document.getElementById('ntfText');
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const sel = ta.value.slice(s, e);
+    ta.value = ta.value.slice(0, s) + open + sel + close + ta.value.slice(e);
+    ta.focus();
+    ta.selectionStart = s + open.length;
+    ta.selectionEnd = e + open.length + sel.length;
+    renderPreview();
+  }
+  function insertLink() {
+    const url = prompt('Link URL:', 'https://');
+    if (!url) return;
+    wrap('<a href="' + url + '">', '</a>');
+  }
+
+  // Render a faithful-ish preview: escape everything, then re-allow Telegram's HTML tags.
+  function renderPreview() {
+    const raw = document.getElementById('ntfText').value;
+    const box = document.getElementById('ntfPreview');
+    if (!raw.trim()) { box.innerHTML = '<span class="ntf-empty">Your message preview appears here.</span>'; return; }
+    let s = raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    ['b', 'i', 'u', 's', 'code', 'pre', 'tg-spoiler', 'blockquote'].forEach(t => {
+      s = s.replace(new RegExp('&lt;' + t + '&gt;', 'g'), '<' + t + '>')
+           .replace(new RegExp('&lt;/' + t + '&gt;', 'g'), '</' + t + '>');
+    });
+    s = s.replace(/&lt;a href="([^"]*)"&gt;/g, '<a href="$1" rel="noopener">').replace(/&lt;\/a&gt;/g, '</a>');
+    box.innerHTML = s.replace(/\n/g, '<br>');
+  }
+
+  // ── Master toggle ──────────────────────────────────────────────────────
+  async function onToggleMaster() {
+    const enabled = document.getElementById('ntfEnabled').checked;
+    applyMasterUI(enabled);
+    const r = await fetch('/notifier/api/reminder', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: enabled })
+    });
+    const d = await r.json().catch(() => ({}));
+    renderNextRuns(d.next_runs || []);
+  }
+  function applyMasterUI(enabled) {
+    document.getElementById('ntfDot').classList.toggle('on', enabled);
+    document.getElementById('ntfBody').classList.toggle('paused', !enabled);
+    document.getElementById('ntfPaused').style.display = enabled ? 'none' : 'block';
+  }
+
+  // ── Schedule: days ─────────────────────────────────────────────────────
+  function toggleDay(btn) { btn.classList.toggle('on'); }
+  function setDayPreset(p) {
+    const btns = document.querySelectorAll('.ntf-day');
+    if (p === 'weekdays') btns.forEach(b => b.classList.toggle('on', ['mon','tue','wed','thu','fri'].includes(b.dataset.day)));
+    else if (p === 'all')  btns.forEach(b => b.classList.add('on'));
+    else                   btns.forEach(b => b.classList.remove('on'));
+  }
+  function getSelectedDays() { return [...document.querySelectorAll('.ntf-day.on')].map(b => b.dataset.day).join(','); }
+
+  // ── Schedule: times ────────────────────────────────────────────────────
+  function toggleTimeSlot(n) {
+    const cb = document.getElementById('ntfTime' + n + 'En'), inp = document.getElementById('ntfTime' + n);
+    inp.disabled = !cb.checked;
+    if (!cb.checked) inp.value = '';
+  }
+  function getSelectedTimes() {
+    const t1 = document.getElementById('ntfTime1').value.trim();
+    const out = t1 ? [t1] : [];
+    for (const n of [2, 3]) {
+      if (document.getElementById('ntfTime' + n + 'En').checked) {
+        const v = document.getElementById('ntfTime' + n).value.trim();
+        if (v) out.push(v);
+      }
+    }
+    return out.join(',');
+  }
+
+  function setStatus(id, text, kind) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'ntf-status' + (kind ? ' ' + kind : '');
+  }
+
+  // ── Save ───────────────────────────────────────────────────────────────
+  async function saveReminder() {
+    const days = getSelectedDays(), times = getSelectedTimes();
+    if (!days) { setStatus('ntfSaveStatus', '✗ Select at least one day.', 'err'); return; }
+    if (!times) { setStatus('ntfSaveStatus', '✗ Set at least the 1st time.', 'err'); return; }
+    const btn = document.getElementById('ntfSaveBtn'); btn.disabled = true;
+    setStatus('ntfSaveStatus', 'Saving…', '');
+    try {
+      const r = await fetch('/notifier/api/reminder', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: document.getElementById('ntfText').value,
+          days: days, times: times,
+          timezone: document.getElementById('ntfTz').value.trim() || 'Australia/Sydney'
+        })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { setStatus('ntfSaveStatus', '✓ Saved', 'ok'); renderNextRuns(d.next_runs || []); }
+      else setStatus('ntfSaveStatus', '✗ ' + (d.error || 'Save failed'), 'err');
+    } catch (e) { setStatus('ntfSaveStatus', '✗ ' + e.message, 'err'); }
+    finally { btn.disabled = false; }
+  }
+
+  // ── Send now ───────────────────────────────────────────────────────────
+  async function sendNow() {
+    const text = document.getElementById('ntfText').value;
+    if (!text.trim()) { setStatus('ntfSendStatus', '✗ Message is empty.', 'err'); return; }
+    const btn = document.getElementById('ntfSendBtn'); btn.disabled = true;
+    const orig = btn.textContent; btn.textContent = '⏳ Sending…';
+    setStatus('ntfSendStatus', '', '');
+    try {
+      const r = await fetch('/notifier/api/reminder/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok) { setStatus('ntfSendStatus', '✓ Sent to Telegram!', 'ok'); loadReminder(); }
+      else setStatus('ntfSendStatus', '✗ ' + (d.error || 'Send failed'), 'err');
+    } catch (e) { setStatus('ntfSendStatus', '✗ ' + e.message, 'err'); }
+    finally { btn.disabled = false; btn.textContent = orig; }
+  }
+
+  // ── Next runs ──────────────────────────────────────────────────────────
+  function renderNextRuns(runs) {
+    LAST_NEXT_RUNS = runs || [];
+    const box = document.getElementById('ntfNextRuns'), list = document.getElementById('ntfNextRunsList');
+    if (!LAST_NEXT_RUNS.length) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    const tz = document.getElementById('ntfTz').value.trim() || 'Australia/Sydney';
+    list.innerHTML = LAST_NEXT_RUNS.slice(0, 5).map(iso => {
+      let label;
+      try {
+        label = new Date(iso).toLocaleString('en-AU', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch (_) { label = new Date(iso).toLocaleString(); }
+      return '<div class="ntf-nextrun">' + label + '</div>';
+    }).join('');
+  }
+
+  // ── Load ───────────────────────────────────────────────────────────────
+  async function loadReminder() {
+    try {
+      const s = await (await fetch('/notifier/api/reminder')).json();
+      document.getElementById('ntfText').value = s.text || '';
+      renderPreview();
+      document.getElementById('ntfEnabled').checked = s.enabled;
+      applyMasterUI(s.enabled);
+      document.getElementById('ntfTz').value = s.timezone || 'Australia/Sydney';
+
+      const days = s.days ? s.days.split(',').map(d => d.trim()) : [];
+      document.querySelectorAll('.ntf-day').forEach(b => b.classList.toggle('on', days.includes(b.dataset.day)));
+
+      const times = s.times ? s.times.split(',').map(t => t.trim()) : [];
+      document.getElementById('ntfTime1').value = times[0] || '';
+      for (const n of [2, 3]) {
+        const v = times[n - 1] || '';
+        document.getElementById('ntfTime' + n + 'En').checked = !!v;
+        document.getElementById('ntfTime' + n).disabled = !v;
+        document.getElementById('ntfTime' + n).value = v;
+      }
+
+      document.getElementById('ntfLastSent').textContent = s.last_sent ? new Date(s.last_sent).toLocaleString() : 'Never';
+      renderNextRuns(s.next_runs || []);
+
+      // Warn if sending can't actually happen yet.
+      const warn = document.getElementById('ntfWarn');
+      if (!s.configured) {
+        warn.style.display = 'block';
+        warn.innerHTML = '⚠ Telegram bot not configured — set it in <a href="/tools/telegram">Tools → Telegram</a>.';
+      } else if (!s.gate_enabled) {
+        warn.style.display = 'block';
+        warn.innerHTML = '⚠ magi notifications are off for this environment — enable under <a href="/tools/telegram/magi">Tools → Telegram → magi control</a>.';
+      } else {
+        warn.style.display = 'none';
+      }
+    } catch (e) { console.error('loadReminder', e); }
+  }
+
+  loadReminder();
+</script>
+{% endblock %}

@@ -20,6 +20,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
 from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
+from functions.notifier import bp as notifier_bp, META as NOTIFIER_META
 from host import db as hostdb
 from host import dbtool as host_dbtool
 from host import telegram as host_telegram
@@ -73,7 +74,7 @@ BETELGEUSE_META = {
     "version": _betelgeuse_version(),
 }
 
-FUNCTIONS = [YOUTUBE_META, TAXATION_META, BETELGEUSE_META]
+FUNCTIONS = [YOUTUBE_META, TAXATION_META, NOTIFIER_META, BETELGEUSE_META]
 
 
 def load_betelgeuse_wsgi():
@@ -117,6 +118,10 @@ def create_host_app():
     # Same pattern: the host owns the RBA source URL (taxation_rba_url setting); the
     # taxation function reads it via this resolver without importing the host.
     taxation_logic.set_rba_url_resolver(lambda: hostdb.get_setting("taxation_rba_url"))
+    # The Notifier is fully self-contained (reads the app-wide bot creds + its per-env enable
+    # gate straight from the host DB files, no resolver injection needed). The shared magi
+    # worker (worker.py) drives its schedule; the web app serves its page + Send Now.
+    app.register_blueprint(notifier_bp)
 
     @app.context_processor
     def inject_nav():
@@ -249,6 +254,37 @@ def create_host_app():
                                telegram_bot_token=cfg["telegram_bot_token"],
                                telegram_chat_id=cfg["telegram_chat_id"],
                                telegram_configured=host_telegram.is_configured())
+
+    def _render_telegram_consumer(*, active, label, key, lead_html, note_html):
+        # Settings -> Tools -> Telegram -> {magi control | betelgeuse}: a per-env (dev/prod)
+        # enable toggle for one notification consumer. The key is SCOPED, so each env holds its
+        # own value (magiscope.<env>.db); the page shows both side by side and saves each via
+        # POST /api/settings {key,value,env}. env_config(key) -> {key: {dev,prod}}.
+        enabled = hostdb.env_config(key).get(key, {})
+        return render_template("tools_telegram_consumer.html", active=active,
+                               envs=list(hostdb.ENVS), current_env=APP_ENV,
+                               consumer_label=label, consumer_key=key, enabled=enabled,
+                               lead_html=lead_html, note_html=note_html)
+
+    @app.route("/tools/telegram/magi")
+    def tools_telegram_magi():
+        return _render_telegram_consumer(
+            active="telegram-magi", label="magi control", key="telegram_magi_enabled",
+            lead_html=("Enable <strong>magi's own</strong> notifications (the "
+                       "<strong>Notifier</strong> function) per environment. When off for an "
+                       "environment, that box sends no magi-originated Telegram messages."),
+            note_html=("Compose &amp; schedule reminders under "
+                       "<a href=\"/notifier/\">Home → Notifier</a>."))
+
+    @app.route("/tools/telegram/betelgeuse")
+    def tools_telegram_betelgeuse():
+        return _render_telegram_consumer(
+            active="telegram-betelgeuse", label="betelgeuse", key="telegram_betelgeuse_enabled",
+            lead_html=("Enable <strong>Betelgeuse's</strong> Telegram notifications per "
+                       "environment. When off for an environment, Betelgeuse won't send portfolio "
+                       "summaries (manual or scheduled) on that box."),
+            note_html=("Betelgeuse composes &amp; schedules its summaries on its own "
+                       "<a href=\"/betelgeuse/notifications\">Notifications</a> page."))
 
     @app.route("/api/telegram/test", methods=["POST"])
     def api_telegram_test():

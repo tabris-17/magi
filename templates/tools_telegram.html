@@ -2,17 +2,13 @@
 {% block title %}magi · Tools · Telegram{% endblock %}
 {% block content %}
 <h1 class="view-title">Telegram</h1>
-<p class="lead">The <strong>app-wide</strong> Telegram notification bot. The token and chat
-ID are stored once in magi's settings database (<code>data/magi.db</code>) and shared by
-every function — Betelgeuse and any future function send through this single bot.</p>
+<p class="lead">The <strong>app-wide</strong> bot connection — token + chat ID, stored once
+(<code>data/magi.db</code>) and shared by every function. Enable notifications per consumer /
+per env under <strong>magi control</strong> and <strong>betelgeuse</strong> in the sidebar.</p>
 
 <div class="tg-info">
-  <strong>Setup steps:</strong><br>
-  1. Open Telegram and search for <code>@BotFather</code> → type <code>/newbot</code> →
-     follow prompts → copy the bot token.<br>
-  2. Start a chat with your new bot by sending it <code>/start</code>.<br>
-  3. Paste the token below, click <strong>Auto-detect</strong> for the Chat ID, then
-     <strong>Save</strong>.
+  <strong>Setup:</strong> <code>@BotFather</code> → <code>/newbot</code> → copy token · send your
+  bot <code>/start</code> · paste it below, <strong>Auto-detect</strong> the Chat ID, <strong>Save</strong>.
 </div>
 
 <div class="tg-form">

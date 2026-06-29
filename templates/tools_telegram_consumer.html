@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}magi · Tools · Telegram · {{ consumer_label }}{% endblock %}
+{% block content %}
+<h1 class="view-title">Telegram · {{ consumer_label }}</h1>
+<p class="lead">{{ lead_html | safe }}</p>
+
+<div class="tg-consumer">
+  {% for env in envs %}
+  <div class="tg-consumer-env">
+    <div class="tg-consumer-head">
+      <span class="tg-consumer-envname">
+        🐱 {{ env }}{% if env == current_env %} <span class="tg-consumer-here">this box</span>{% endif %}
+      </span>
+      <label class="tg-switch" title="Enable {{ consumer_label }} notifications for {{ env }}">
+        <input type="checkbox" data-env="{{ env }}" {{ 'checked' if enabled[env] == '1' }}
+               onchange="tgcSave(this)">
+        <span class="tg-switch-slider"></span>
+      </label>
+    </div>
+    <span class="tg-consumer-status" id="tgcStatus-{{ env }}" aria-live="polite"></span>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="tg-consumer-note">{{ note_html | safe }}</p>
+
+<script>
+  const TGC_KEY = {{ consumer_key | tojson }};
+  async function tgcSave(input) {
+    const env = input.dataset.env;
+    const value = input.checked ? '1' : '0';
+    const status = document.getElementById('tgcStatus-' + env);
+    input.disabled = true;
+    status.textContent = 'saving…'; status.className = 'tg-consumer-status';
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: TGC_KEY, value: value, env: env })
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        status.textContent = value === '1' ? 'enabled ✓' : 'disabled';
+        status.className = 'tg-consumer-status ' + (value === '1' ? 'on' : 'off');
+      } else {
+        status.textContent = '✗ ' + (d.error || 'error');
+        status.className = 'tg-consumer-status err';
+        input.checked = !input.checked;  // revert on failure
+      }
+    } catch (e) {
+      status.textContent = '✗ ' + e.message;
+      status.className = 'tg-consumer-status err';
+      input.checked = !input.checked;
+    } finally {
+      input.disabled = false;
+      setTimeout(function () { if (!status.classList.contains('err')) status.textContent = ''; }, 2500);
+    }
+  }
+</script>
+{% endblock %}

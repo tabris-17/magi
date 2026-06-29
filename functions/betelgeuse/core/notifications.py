@@ -63,11 +63,51 @@ def _read_telegram_credentials():
     return (cfg.get('telegram_bot_token') or '').strip(), (cfg.get('telegram_chat_id') or '').strip()
 
 
+def _magi_data_dir():
+    """magi's data/ dir, ONLY when running inside magi (env explicitly set). Returns None
+    standalone — so the per-env gate below is a no-op for standalone betelgeuse + pytest
+    (NO relative fallback here, deliberately: it must never accidentally read a magi scope
+    DB during tests run from the vendored copy)."""
+    d = os.environ.get('MAGI_DATA_DIR')
+    if d:
+        return d
+    host_db = os.environ.get('MAGI_HOST_DB')
+    return os.path.dirname(host_db) if host_db else None
+
+
+def _betelgeuse_notifications_enabled():
+    """magi's per-env 'betelgeuse' Telegram enable (Tools -> Telegram -> betelgeuse), read
+    from magiscope.<env>.db. Vendored-only magi integration: unset / no host scope DB /
+    standalone -> True (default ON), so behavior + the test suite are unchanged."""
+    data_dir = _magi_data_dir()
+    if not data_dir:
+        return True
+    env = os.environ.get('MAGI_ENV', 'dev')
+    path = os.path.join(data_dir, f'magiscope.{env}.db')
+    if not os.path.exists(path):
+        return True
+    try:
+        conn = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+        conn.row_factory = sqlite3.Row
+        try:
+            row = conn.execute(
+                "SELECT value FROM settings WHERE key='telegram_betelgeuse_enabled'").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return True
+    return True if row is None else row['value'] == '1'
+
+
 def send_telegram_message(text):
     """Send a message via the app-wide Telegram bot. Returns (ok, error_string).
 
     Credentials live in magi's host settings DB (Settings -> Tools -> Telegram) so the
-    bot is shared across functions; betelgeuse is a consumer, not the host."""
+    bot is shared across functions; betelgeuse is a consumer, not the host. Gated by magi's
+    per-env betelgeuse enable (a no-op standalone)."""
+    if not _betelgeuse_notifications_enabled():
+        return False, ('Betelgeuse Telegram notifications are disabled for this environment '
+                       '(magi -> Settings -> Tools -> Telegram -> betelgeuse)')
     token, chat_id = _read_telegram_credentials()
     if not token or not chat_id:
         return False, 'Telegram not configured — set Bot Token and Chat ID in magi → Settings → Tools → Telegram'

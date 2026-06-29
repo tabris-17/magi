@@ -19,7 +19,7 @@ echo "==> launch prod: starting services on ${MINI_HOST}"
 ssh "${MINI_USER}@${MINI_HOST}" 'bash -l -s' <<'REMOTE'
   set -e
   uid=$(id -u)
-  for svc in web betelgeuse-worker; do
+  for svc in web betelgeuse-worker worker; do
     label="com.magi.$svc"
     plist="$HOME/Library/LaunchAgents/$label.plist"
     if launchctl print "gui/$uid/$label" >/dev/null 2>&1; then

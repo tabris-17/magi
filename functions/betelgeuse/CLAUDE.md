@@ -510,7 +510,17 @@ app's own `settings` table — so the token/chat id are configured once at magi 
 Telegram and shared across functions. Standalone betelgeuse (no host DB) falls back to its own
 `settings` unchanged. The web app + the worker both resolve it (the worker never imports the host).
 The in-app Telegram **config** panel (Settings → Admin → Telegram) was removed here; only the
-Notifications page (portfolio send/schedule) remains. Re-apply after re-vendoring from prod.
+Notifications page (portfolio send/schedule) remains.
+
+**Per-env enable gate (vendored-only edit):** `send_telegram_message` first checks magi's per-env
+`telegram_betelgeuse_enabled` (Settings → Tools → Telegram → betelgeuse) via
+`_betelgeuse_notifications_enabled()` → `_magi_data_dir()` (reads `magiscope.<env>.db`; resolved
+ONLY from `MAGI_DATA_DIR`/`MAGI_HOST_DB`, **no relative fallback** — so standalone betelgeuse + pytest
+never read a magi scope DB). Off (`"0"`) → returns `(False, "…disabled…")`; unset / standalone →
+enabled (default ON), so the 265 tests are unchanged. The betelgeuse-worker plist sets `MAGI_ENV` +
+`MAGI_DATA_DIR` so the worker reads the right env's gate.
+
+Re-apply ALL of the above (creds + gate) after re-vendoring from prod.
 
 ### Static Data
 

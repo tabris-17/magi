@@ -28,6 +28,10 @@ def _betelgeuse_db_path():
     return os.path.join(data_dir, "portfolio.db")
 
 
+def _notifier_db_path():
+    return os.path.join(ROOT, "functions", "notifier", "data", "notifier.db")
+
+
 # Databases surfaced on the page, in display order. A new function that ships a DB adds an
 # entry here; `path` is a callable so a missing/renamed file degrades to "not found" rather
 # than breaking import.
@@ -44,6 +48,9 @@ DATABASES = [
     {"key": "betelgeuse", "label": "Betelgeuse",
      "desc": "Portfolio, transactions, market-data cache (portfolio.db)",
      "path": _betelgeuse_db_path},
+    {"key": "notifier", "label": "Notifier",
+     "desc": "Personal reminder text + schedule (notifier.db)",
+     "path": _notifier_db_path},
 ]
 
 

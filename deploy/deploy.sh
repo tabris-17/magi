@@ -127,7 +127,7 @@ ssh "${MINI_USER}@${MINI_HOST}" "TARGET='${TARGET}' ENV='${ENV}' REMOTE_DIR='${R
     all)
       echo "  -> migrating all functions (backs up first)"
       ./.venv/bin/python migrate_all.py up --env "$ENV"
-      SERVICES="web betelgeuse-worker" ;;
+      SERVICES="web betelgeuse-worker worker" ;;
     betelgeuse)
       echo "  -> migrating betelgeuse (backs up first)"
       ( cd functions/betelgeuse && "$REMOTE_DIR/.venv/bin/python" migrate.py up --env "$ENV" )
@@ -137,7 +137,7 @@ ssh "${MINI_USER}@${MINI_HOST}" "TARGET='${TARGET}' ENV='${ENV}' REMOTE_DIR='${R
       SERVICES="web" ;;
     host)
       echo "  -> host: no function migrations — skipping"
-      SERVICES="web" ;;
+      SERVICES="web worker" ;;   # worker.py is host code
   esac
   uid=$(id -u)
   for svc in $SERVICES; do
