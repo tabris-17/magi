@@ -397,8 +397,10 @@ straight through).
   `com.magi.web` + `com.magi.betelgeuse-worker` (a real unload — they're KeepAlive, so a
   kill would just respawn); no deploy, no DB touch. Restart with `./magi launch prod`.
 - **`./magi workflow`** → `deploy/workflow.sh` — `upgrade dev` → `upgrade prod` →
-  `launch dev` (foreground). Prod is (re)started by the deploy step, so it doesn't
-  re-kickstart. `--yes` skips the confirm; **`--detached`/`-d`** makes step 3 launch dev
+  `launch dev`. Prod is (re)started by the deploy step, so it doesn't re-kickstart.
+  **Step 3 always stops a running dev server first** (`pkill -f "serve.py --env dev"` +
+  waits for the port to free), so it never collides — e.g. a surviving detached server from
+  a previous run. `--yes` skips the confirm; **`--detached`/`-d`** makes step 3 launch dev
   detached (via `launch-dev-detached.sh`) and **return** instead of blocking — so the whole
   chain survives a non-interactive caller. The whole CLI is also one Claude slash command —
   `/magi <args>` (`.claude/commands/magi.md`).
