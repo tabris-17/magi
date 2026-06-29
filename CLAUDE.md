@@ -21,6 +21,7 @@ verbs over **low-level** steps (`dev` = this machine, `prod` = the Mac mini):
 ./magi upgrade dev         # copy ALL prod DBs down to local dev (local backed up first)
 ./magi upgrade prod        # deploy local code to the mini, no DB touched (= deploy all)
 ./magi launch dev          # run locally, foreground (werkzeug, 127.0.0.1)
+./magi launch dev -d       # …or --detached: own session, survives this shell/agent/CI
 ./magi launch prod         # start/(re)start the app on the mini (ssh; no deploy)
 ./magi stop dev            # stop the local dev server
 ./magi stop prod           # stop the app on the mini (bootout its LaunchAgents; no deploy)
@@ -383,15 +384,24 @@ straight through).
   `com.magi.web` + `com.magi.betelgeuse-worker` (no deploy, no DB touch). **Bootstrap-
   if-needed**, so it recovers from a `stop prod`: kickstarts a loaded service, else
   `bootstrap`s+`enable`s the plist back (RunAtLoad starts it), else warns to run
-  `setup-mini.sh`. **`launch dev`** = `run --env dev` (local foreground).
+  `setup-mini.sh`. **`launch dev`** = `run --env dev` (local foreground). Add
+  **`--detached`/`-d`** (`./magi launch dev --detached` → `deploy/launch-dev-detached.sh`)
+  to start dev in its **own session** (Python `start_new_session` — the portable `setsid`;
+  macOS has no `setsid` binary), reparented to init so it **survives the launching shell /
+  an agent or CI background task** (a plain foreground launch dies with its parent — dev has
+  no `KeepAlive`, unlike prod). It stops any running dev server first (port-clash guard),
+  waits until the port answers, logs to `data/dev-server.log` (pid in `data/dev-server.pid`,
+  both gitignored). Stop it with `./magi stop dev` (its `pkill` matches the detached one too).
 - **`./magi stop dev`** — kills the local dev server (`pkill -f "serve.py --env dev"`),
   no script. **`./magi stop prod`** → `deploy/stop-mini.sh` — ssh-`bootout`s the mini's
   `com.magi.web` + `com.magi.betelgeuse-worker` (a real unload — they're KeepAlive, so a
   kill would just respawn); no deploy, no DB touch. Restart with `./magi launch prod`.
 - **`./magi workflow`** → `deploy/workflow.sh` — `upgrade dev` → `upgrade prod` →
   `launch dev` (foreground). Prod is (re)started by the deploy step, so it doesn't
-  re-kickstart. `--yes` skips the confirm. The whole CLI is also one Claude slash
-  command — `/magi <args>` (`.claude/commands/magi.md`).
+  re-kickstart. `--yes` skips the confirm; **`--detached`/`-d`** makes step 3 launch dev
+  detached (via `launch-dev-detached.sh`) and **return** instead of blocking — so the whole
+  chain survives a non-interactive caller. The whole CLI is also one Claude slash command —
+  `/magi <args>` (`.claude/commands/magi.md`).
 
 ## Migration state
 

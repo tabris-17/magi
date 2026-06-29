@@ -8,6 +8,7 @@
 #   ./magi upgrade dev     copy ALL prod DBs down to local dev (local backed up first)
 #   ./magi upgrade prod    deploy local code to the mini, no DB touched (= deploy all)
 #   ./magi launch dev      run the app locally, foreground (werkzeug, 127.0.0.1)
+#                            (add --detached/-d to keep it running after this shell)
 #   ./magi launch prod     start/(re)start the app on the mini (ssh; no deploy)
 #   ./magi stop dev        stop the local dev server
 #   ./magi stop prod       stop the app on the mini (bootout its LaunchAgents)
@@ -51,7 +52,14 @@ case "$cmd" in
   launch)
     sub="$(need_env "${1:-}" launch)"; shift || true
     case "$sub" in
-      dev)  exec python3 "$HERE/serve.py" --env dev "$@" ;;
+      dev)
+        # --detached|-d: run in its own session so it survives this shell/agent/CI
+        # (see deploy/launch-dev-detached.sh). Default stays foreground (Ctrl-C).
+        if [[ "${1:-}" == "--detached" || "${1:-}" == "-d" ]]; then
+          shift || true
+          exec "$HERE/deploy/launch-dev-detached.sh" "$@"
+        fi
+        exec python3 "$HERE/serve.py" --env dev "$@" ;;
       prod) exec "$HERE/deploy/kickstart-mini.sh" "$@" ;;
     esac ;;
 

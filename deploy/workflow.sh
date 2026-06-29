@@ -11,15 +11,25 @@
 # (use `./magi launch prod` for a standalone prod restart). Step 3 blocks — Ctrl-C
 # to stop the local server.
 #
-#   deploy/workflow.sh [--yes]      (usually via:  ./magi workflow)
-#     --yes   skip the confirmation prompt (for non-interactive runs)
+#   deploy/workflow.sh [--yes] [--detached]    (usually via:  ./magi workflow)
+#     --yes        skip the confirmation prompt (for non-interactive runs)
+#     --detached   step 3 launches dev in its OWN session and RETURNS, instead of
+#                  blocking in the foreground — so the server survives this shell
+#                  (or an agent/CI background task). Stop it with `./magi stop dev`.
 #
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
 YES=0
-[[ "${1:-}" == "--yes" || "${1:-}" == "-y" ]] && YES=1
+DETACHED=0
+for arg in "$@"; do
+  case "$arg" in
+    --yes|-y)      YES=1 ;;
+    --detached|-d) DETACHED=1 ;;
+    *) echo "workflow: unknown option '$arg' (try: --yes, --detached)" >&2; exit 2 ;;
+  esac
+done
 
 if [[ ! -f "$HERE/config.sh" ]]; then
   echo "ERROR: deploy/config.sh not found. Run: cp deploy/config.example.sh deploy/config.sh" >&2
@@ -48,5 +58,10 @@ echo; echo "########## 1/3  upgrade dev ##########"
 echo; echo "########## 2/3  upgrade prod (deploy + launch prod) ##########"
 "$HERE/deploy.sh" all --env prod
 
-echo; echo "########## 3/3  launch dev (foreground) ##########"
-exec python3 "$ROOT/serve.py" --env dev
+if [[ "$DETACHED" -eq 1 ]]; then
+  echo; echo "########## 3/3  launch dev (detached) ##########"
+  exec "$HERE/launch-dev-detached.sh"
+else
+  echo; echo "########## 3/3  launch dev (foreground) ##########"
+  exec python3 "$ROOT/serve.py" --env dev
+fi
