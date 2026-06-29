@@ -446,9 +446,10 @@ straight through).
   `launch dev`. Prod is (re)started by the deploy step, so it doesn't re-kickstart.
   **Step 3 always stops a running dev server first** (`pkill -f "serve.py --env dev"` +
   waits for the port to free), so it never collides — e.g. a surviving detached server from
-  a previous run. `--yes` skips the confirm; **`--detached`/`-d`** makes step 3 launch dev
-  detached (via `launch-dev-detached.sh`) and **return** instead of blocking — so the whole
-  chain survives a non-interactive caller. The whole CLI is also one Claude slash command —
+  a previous run. **No confirmation prompt** — it runs straight away (the banner shows what it
+  will do); `--yes`/`-y` is accepted but a no-op (back-compat). **`--detached`/`-d`** makes step 3
+  launch dev detached (via `launch-dev-detached.sh`) and **return** instead of blocking — so the
+  whole chain survives a non-interactive caller. The whole CLI is also one Claude slash command —
   `/magi <args>` (`.claude/commands/magi.md`).
 
 ## Migration state

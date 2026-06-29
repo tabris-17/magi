@@ -62,8 +62,9 @@ High-level verbs over deploy/migrate (`dev` = this machine, `prod` = the mini):
 `upgrade dev` is the safe **prod→dev** DB refresh (mirror prod data locally); schema
 only ever goes **up** to prod via migrations, never by copying a DB file up. The
 `workflow` relies on `upgrade prod`'s own restart to launch prod (no redundant
-kickstart) and ends with the local dev server in the foreground (`--yes` skips its
-confirm). The whole CLI is also one **Claude slash command** — `/magi <args>` (e.g.
+kickstart) and ends with the local dev server in the foreground. It runs with no
+confirmation prompt (`--yes`/`-y` is still accepted but a no-op). The whole CLI is also
+one **Claude slash command** — `/magi <args>` (e.g.
 `/magi workflow`, `/magi upgrade dev`) — passing its args straight to `./magi`.
 
 ## One-time setup (first deploy)

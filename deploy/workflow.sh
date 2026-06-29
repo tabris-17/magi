@@ -13,23 +13,24 @@
 # running dev server first (so it never collides on the port — e.g. a surviving
 # detached server from a previous run), then blocks — Ctrl-C to stop the local server.
 #
-#   deploy/workflow.sh [--yes] [--detached]    (usually via:  ./magi workflow)
-#     --yes        skip the confirmation prompt (for non-interactive runs)
+#   deploy/workflow.sh [--detached]    (usually via:  ./magi workflow)
 #     --detached   step 3 launches dev in its OWN session and RETURNS, instead of
 #                  blocking in the foreground — so the server survives this shell
 #                  (or an agent/CI background task). Stop it with `./magi stop dev`.
+#     --yes/-y     accepted but a NO-OP — the confirmation prompt was removed, so the
+#                  workflow just runs (the banner below shows what it will do). Kept so
+#                  existing `./magi workflow --yes` invocations don't error.
 #
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-YES=0
 DETACHED=0
 for arg in "$@"; do
   case "$arg" in
-    --yes|-y)      YES=1 ;;
     --detached|-d) DETACHED=1 ;;
-    *) echo "workflow: unknown option '$arg' (try: --yes, --detached)" >&2; exit 2 ;;
+    --yes|-y)      ;;  # no-op (prompt removed) — accepted for back-compat
+    *) echo "workflow: unknown option '$arg' (try: --detached)" >&2; exit 2 ;;
   esac
 done
 
@@ -48,11 +49,6 @@ cat <<INFO
       2) upgrade prod  — deploy code to the mini (no prod DB touched) + restart it
       3) launch dev    — run locally in the foreground (Ctrl-C to stop)
 INFO
-
-if [[ "$YES" -ne 1 ]]; then
-  read -r -p "Proceed? [y/N] " ans
-  [[ "$ans" == "y" || "$ans" == "Y" ]] || { echo "aborted."; exit 1; }
-fi
 
 echo; echo "########## 1/3  upgrade dev ##########"
 "$HERE/pull-prod-dbs.sh"
