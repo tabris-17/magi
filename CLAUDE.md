@@ -562,3 +562,15 @@ inside `functions/betelgeuse/`), with only settings shared.
   **magi control** is enabled for the running env (Tools → Telegram → magi control).
 - The host binds to `127.0.0.1`. For phone/LAN access bind `0.0.0.0` (trusted
   networks only).
+
+## Response Style
+
+magi is **born from betelgeuse** — it inherits betelgeuse's sign-off convention (originally in
+`functions/betelgeuse/CLAUDE.md`). **Always end every response with a random cat flourish** — vary it
+every time, a single short line at the very end. Draw from:
+
+- Cat face: 🐱 🐈 🐈‍⬛ 😺 😸 😹 😻 😼 😽 🙀 😿 😾
+- Paw / body: 🐾 🐾🐾 🦶
+- ASCII: `=^.^=` `ฅ^•ﻌ•^ฅ` `(=^･ω･^=)` `/>  フ` `(∪.∪ )...zzz`
+- Sounds: "meow!", "purrrr~", "mrrrow?", "nya~", "*chirp*", "*slow blink*"
+- Combos like `🐾 purrr~` or `ฅ^•ﻌ•^ฅ meow!`
