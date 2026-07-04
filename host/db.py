@@ -48,6 +48,10 @@ SETTINGS = {
     # overrides for that one download).
     "youtube_date_prefix": {"allowed": {"0", "1"}, "default": "1", "scoped": True},
     "youtube_write_meta": {"allowed": {"0", "1"}, "default": "1", "scoped": True},
+    # Re-encode the downloaded video to HEVC (hardware-accelerated) so it plays in
+    # QuickTime — 4K YouTube is VP9/AV1, which QuickTime can't decode. Opt-in (default
+    # off): re-encoding is slow + lossy, and already-H.264/HEVC files are left untouched.
+    "youtube_quicktime": {"allowed": {"0", "1"}, "default": "0", "scoped": True},
     # The taxation function's RBA source spreadsheet URL (global; same dev/prod).
     "taxation_rba_url": {
         "allowed": None,

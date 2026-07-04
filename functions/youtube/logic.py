@@ -6,11 +6,16 @@ package: nothing here imports from the host or other functions.
 import os
 import queue
 import shutil
+import subprocess
 import threading
 import urllib.parse
 from datetime import datetime
 
 import yt_dlp
+
+# Codecs QuickTime Player can decode. 4K YouTube is only VP9/AV1, so a 2160p download
+# needs re-encoding to HEVC before QuickTime will open it (see transcode_to_quicktime).
+QUICKTIME_VCODECS = {"h264", "hevc"}
 
 # Machine-local download dir. Overridable per-machine via MAGI_YOUTUBE_DIR so the
 # unified host can boot on the mini (user wklin3) without reaching for a path under
@@ -55,6 +60,91 @@ def metadata_file(dest_dir=None):
 
 def has_ffmpeg():
     return shutil.which("ffmpeg") is not None
+
+
+def has_hevc_encoder():
+    """True if ffmpeg exposes Apple's hardware HEVC encoder (hevc_videotoolbox) — what the
+    QuickTime-compatible re-encode uses. Cheap, cached-free; safe to call from health."""
+    if not has_ffmpeg():
+        return False
+    try:
+        out = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-encoders"],
+            capture_output=True, text=True, timeout=15,
+        )
+        return "hevc_videotoolbox" in (out.stdout or "")
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _video_codec(path):
+    """First video stream's codec name (lowercase) via ffprobe, or '' if unknown."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return (out.stdout or "").strip().lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def transcode_to_quicktime(path, duration=None, emit=None):
+    """Re-encode `path` in place to HEVC (hardware-accelerated hevc_videotoolbox) so
+    QuickTime Player can open it. No-op if the video is already H.264/HEVC (nothing to
+    fix). On any failure the ORIGINAL file is kept — the download itself already
+    succeeded, so a failed re-encode should degrade to "playable elsewhere", not error.
+
+    `duration` (seconds) drives the progress percentage; `emit(event, data)` streams
+    `recode` progress events to the SSE client. Returns `path` (same filename either way).
+    """
+    codec = _video_codec(path)
+    if codec in QUICKTIME_VCODECS:
+        return path  # already QuickTime-compatible — don't waste a lossy re-encode
+    if emit:
+        emit("recode", {"message": f"Re-encoding {codec or 'video'} → HEVC for QuickTime…",
+                        "percent": 0})
+    tmp = os.path.splitext(path)[0] + ".qt-tmp.mp4"
+    cmd = [
+        "ffmpeg", "-y", "-i", path,
+        "-c:v", "hevc_videotoolbox", "-q:v", "60", "-tag:v", "hvc1",  # hvc1 tag = QuickTime-friendly
+        "-c:a", "aac", "-b:a", "192k",                                # Opus/AAC → AAC (QuickTime audio)
+        "-movflags", "+faststart",
+        "-progress", "pipe:1", "-nostats", "-loglevel", "error",
+        tmp,
+    ]
+    proc = None
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        total = float(duration or 0)
+        for line in proc.stdout:  # -progress emits key=value lines periodically
+            if emit and total and line.startswith("out_time="):
+                ts = line.split("=", 1)[1].strip()  # HH:MM:SS.microseconds
+                try:
+                    h, m, s = ts.split(":")
+                    pct = max(0.0, min(100.0, (int(h) * 3600 + int(m) * 60 + float(s)) / total * 100))
+                    emit("recode", {"percent": pct})
+                except ValueError:
+                    pass  # "N/A" before the first frame
+        proc.wait()
+        if proc.returncode == 0 and os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+            os.replace(tmp, path)  # same filename, now HEVC → QuickTime opens it
+            return path
+        err = (proc.stderr.read() if proc.stderr else "") or f"ffmpeg exit {proc.returncode}"
+        raise RuntimeError(err.strip()[:200])
+    except Exception as e:  # noqa: BLE001
+        if emit:
+            emit("stage", {"message": f"⚠️ HEVC re-encode failed ({e}); kept the original file"})
+        return path
+    finally:
+        if proc and proc.stderr:
+            proc.stderr.close()
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def append_metadata(url, title, stem, dest_dir=None):
@@ -155,7 +245,7 @@ def build_format_string(format_id, kind, audio_only_mp3):
     return format_id  # progressive (both) or audio-only as-is
 
 
-def run_download(*, url, format_id, kind, audio_mp3, date_prefix, write_meta, dest):
+def run_download(*, url, format_id, kind, audio_mp3, date_prefix, write_meta, dest, quicktime=False):
     """Run a download in a worker thread, yielding (event, data) tuples for SSE.
 
     Events: progress, stage, done, error. The caller turns these into SSE frames.
@@ -192,6 +282,19 @@ def run_download(*, url, format_id, kind, audio_mp3, date_prefix, write_meta, de
             "outtmpl": outtmpl,
             "progress_hooks": [hook],
             "merge_output_format": "mp4",
+            # Big single-file DASH streams (e.g. 2160p, 1+ GiB) make YouTube drop the
+            # connection mid-transfer → "N bytes read, M more expected" (IncompleteRead).
+            # Pull each stream in bounded ranged chunks so a dropped connection only loses
+            # the current chunk and resumes at the right offset instead of aborting the whole
+            # download. On a flaky path YouTube can drop nearly every chunk, so a small retry
+            # budget gets exhausted on one bad chunk — retry indefinitely (matching yt-dlp's
+            # `--retries infinite`); socket_timeout bounds each stalled read so a retry always
+            # makes progress rather than hanging silently. Verified: full 1.09 GiB 2160p pull.
+            "http_chunk_size": 10 * 1024 * 1024,  # 10 MiB
+            "retries": float("inf"),
+            "fragment_retries": float("inf"),
+            "file_access_retries": 10,
+            "socket_timeout": 30,
         }
         if audio_mp3:
             opts["postprocessors"] = [{
@@ -204,6 +307,11 @@ def run_download(*, url, format_id, kind, audio_mp3, date_prefix, write_meta, de
                 info = ydl.extract_info(url, download=True)
             req = (info.get("requested_downloads") or [{}])[0]
             filepath = req.get("filepath") or ydl.prepare_filename(info)
+
+            # Optional: re-encode VP9/AV1 (e.g. 4K, which QuickTime can't decode) to HEVC so
+            # QuickTime opens it. In place, same filename; a no-op for already-H.264/HEVC files.
+            if quicktime and not audio_mp3 and has_ffmpeg():
+                filepath = transcode_to_quicktime(filepath, duration=info.get("duration"), emit=emit)
             fname = os.path.basename(filepath)
 
             meta_line = None

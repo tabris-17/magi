@@ -19,6 +19,7 @@
     <div class="opt-hint muted">Default for <span id="envName"></span>. Blank = built-in.</div>
     <label class="chk"><input type="checkbox" id="datePrefix" checked /> Prefix filename with download date <span class="muted">(yyyyMMdd-)</span></label>
     <label class="chk"><input type="checkbox" id="metaChk" checked /> Log entry to <span class="muted">video-links.txt</span> (metadata)</label>
+    <label class="chk"><input type="checkbox" id="qtChk" /> QuickTime-compatible <span class="muted">(re-encode 4K VP9/AV1 → HEVC; slower)</span></label>
     <span id="prefStatus" class="muted" aria-live="polite"></span>
   </div>
   <div id="ffwarn" class="warn">⚠️ ffmpeg not found — high-res merges and MP3 conversion are disabled. Only combined (≤720p) formats will work.</div>
@@ -108,6 +109,8 @@ async function loadPrefs(){
       $("datePrefix").checked = s.youtube_date_prefix === "1";
     if (s.youtube_write_meta !== undefined && s.youtube_write_meta !== null)
       $("metaChk").checked = s.youtube_write_meta === "1";
+    if (s.youtube_quicktime !== undefined && s.youtube_quicktime !== null)
+      $("qtChk").checked = s.youtube_quicktime === "1";
   } catch(e){}
 }
 async function savePref(key, checked){
@@ -224,6 +227,7 @@ function startDownload(opts){
     audio_mp3: opts.audio_mp3 ? "1" : "0",
     date_prefix: $("datePrefix").checked ? "1" : "0",
     metadata: $("metaChk").checked ? "1" : "0",
+    quicktime: $("qtChk").checked ? "1" : "0",
     dest: $("dest").value.trim(),
   });
   const es = new EventSource(API + "/api/download?" + params.toString());
@@ -243,6 +247,18 @@ function startDownload(opts){
     const d = JSON.parse(ev.data);
     $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message;
     $("fill").style.width = "100%";
+  });
+
+  // HEVC re-encode progress (QuickTime-compatible option). Its own bar so it doesn't read
+  // as a stalled download; message only comes on the first frame, so keep the last label.
+  es.addEventListener("recode", (ev) => {
+    const d = JSON.parse(ev.data);
+    if(d.message) $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message;
+    if(d.percent != null){
+      $("fill").style.width = d.percent.toFixed(1) + "%";
+      $("statLeft").textContent = d.percent.toFixed(0) + "%";
+    }
+    $("statRight").textContent = "HEVC · QuickTime-compatible";
   });
 
   es.addEventListener("done", (ev) => {
@@ -280,6 +296,7 @@ $("saveDir").addEventListener("click", saveDir);
 $("dest").addEventListener("keydown", (e) => { if(e.key === "Enter") saveDir(); });
 $("datePrefix").addEventListener("change", () => savePref("youtube_date_prefix", $("datePrefix").checked));
 $("metaChk").addEventListener("change", () => savePref("youtube_write_meta", $("metaChk").checked));
+$("qtChk").addEventListener("change", () => savePref("youtube_quicktime", $("qtChk").checked));
 $("envName").textContent = document.documentElement.getAttribute("data-env") || "this machine";
 if (window.innerWidth > 860) $("url").focus();
 checkHealth();

@@ -108,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.9.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.10.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
@@ -121,13 +121,13 @@ isolated.
   (betelgeuse).
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
-  short prefix — youtube → **`yd-1.0.0`**; taxation → **`tax-1.0.0`**; notifier →
+  short prefix — youtube → **`yd-1.1.0`**; taxation → **`tax-1.0.0`**; notifier →
   **`notifier-1.0.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.9.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.10.0` in the sidebar footer.
 
 ### Function contract
 
@@ -345,7 +345,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.9.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.10.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -521,11 +521,19 @@ inside `functions/betelgeuse/`), with only settings shared.
   host setting** (injected by the host via `set_download_dir_resolver` — set per-env via the
   **Save** button on the YouTube page's "Save to" field) → `MAGI_YOUTUBE_DIR` env →
   `DEFAULT_DOWNLOAD_DIR` (a path under `/Users/kai`); a per-request `dest` still overrides.
-  The two download **toggles** (`youtube_date_prefix`, `youtube_write_meta`) are likewise
-  **env-scoped host settings** ("0"/"1", default "1") — the YouTube page pre-fills the
+  The three download **toggles** (`youtube_date_prefix`, `youtube_write_meta` — default "1";
+  `youtube_quicktime` — default "0") are likewise
+  **env-scoped host settings** ("0"/"1") — the YouTube page pre-fills the
   checkboxes from them (read straight off `/api/settings`) and saves on change (`POST
   /api/settings`, no `env` → running env); the per-download checkbox state still wins for
-  that download. `video-links.txt` is written into
+  that download. **`youtube_quicktime`** re-encodes the finished video to HEVC via ffmpeg's
+  hardware `hevc_videotoolbox` (`logic.transcode_to_quicktime`, `-tag:v hvc1` + audio→AAC)
+  so QuickTime can play it — 4K YouTube is VP9/AV1, which QuickTime can't decode. It's a
+  **no-op for already-H.264/HEVC** files, skipped for audio-only/MP3, needs ffmpeg, and on
+  any failure keeps the original (the download already succeeded). Big downloads also use
+  ranged `http_chunk_size` + effectively-unlimited retries in `run_download` to survive
+  YouTube dropping the connection mid-stream (the "N bytes read, M more expected"
+  IncompleteRead). `video-links.txt` is written into
   whatever folder the videos land in (`metadata_file(dest)`). The
   download dir is created **lazily at download time** (`os.makedirs(dest, …)` inside
   `run_download`) — importing the module must NOT touch the filesystem, or a path that

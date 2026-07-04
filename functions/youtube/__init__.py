@@ -39,7 +39,7 @@ META = {
     "description": "Fetch every available format and download videos or audio locally.",
     "icon": ICON,
     "url": "/youtube/",
-    "version": "yd-1.0.0",
+    "version": "yd-1.1.0",
     "health": health_payload,
 }
 
@@ -84,6 +84,7 @@ def download():
         audio_mp3=(a.get("audio_mp3") or "0") == "1",
         date_prefix=(a.get("date_prefix") or "1") == "1",
         write_meta=(a.get("metadata") or "1") == "1",
+        quicktime=(a.get("quicktime") or "0") == "1",
         dest=dest,
     )
 
