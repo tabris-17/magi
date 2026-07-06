@@ -108,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.10.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.11.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
@@ -121,13 +121,13 @@ isolated.
   (betelgeuse).
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
-  short prefix — youtube → **`yd-1.1.0`**; taxation → **`tax-1.0.0`**; notifier →
+  short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
   **`notifier-1.0.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.10.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.11.0` in the sidebar footer.
 
 ### Function contract
 
@@ -345,7 +345,7 @@ screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisor
 "tests green = done" — not enforced; the skill is also auto-discoverable from its own
 description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.10.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.11.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on

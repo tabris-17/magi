@@ -39,7 +39,7 @@ META = {
     "description": "Fetch every available format and download videos or audio locally.",
     "icon": ICON,
     "url": "/youtube/",
-    "version": "yd-1.1.0",
+    "version": "yd-1.2.0",
     "health": health_payload,
 }
 

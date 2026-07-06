@@ -28,6 +28,7 @@
     <div class="label" id="statusLabel"><span class="spin"></span>Starting…</div>
     <div class="track"><div class="fill" id="fill"></div></div>
     <div class="stat"><span id="statLeft"></span><span id="statRight"></span></div>
+    <div class="convert-note" id="convertNote">🎞 Converting for QuickTime — still working. Don't open the file yet; it isn't finished until you see “Saved!”.</div>
   </div>
   <div id="doneBox" class="done-box"></div>
   <div id="errBox" class="err-box"></div>
@@ -206,6 +207,7 @@ function addQuick(parent, title, sub, onClick){
 function resetDownloadUI(){
   if(activeES){ activeES.close(); activeES = null; }
   $("status").style.display = "none";
+  $("status").classList.remove("converting");
   $("doneBox").style.display = "none";
   $("errBox").style.display = "none";
   $("fill").style.width = "0%";
@@ -245,26 +247,33 @@ function startDownload(opts){
 
   es.addEventListener("stage", (ev) => {
     const d = JSON.parse(ev.data);
-    $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message;
+    // With QuickTime re-encode on, a full bar here would read as "done" — flag that a
+    // second (conversion) phase is coming so the user doesn't rush to the folder.
+    const more = $("qtChk").checked ? " → then converting for QuickTime…" : "";
+    $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message + more;
     $("fill").style.width = "100%";
   });
 
-  // HEVC re-encode progress (QuickTime-compatible option). Its own bar so it doesn't read
-  // as a stalled download; message only comes on the first frame, so keep the last label.
+  // HEVC re-encode progress (QuickTime-compatible option). A distinct amber phase with its
+  // own "still working" note so a full download bar never gets mistaken for the finished file.
   es.addEventListener("recode", (ev) => {
     const d = JSON.parse(ev.data);
-    if(d.message) $("statusLabel").innerHTML = '<span class="spin"></span>' + d.message;
-    if(d.percent != null){
-      $("fill").style.width = d.percent.toFixed(1) + "%";
-      $("statLeft").textContent = d.percent.toFixed(0) + "%";
+    $("status").classList.add("converting");
+    const pct = d.percent != null ? d.percent : null;
+    $("statusLabel").innerHTML = '<span class="spin"></span>Step 2 of 2 · Converting for QuickTime (HEVC)'
+      + (pct != null ? ' — ' + pct.toFixed(0) + '%' : '…');
+    if(pct != null){
+      $("fill").style.width = pct.toFixed(1) + "%";
+      $("statLeft").textContent = pct.toFixed(0) + "%";
     }
-    $("statRight").textContent = "HEVC · QuickTime-compatible";
+    $("statRight").textContent = "re-encoding · don't open the file yet";
   });
 
   es.addEventListener("done", (ev) => {
     const d = JSON.parse(ev.data);
     es.close(); activeES = null;
     $("status").style.display = "none";
+    $("status").classList.remove("converting");
     $("doneBox").style.display = "block";
     $("doneBox").innerHTML =
       `✅ <b>Saved!</b><br>` +
@@ -281,6 +290,7 @@ function startDownload(opts){
     if(ev.data){ try { msg = JSON.parse(ev.data).message || msg; } catch(e){} }
     es.close(); activeES = null;
     $("status").style.display = "none";
+    $("status").classList.remove("converting");
     showError(msg);
   });
 }
