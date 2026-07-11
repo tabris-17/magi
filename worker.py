@@ -65,7 +65,8 @@ def main():
     # Register host-native functions that want scheduling. Each module must expose
     # schedule_fingerprint() + reschedule(scheduler). Add new ones here.
     from functions.notifier import logic as notifier_logic
-    SCHEDULABLE = [("notifier", notifier_logic)]
+    from functions.polaris import logic as polaris_logic   # daily journal-DB snapshot
+    SCHEDULABLE = [("notifier", notifier_logic), ("polaris", polaris_logic)]
 
     from apscheduler.schedulers.background import BackgroundScheduler
     scheduler = BackgroundScheduler(daemon=True)

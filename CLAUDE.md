@@ -57,7 +57,7 @@ each function's deps (`pip install -r functions/betelgeuse/requirements.txt`).
 There is **one front end** — the magi host. The old stdlib single-file SPA
 (`start.sh` / `server.py` / `static/index.html`) has been **retired** (M4). Two background
 worker processes run separately (see Deploy): betelgeuse's own worker and the **shared magi
-worker** (`worker.py`, host-native function jobs — currently the Notifier).
+worker** (`worker.py`, host-native function jobs — the Notifier + polaris's daily backup).
 
 ### dev / prod mode
 
@@ -108,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.13.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.14.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
@@ -122,12 +122,12 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.5.2`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.6.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.13.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.14.0` in the sidebar footer.
 
 ### Function contract
 
@@ -395,7 +395,7 @@ like betelgeuse's inline-literal debt, and the screenshot-both-themes recipe); r
 any non-trivial UI change. (Advisory, like "tests green = done" — not enforced; the skill is
 also auto-discoverable from its own description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.13.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.14.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -450,7 +450,7 @@ straight through).
   with `WorkingDirectory` inside the package — never started by the web process.
 - **The shared magi worker (`worker.py` + `com.magi.worker`) — the app-wide background-job
   runner for HOST-NATIVE functions.** One always-on process owns an APScheduler and fires
-  host-native functions' scheduled jobs (currently the **Notifier**'s personal reminders).
+  host-native functions' scheduled jobs (the **Notifier**'s personal reminders + **polaris**'s daily DB snapshot).
   Generalized over a `SCHEDULABLE` list — each module exposes `schedule_fingerprint()` +
   `reschedule(scheduler)`; the worker polls every 30s and reschedules on change (DB-driven,
   no cross-process RPC — betelgeuse's worker pattern lifted to the host). `WorkingDirectory`
@@ -640,6 +640,22 @@ inside `functions/betelgeuse/`), with only settings shared.
   `entry_tags` junction; `delete_entry` cleans the junction too, sqlite FKs are OFF). The entry
   POST takes an optional `tags: [ids]` (replaces the set; unknown ids silently dropped);
   `GET/POST/DELETE /polaris/api/tags[/<id>]` is the manager API.
+  - **Backups & rollback** (title/body/date/attachments/tags all live in the ONE polaris.db, so a
+    snapshot is complete). Two automatic layers land in `functions/polaris/data/backup/`
+    (rsync-excluded + gitignored — each box keeps its own):
+    **`polaris-pre-vN-<stamp>.db`** — `logic._schema_guard()` compares the file's `PRAGMA
+    user_version` to `logic.SCHEMA_VERSION` once per process and snapshots BEFORE the first
+    schema statement when they differ, then stamps; **bump `SCHEMA_VERSION` whenever the schema
+    changes shape** and the pre-change bytes survive automatically (kept forever).
+    **`polaris-daily-<stamp>.db`** — the shared magi worker's daily job (03:30 box-local,
+    `logic.daily_backup()`, registered in `worker.py`'s `SCHEDULABLE`), skipped when unchanged,
+    newest `BACKUP_KEEP_DAILY`=14 kept. Snapshots use the sqlite backup API (consistent against
+    live writers). Health (`logic.status()`) reports `backups`/`last_backup`, so **dev's Health
+    page shows prod's last backup** via the prod probe. A third, manual layer: `./magi upgrade
+    dev` `.bak`s the local copy and mirrors prod's down.
+    **Manual rollback:** `./magi stop prod` → on the mini `cp functions/polaris/data/backup/
+    polaris-<which>.db functions/polaris/data/polaris.db` (keep a copy of the bad one first) →
+    `./magi launch prod`. Dev: same paths locally with `./magi stop dev`.
   The page is a **page-level search toolbar** over a
   two-pane body: a **year → month → entry tree** on the left (collapsible, counts per node,
   newest first; open nodes persist in `localStorage['polaris-expanded']`, and the current

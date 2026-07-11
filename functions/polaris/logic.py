@@ -15,16 +15,35 @@ importing it touches NO filesystem or network — the schema is created lazily o
 DB access. There is no migration engine (same as the host's own store and notifier's):
 _SCHEMA is idempotent, so an existing polaris.db picks up `attachments` on next connect.
 """
+import glob
 import logging
 import os
 import re
 import sqlite3
+import threading
 from datetime import datetime, timezone
 
 logger = logging.getLogger("magi.polaris")
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DATA_DIR, "polaris.db")
+
+# ---- backups (see "Backups & rollback" in CLAUDE.md) -----------------------------------
+# Two layers, both landing in data/backup/ (rsync-excluded + gitignored, so each box
+# keeps its own):
+#   * polaris-pre-vN-<stamp>.db — taken AUTOMATICALLY the first time a process opens a
+#     DB stamped with a different PRAGMA user_version than this code's SCHEMA_VERSION,
+#     BEFORE any schema statement runs. Kept forever (they mark exactly the moments
+#     worth rolling back to). Bump SCHEMA_VERSION whenever the schema changes shape.
+#   * polaris-daily-<stamp>.db — the shared magi worker's daily job (03:30), skipped
+#     when the DB hasn't changed; only the newest BACKUP_KEEP_DAILY are kept.
+# Rollback is manual by design: stop the app, copy a snapshot over polaris.db, start.
+SCHEMA_VERSION = 1
+BACKUP_DIR = os.path.join(DATA_DIR, "backup")
+BACKUP_KEEP_DAILY = 14
+
+_schema_lock = threading.Lock()
+_schema_checked = False
 
 ATTACH_MAX_BYTES = 25 * 1024 * 1024
 
@@ -78,10 +97,106 @@ def _today():
 def _connect():
     """Open polaris.db, creating the dir + schema lazily (never at import)."""
     os.makedirs(DATA_DIR, exist_ok=True)
+    _schema_guard()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
     return conn
+
+
+def _schema_guard():
+    """Once per process: if the DB file was written by a DIFFERENT schema version,
+    snapshot it to backup/ BEFORE this code touches it, then apply the (idempotent)
+    schema and stamp PRAGMA user_version. This is the journal's safety net for future
+    schema/data-shape changes — the pre-change bytes always survive in a file you can
+    manually copy back."""
+    global _schema_checked
+    if _schema_checked:
+        return
+    with _schema_lock:
+        if _schema_checked:
+            return
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            try:
+                stored = conn.execute("PRAGMA user_version").fetchone()[0]
+            finally:
+                conn.close()
+            if stored != SCHEMA_VERSION:
+                dest = snapshot_db(f"pre-v{SCHEMA_VERSION}")
+                logger.info("polaris schema v%s -> v%s: pre-change snapshot %s",
+                            stored, SCHEMA_VERSION, dest and os.path.basename(dest))
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            conn.executescript(_SCHEMA)
+            conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            conn.commit()
+        finally:
+            conn.close()
+        _schema_checked = True
+
+
+def snapshot_db(reason):
+    """A consistent copy of polaris.db → data/backup/polaris-<reason>-<stamp>.db, via
+    the sqlite backup API (safe against concurrent writers). None when no DB exists."""
+    if not os.path.exists(DB_PATH):
+        return None
+    os.makedirs(BACKUP_DIR, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = os.path.join(BACKUP_DIR, f"polaris-{reason}-{stamp}.db")
+    src = sqlite3.connect(DB_PATH)
+    dst = sqlite3.connect(dest)
+    try:
+        src.backup(dst)
+    finally:
+        dst.close()
+        src.close()
+    return dest
+
+
+def _dailies():
+    return sorted(glob.glob(os.path.join(BACKUP_DIR, "polaris-daily-*.db")))
+
+
+def daily_backup():
+    """The shared worker's daily job: snapshot when the DB changed since the newest
+    daily, then prune dailies beyond BACKUP_KEEP_DAILY (pre-v* snapshots are never
+    pruned). Returns the new snapshot path, or None when skipped."""
+    if not os.path.exists(DB_PATH):
+        return None
+    last = _dailies()
+    if last and os.path.getmtime(DB_PATH) <= os.path.getmtime(last[-1]):
+        logger.info("polaris backup: unchanged since %s — skipped", os.path.basename(last[-1]))
+        return None
+    dest = snapshot_db("daily")
+    logger.info("polaris backup: wrote %s", os.path.basename(dest))
+    for old in _dailies()[:-BACKUP_KEEP_DAILY]:
+        os.remove(old)
+        logger.info("polaris backup: pruned %s", os.path.basename(old))
+    return dest
+
+
+# ---- shared-worker interface (worker.py drives this, like the Notifier) ---------------
+
+BACKUP_JOB_ID = "polaris_daily_backup"
+BACKUP_AT = (3, 30)   # daily, 03:30 in the box's local time
+
+
+def schedule_fingerprint():
+    """Static — the backup schedule isn't user-configurable; the worker just needs a
+    stable value so it installs the job once and never churns it."""
+    return f"backup@{BACKUP_AT[0]:02d}:{BACKUP_AT[1]:02d}/v{SCHEMA_VERSION}"
+
+
+def reschedule(scheduler):
+    """(Re)install the daily snapshot job on the shared worker's scheduler."""
+    from apscheduler.triggers.cron import CronTrigger  # lazy — web imports stay cheap
+    for job in list(scheduler.get_jobs()):
+        if job.id == BACKUP_JOB_ID:
+            job.remove()
+    scheduler.add_job(daily_backup, CronTrigger(hour=BACKUP_AT[0], minute=BACKUP_AT[1]),
+                      id=BACKUP_JOB_ID)
+    logger.info("[polaris] daily backup scheduled %02d:%02d", *BACKUP_AT)
 
 
 def _row(r):
@@ -377,8 +492,12 @@ def status():
             ).fetchone()
         finally:
             conn.close()
+        backups = sorted(glob.glob(os.path.join(BACKUP_DIR, "polaris-*.db")))
         return {"db": DB_PATH, "entries": row["n"], "latest_entry": row["last"],
-                "attachments": att["n"], "attachment_bytes": att["bytes"], "ok": True}
+                "attachments": att["n"], "attachment_bytes": att["bytes"],
+                "schema_version": SCHEMA_VERSION, "backups": len(backups),
+                "last_backup": os.path.basename(backups[-1]) if backups else None,
+                "ok": True}
     except Exception as exc:  # noqa: BLE001
         logger.warning("polaris health failed: %s", exc)
         return {"db": DB_PATH, "ok": False, "error": str(exc)}
