@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.7.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.7.2`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -631,9 +631,10 @@ inside `functions/betelgeuse/`), with only settings shared.
   break** (Safari writes lines as `<div>aa<div>bb</div></div>` — recursing it as inline glued
   the text together), and **escaped literals (`\*` `\_` `` \` `` `\\`) are parked behind
   sentinels BEFORE the bold/italic regexes run** (unescaping only at the end let `sync\_dell`'s
-  backslash act as an italic boundary, corrupting a little more each save→load cycle). The
-  node/browser test battery in the repo history covers both — run it before touching the
-  converter. No WYSIWYG
+  backslash act as an italic boundary, corrupting a little more each save→load cycle). A third invariant from the next breakage: **`htmlToMd` must recurse blocks fully** (`blocksOf`) —
+  a `<ul>` nested inside a `<div>` fell into the inline serializer and lists lost their bullets
+  on every save. The node/browser test battery in the repo history covers all three — run it
+  before touching the converter. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
   `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
   Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`

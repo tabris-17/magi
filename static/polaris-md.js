@@ -96,9 +96,9 @@
       } else {
         const tag = c.tagName.toLowerCase();
         if (tag === 'br') out += '\n';
-        else if (tag === 'strong' || tag === 'b') out += `**${inlineToMd(c)}**`;
-        else if (tag === 'em' || tag === 'i') out += `*${inlineToMd(c)}*`;
-        else if (tag === 'code') out += '`' + c.textContent + '`';
+        else if (tag === 'strong' || tag === 'b') { const t = inlineToMd(c); out += t.trim() ? `**${t}**` : t; }
+        else if (tag === 'em' || tag === 'i') { const t = inlineToMd(c); out += t.trim() ? `*${t}*` : t; }
+        else if (tag === 'code') { const t = c.textContent; out += t.trim() ? '`' + t + '`' : t; }
         else if (/^(div|p|h[1-6]|ul|ol|li|blockquote|section|article)$/.test(tag)) {
           // A BLOCK nested inside a block (Safari writes lines as
           // <div>aa<div>bb</div><div>cc</div></div>) is a line break, never inline —
@@ -114,39 +114,64 @@
 
   const collapse = s => s.replace(/[ \t]+/g, ' ').trim();
 
-  /** Serialize a contenteditable root to Markdown. */
-  function htmlToMd(rootEl) {
+  const BLOCK_TAGS = /^(div|p|h[1-6]|ul|ol|blockquote|section|article)$/;
+
+  /** Serialize a container's children into md blocks — RECURSIVE, because a
+   * contenteditable's editing history produces block soup: lists wrapped in divs,
+   * divs in divs, headings next to text runs. The 1.7.1 code special-cased exactly
+   * two levels, so a <ul> nested inside a <div> fell into the INLINE serializer and
+   * lost its bullets (the "lists vanish after reopening" bug). Rules:
+   *   text / inline elements / <br> accumulate into a paragraph run;
+   *   h1-h6 → "#"-headings (clamped to h3 — the subset's ceiling);
+   *   ul/ol → "- " / "n. " items (an item's inner line breaks collapse to spaces);
+   *   any other block → recurse, its blocks join the stream. */
+  function blocksOf(container) {
     const blocks = [];
-    for (const node of rootEl.childNodes) {
-      if (node.nodeType === 3) {                    // stray text → its own paragraph
-        const t = collapse(node.nodeValue);
-        if (t) blocks.push(escMd(t));
-        continue;
-      }
+    let run = '';
+    const flush = () => {
+      const t = run.replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n')
+        .replace(/^\n+|\n+$/g, '').trim();
+      if (t) blocks.push(t);
+      run = '';
+    };
+    for (const node of container.childNodes) {
+      if (node.nodeType === 3) { run += escMd(node.nodeValue); continue; }
       if (node.nodeType !== 1) continue;
       const tag = node.tagName.toLowerCase();
-
-      if (/^h[1-3]$/.test(tag)) {
-        const t = collapse(inlineToMd(node));
-        if (t) blocks.push(`${'#'.repeat(+tag[1])} ${t}`);
+      if (/^h[1-6]$/.test(tag)) {
+        flush();
+        const t = collapse(inlineToMd(node).replace(/\n+/g, ' '));
+        if (t) blocks.push('#'.repeat(Math.min(+tag[1], 3)) + ' ' + t);
       } else if (tag === 'ul' || tag === 'ol') {
+        flush();
         const items = [];
         let n = 1;
         for (const li of node.children) {
           if (li.tagName.toLowerCase() !== 'li') continue;
-          const t = collapse(inlineToMd(li));
+          const t = collapse(inlineToMd(li).replace(/\n+/g, ' '));
           if (t) items.push(tag === 'ul' ? `- ${t}` : `${n++}. ${t}`);
         }
         if (items.length) blocks.push(items.join('\n'));
       } else if (tag === 'br') {
-        continue;
-      } else {                                      // p, div, and anything else → paragraph
-        const t = inlineToMd(node).replace(/[ \t]+/g, ' ')
-          .replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '').trim();
-        if (t) blocks.push(t);
+        run += '\n';
+      } else if (BLOCK_TAGS.test(tag)) {
+        flush();
+        blocks.push(...blocksOf(node));
+      } else {
+        // a single inline element (strong/em/code/span…): inlineToMd serializes a
+        // container's CHILDREN, so wrap it — passed directly it would lose its own markers
+        const wrap = container.ownerDocument.createElement('span');
+        wrap.appendChild(node.cloneNode(true));
+        run += inlineToMd(wrap);
       }
     }
-    return blocks.join('\n\n');
+    flush();
+    return blocks;
+  }
+
+  /** Serialize a contenteditable root to Markdown. */
+  function htmlToMd(rootEl) {
+    return blocksOf(rootEl).join('\n\n');
   }
 
   /** Plain text of markdown — for word counts. */

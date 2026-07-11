@@ -504,6 +504,8 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 
 .pol-children { display: none; }
 .pol-children.open { display: block; }
+/* months are a LEVEL under their year, not siblings of it */
+.pol-year > .pol-children { margin-left: 15px; }
 .pol-children-month { margin: 0 0 2px 12px; padding-left: 7px; border-left: 1px solid var(--border-muted); }
 
 .pol-entry {
