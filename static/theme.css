@@ -539,6 +539,8 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 }
 .pol-rem-label { cursor: pointer; }
 .pol-rem-label input[type=checkbox] { margin: 0; accent-color: var(--accent); }
+/* the "no reminder" placeholder matches the date input's row height so nothing jumps */
+.pol-rem-none { padding: 6px 0; font-size: 13px; color: var(--fg-subtle); font-style: italic; }
 .pol-editor-head .pol-meta { margin-left: auto; align-self: flex-start; }
 .pol-date {
   padding: 6px 10px; font-size: 13px; color: var(--fg); background: var(--surface-2);

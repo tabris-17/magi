@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.7.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.7.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -626,7 +626,14 @@ inside `functions/betelgeuse/`), with only settings shared.
   It is a **deliberately CLOSED subset** — blocks `h1/h2/h3`, `ul`, `ol`, `p`; inline
   `**bold**`, `*italic*`, `` `code` `` — nothing else. That closure is what makes the
   md → html → md round-trip stable, so **paste is forced to plain text** and `htmlToMd()` only
-  ever emits those shapes (a browser's `<div>`/`&nbsp;`/`<b>` soup is normalized). No WYSIWYG
+  ever emits those shapes (a browser's `<div>`/`&nbsp;`/`<b>` soup is normalized). Two
+  hard-won invariants (both broke in prod once): **a block nested inside a block is a line
+  break** (Safari writes lines as `<div>aa<div>bb</div></div>` — recursing it as inline glued
+  the text together), and **escaped literals (`\*` `\_` `` \` `` `\\`) are parked behind
+  sentinels BEFORE the bold/italic regexes run** (unescaping only at the end let `sync\_dell`'s
+  backslash act as an italic boundary, corrupting a little more each save→load cycle). The
+  node/browser test battery in the repo history covers both — run it before touching the
+  converter. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
   `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
   Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`

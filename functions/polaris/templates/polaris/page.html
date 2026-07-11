@@ -42,6 +42,7 @@
           Reminder
         </label>
         <input id="polReminder" type="date" class="pol-date" onchange="markDirty()" disabled>
+        <span id="polRemNone" class="pol-rem-none" style="display:none;">no reminder</span>
       </div>
       <span id="polMeta" class="pol-meta"></span>
     </div>
@@ -209,14 +210,14 @@ function onReminderToggle() {
   markDirty();
 }
 
-/** Edit: checkbox live, date input enabled only when checked. View: the whole
-    field hides unless a reminder is set (it's optional — no dead chrome). */
+/** Edit: checkbox live, date input enabled only when checked. View: the field always
+    shows — either the date, or a quiet "no reminder" so the state is explicit. */
 function syncReminderUI(editing) {
   const has = $('polRemChk').checked;
   $('polRemChk').disabled = !editing;
   $('polReminder').disabled = !editing || !has;
-  $('polReminder').style.visibility = has ? '' : 'hidden';
-  $('polRemField').style.display = (!editing && !has) ? 'none' : '';
+  $('polReminder').style.display = has ? '' : 'none';
+  $('polRemNone').style.display = has ? 'none' : '';
 }
 
 // ---- view / edit mode ------------------------------------------------------

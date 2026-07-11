@@ -22,15 +22,21 @@
 
   function inlineToHtml(src) {
     let s = escHtml(src);
-    // Code spans are parked behind a sentinel first, so their contents are never
-    // re-parsed as bold/italic. NUL can't occur in real text.
+    // Escaped literals (\* \_ \` \\) are parked FIRST, so they can never act as — or
+    // terminate — a formatting delimiter. (The old code unescaped only at the end; the
+    // italic regex then saw the backslash of "sync\_dell" as a non-word boundary and
+    // matched the escaped underscores as <em> markers, corrupting a little more on
+    // every save→load cycle.) Code spans are parked next, so their contents are never
+    // re-parsed. NUL/SOH sentinels can't occur in real text.
+    const lits = [];
+    s = s.replace(/\\([\\*_`])/g, (_, c) => '\u0001' + (lits.push(c) - 1) + '\u0001');
     const codes = [];
     s = s.replace(/`([^`]+)`/g, (_, c) => '\u0000' + (codes.push(c) - 1) + '\u0000');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
     s = s.replace(/(^|[^\w])_([^_\n]+)_/g, '$1<em>$2</em>');
-    s = s.replace(/\\([\\*_`])/g, '$1');                       // unescape \* \_ \` \\
-    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
+    s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codes[+i]}</code>`);
+    return s.replace(/\u0001(\d+)\u0001/g, (_, i) => escHtml(lits[+i]));
   }
 
   function mdToHtml(md) {
@@ -93,7 +99,14 @@
         else if (tag === 'strong' || tag === 'b') out += `**${inlineToMd(c)}**`;
         else if (tag === 'em' || tag === 'i') out += `*${inlineToMd(c)}*`;
         else if (tag === 'code') out += '`' + c.textContent + '`';
-        else out += inlineToMd(c);                  // unknown wrapper → keep its text
+        else if (/^(div|p|h[1-6]|ul|ol|li|blockquote|section|article)$/.test(tag)) {
+          // A BLOCK nested inside a block (Safari writes lines as
+          // <div>aa<div>bb</div><div>cc</div></div>) is a line break, never inline —
+          // recursing without one is what silently glued "aa"+"bb"+"cc" together.
+          if (out && !out.endsWith('\n')) out += '\n';
+          out += inlineToMd(c);
+        }
+        else out += inlineToMd(c);                  // unknown INLINE wrapper → keep its text
       }
     }
     return out;
@@ -128,7 +141,8 @@
       } else if (tag === 'br') {
         continue;
       } else {                                      // p, div, and anything else → paragraph
-        const t = inlineToMd(node).replace(/[ \t]+/g, ' ').replace(/^\n+|\n+$/g, '').trim();
+        const t = inlineToMd(node).replace(/[ \t]+/g, ' ')
+          .replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '').trim();
         if (t) blocks.push(t);
       }
     }
