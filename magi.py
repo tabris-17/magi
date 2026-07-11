@@ -21,6 +21,7 @@ from werkzeug.middleware.dispatcher import DispatcherMiddleware
 from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
 from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
 from functions.notifier import bp as notifier_bp, META as NOTIFIER_META
+from functions.polaris import bp as polaris_bp, META as POLARIS_META
 from host import db as hostdb
 from host import dbtool as host_dbtool
 from host import telegram as host_telegram
@@ -74,7 +75,7 @@ BETELGEUSE_META = {
     "version": _betelgeuse_version(),
 }
 
-FUNCTIONS = [YOUTUBE_META, TAXATION_META, NOTIFIER_META, BETELGEUSE_META]
+FUNCTIONS = [YOUTUBE_META, TAXATION_META, NOTIFIER_META, POLARIS_META, BETELGEUSE_META]
 
 
 def load_betelgeuse_wsgi():
@@ -122,6 +123,8 @@ def create_host_app():
     # gate straight from the host DB files, no resolver injection needed). The shared magi
     # worker (worker.py) drives its schedule; the web app serves its page + Send Now.
     app.register_blueprint(notifier_bp)
+    # Polaris (journal) is self-contained too — it owns polaris.db and needs no host resolver.
+    app.register_blueprint(polaris_bp)
 
     @app.context_processor
     def inject_nav():

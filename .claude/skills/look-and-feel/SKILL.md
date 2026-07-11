@@ -49,6 +49,44 @@ invisible card, glare). This skill is the process for finding and fixing those.
 4. **Borrowed/hardcoded status colors** (greens/reds for P&L, badges) — must come from
    `--up/--down/--warn` (betelgeuse) or `--success/--danger/--warn` (host).
 
+## The scale contract (sizes drift even when colors don't)
+
+Tokens fix color; **nothing fixes size but discipline.** The recurring bug is a page
+inventing its own button/heading metrics, so it looks "almost right" next to every other
+page. The canonical scale lives in `CLAUDE.md` ("The UI scale contract"); the short form:
+
+- **One button primitive: `.btn`** (`9px 16px`/`14px`) + `.primary` + **`.sm`**
+  (`6px 12px`/`13px`). A page class may set layout only — never its own padding/font/bg.
+- **Inputs** match `input[type=text]` (`9px 12px`/`14px`). That base rule is specificity
+  `(0,1,1)`, so a single-class override `(0,1,0)` **silently loses** — use two classes.
+- **Type:** 22/600 page title · 17/600 section heading · 15/600 card title · **14 body** ·
+  13 secondary · 12/700 uppercase label · 11–11.5 micro. No 14.5px, no 21px.
+- Tree/sidebar rows are navigation: ~26px tall, 12.5px — not body text.
+
+**Scale audit** (run on the files you touched, before the theme screenshots):
+
+```bash
+# 1. one-off buttons: cursor:pointer AND its own padding AND font-size, not named .btn*.
+#    Requiring BOTH is what keeps the signal clean — icon buttons (.pol-att-del) and nav
+#    rows (.pol-node, .pol-entry) set only one of the two and are correctly not flagged.
+python3 - <<'PY'
+import re, pathlib
+css = pathlib.Path("static/theme.css").read_text()
+for m in re.finditer(r'^(\.[\w\-\. ]+)\s*\{([^}]*)\}', css, re.M):
+    sel, body = m.group(1).strip(), m.group(2)
+    # only the primitive itself is exempt — `.btn-env-save` is a one-off NAMED like it
+    if re.match(r'^\.btn(\.|:|\s|$)', sel): continue
+    if 'cursor: pointer' in body and 'padding:' in body and 'font-size:' in body:
+        print('one-off button?', sel, '→ should this be `.btn` / `.btn.sm`?')
+PY
+# 2. off-scale type
+grep -nE "font-size: (14\.5|21|19|17\.5)px" static/theme.css
+```
+
+Then: screenshot the new page **and an existing one** (`/youtube/`) at the same viewport and
+confirm headings, buttons and inputs line up. A component that needs a size the primitives
+lack gets a **new `.btn` modifier** in the "generic UI bits" block — never a page-local fork.
+
 ## Method (audit → fix → verify)
 
 1. **Find the bypasses.** `grep -nE '#[0-9a-fA-F]{6}' <files>` over the changed/target

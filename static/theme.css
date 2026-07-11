@@ -37,6 +37,9 @@ main { margin-left: 260px; }
 .btn:disabled { opacity: .55; cursor: default; }
 .btn.primary { background: var(--primary-bg); border-color: rgba(0,0,0,.12); color: var(--primary-fg); }
 .btn.primary:hover { background: var(--primary-bg-hover); }
+/* The small size. Reach for this instead of inventing per-page button padding/font —
+   that habit is what made Add files / Refresh / day-chips all subtly different sizes. */
+.btn.sm { padding: 6px 12px; font-size: 13px; }
 
 input[type=text] {
   background: var(--surface); border: 1px solid var(--border); color: var(--fg);
@@ -444,6 +447,221 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .btn-env-save:hover { filter: brightness(1.07); }
 .btn-env-save:disabled { opacity: .55; cursor: default; }
 .env-status { flex: 0 0 auto; min-width: 58px; font-size: 12px; color: var(--fg-muted); }
+
+/* ---- polaris function (journal) ----------------------------------- */
+.pol-header { display: flex; align-items: flex-start; justify-content: space-between; }
+
+/* Page-level toolbar — search spans the view, above both panes. */
+.pol-toolbar { display: flex; gap: 10px; align-items: center; margin: 0 0 16px; }
+.pol-searchwrap { position: relative; flex: 1 1 auto; min-width: 0; }
+.pol-searchicon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); fill: var(--fg-subtle); pointer-events: none; }
+/* Two-class selectors: the global `input[type=text]` rule (0,1,1) would otherwise win
+   and re-impose its own padding/border on the search box and the borderless title. */
+.pol-toolbar .pol-search {
+  width: 100%; padding: 9px 34px; font-size: 14px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+}
+.pol-toolbar .pol-search::placeholder { color: var(--fg-subtle); }
+.pol-toolbar .pol-search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.pol-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  width: 22px; height: 22px; line-height: 1; font-size: 17px; cursor: pointer;
+  color: var(--fg-muted); background: var(--surface-2); border: none; border-radius: 50%;
+}
+.pol-clear:hover { color: var(--fg); background: var(--surface-hover); }
+
+.pol-shell { display: grid; grid-template-columns: 258px 1fr; gap: 20px; align-items: start; }
+
+/* Left pane: year → month → entry tree. Sidebar scale — rows are navigation, not body
+   text: ~26px tall, quiet day gutter, the title carries all the emphasis. */
+.pol-tree-pane {
+  position: sticky; top: 16px; padding: 6px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 8px;
+  max-height: calc(100vh - 210px); overflow-y: auto;
+}
+.pol-results { font-size: 11.5px; color: var(--fg-muted); padding: 4px 7px 8px; }
+
+.pol-node {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 7px;
+  font: inherit; text-align: left; color: var(--fg); cursor: pointer;
+  background: transparent; border: none; border-radius: 5px;
+}
+.pol-node:hover { background: var(--surface-2); }
+.pol-node-year { font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+.pol-node-month { font-size: 12.5px; font-weight: 500; color: var(--fg-muted); }
+.pol-node-month:hover { color: var(--fg); }
+.pol-caret {
+  flex: 0 0 10px; width: 10px; height: 10px; fill: var(--fg-subtle);
+  transition: transform .15s ease;
+}
+.pol-node[aria-expanded="true"] .pol-caret { transform: rotate(90deg); }
+.pol-node-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A plain tally, not a pill — it shouldn't out-weigh the label it counts. */
+.pol-count {
+  margin-left: auto; flex: 0 0 auto; font-size: 10.5px;
+  font-variant-numeric: tabular-nums; color: var(--fg-subtle);
+}
+
+.pol-children { display: none; }
+.pol-children.open { display: block; }
+.pol-children-month { margin: 0 0 2px 12px; padding-left: 7px; border-left: 1px solid var(--border-muted); }
+
+.pol-entry {
+  display: flex; gap: 8px; align-items: baseline; min-width: 0;
+  padding: 4px 7px; border-radius: 5px; cursor: pointer;
+}
+.pol-entry:hover { background: var(--surface-2); text-decoration: none; }
+/* Selection = a soft accent wash + a weighted title. No left rule, no colored number. */
+.pol-entry.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pol-day { flex: 0 0 15px; text-align: right; font-size: 10.5px; font-variant-numeric: tabular-nums; color: var(--fg-subtle); }
+.pol-entry.active .pol-day { color: var(--fg-muted); }
+.pol-entry-main { min-width: 0; display: grid; }
+.pol-entry-titlerow { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.pol-entry-title { font-size: 12.5px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pol-clip { flex: 0 0 auto; display: flex; }
+.pol-clipicon { width: 10px; height: 10px; fill: var(--fg-subtle); }
+.pol-entry.active .pol-entry-title { font-weight: 600; }
+.pol-snippet { font-size: 11.5px; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.pol-mark { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
+
+.pol-empty { font-size: 12.5px; color: var(--fg-muted); padding: 12px 7px; }
+
+/* Right pane: the editor */
+.pol-editor { display: block; padding: 18px 20px; }
+.pol-editor:hover { border-color: var(--border); }
+.pol-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pol-date {
+  padding: 6px 10px; font-size: 13px; color: var(--fg); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 6px; color-scheme: light dark;
+}
+.pol-date:focus { outline: none; border-color: var(--accent); }
+.pol-meta { font-size: 12px; color: var(--fg-subtle); }
+
+.pol-editor .pol-title {
+  width: 100%; padding: 5px 2px; margin-bottom: 8px; font-size: 17px; font-weight: 600;
+  color: var(--fg); background: transparent; border: none; border-radius: 0;
+  border-bottom: 1px solid var(--border); box-shadow: none;
+}
+.pol-editor .pol-title::placeholder { color: var(--fg-subtle); }
+.pol-editor .pol-title:focus { outline: none; border-bottom-color: var(--accent); box-shadow: none; }
+
+/* Tags: chips on the entry + the edit-mode add control. `.pol-tag` is shared with /polaris/tags. */
+.pol-tagrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.pol-tagchips { display: contents; }
+.pol-tag {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px;
+  font-size: 12px; font-weight: 500; color: var(--fg); border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.pol-tag-x {
+  padding: 0; font-size: 13px; line-height: 1; cursor: pointer;
+  color: var(--fg-muted); background: none; border: none;
+}
+.pol-tag-x:hover { color: var(--danger-fg); }
+.pol-tagadd {
+  padding: 2px 8px; font-size: 12px; color: var(--fg-muted); cursor: pointer;
+  background: var(--surface); border: 1px dashed var(--border); border-radius: 999px;
+  color-scheme: light dark;
+}
+.pol-tagadd:focus { outline: none; border-color: var(--accent); }
+.pol-tagdefine { font-size: 12px; }
+
+/* View mode: the same layout with the input chrome switched off. */
+.pol-editor.viewing .pol-title { border-bottom-color: transparent; }
+.pol-editor.viewing .pol-date { background: transparent; border-color: transparent; opacity: 1; color: var(--fg); }
+.pol-editor.viewing .pol-body { background: transparent; border-color: transparent; resize: none; box-shadow: none; min-height: 0; }
+.pol-editor.viewing .pol-attach-bar { display: none; }
+.pol-editor.viewing .pol-att-del { display: none; }
+
+/* Format toolbar. Buttons are `.btn.sm` — sizing comes from the primitive, never from here. */
+.pol-fmt { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+.pol-fbtn { min-width: 34px; text-align: center; }
+.pol-fbtn code { background: none; padding: 0; font-size: 12px; }
+.pol-fbtn.is-active { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--fg); }
+.pol-fmt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
+
+.pol-body {
+  width: 100%; min-height: 260px; max-height: 60vh; overflow-y: auto; resize: vertical;
+  padding: 11px 13px; font-size: 14px;
+  line-height: 1.6; font-family: inherit; color: var(--fg); background: var(--canvas);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.pol-body:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+
+/* Rich-text content. Headings are a content sub-scale (20/17/15) — see the scale contract. */
+.pol-rte.is-empty::before { content: attr(data-placeholder); color: var(--fg-subtle); pointer-events: none; }
+.pol-rte > *:first-child { margin-top: 0; }
+.pol-rte > *:last-child { margin-bottom: 0; }
+.pol-rte p { margin: 0 0 10px; }
+.pol-rte h1 { font-size: 20px; font-weight: 600; margin: 16px 0 8px; }
+.pol-rte h2 { font-size: 17px; font-weight: 600; margin: 14px 0 7px; }
+.pol-rte h3 { font-size: 15px; font-weight: 600; margin: 12px 0 6px; }
+.pol-rte ul, .pol-rte ol { margin: 0 0 10px; padding-left: 22px; }
+.pol-rte li { margin: 3px 0; }
+.pol-rte code {
+  background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Editor section 3: attachments — one row (label · drop zone · Add files) */
+.pol-attach { margin-top: 16px; }
+.pol-attach-bar { display: flex; align-items: center; gap: 10px; }
+.pol-section-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--fg-subtle);
+}
+
+.pol-drop {
+  flex: 1 1 auto; min-width: 0; padding: 7px 11px;
+  border: 1px dashed var(--border); border-radius: 6px;
+  font-size: 12.5px; color: var(--fg-muted); text-align: center; transition: all .15s;
+}
+.pol-drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--fg); }
+.pol-link { background: none; border: none; padding: 0; font: inherit; color: var(--accent); cursor: pointer; }
+.pol-link:hover { text-decoration: underline; }
+
+.pol-attach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 9px; margin-top: 9px; }
+.pol-att { position: relative; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface-2); }
+.pol-att-thumb { display: block; width: 100%; height: 80px; object-fit: cover; background: var(--canvas); }
+.pol-att-file { display: grid; place-items: center; }
+.pol-att-file .pol-clipicon { width: 22px; height: 22px; fill: var(--fg-subtle); }
+.pol-att-meta { display: grid; padding: 6px 8px; min-width: 0; }
+.pol-att-name { font-size: 11.5px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pol-att-size { font-size: 10.5px; color: var(--fg-subtle); font-variant-numeric: tabular-nums; }
+.pol-att-del {
+  position: absolute; top: 5px; right: 5px; width: 20px; height: 20px; line-height: 1;
+  font-size: 15px; cursor: pointer; color: #fff; background: rgba(0, 0, 0, .55);
+  border: none; border-radius: 50%; opacity: 0; transition: opacity .12s;
+}
+.pol-att:hover .pol-att-del { opacity: 1; }
+.pol-att-del:hover { background: var(--danger-fg); }
+
+.pol-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.pol-danger { color: var(--danger-fg); border-color: var(--danger-border); }
+.pol-danger:hover { background: var(--danger-bg); }
+.pol-count-words { margin-left: auto; font-size: 12px; color: var(--fg-subtle); }
+.pol-status { font-size: 12.5px; color: var(--fg-muted); min-width: 54px; text-align: right; }
+.pol-status.ok { color: var(--success-fg); }
+.pol-status.err { color: var(--danger-fg); }
+
+/* Tags manager (/polaris/tags) */
+.pol-tags-shell { max-width: 640px; }
+.pol-tags-new { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.pol-tags-new input { flex: 1 1 auto; min-width: 0; }
+.pol-tags-list { display: grid; gap: 8px; }
+.pol-tags-row {
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+}
+.pol-tags-count { margin-left: auto; font-size: 12.5px; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+.pol-tags-actions { display: flex; gap: 6px; }
+
+@media (max-width: 860px) {
+  .pol-shell { grid-template-columns: 1fr; }
+  .pol-tree-pane { position: static; max-height: 300px; }
+  .pol-toolbar { flex-wrap: wrap; }
+  .pol-attach-bar { flex-wrap: wrap; }
+}
 
 /* ---- responsive (content) ------------------------------------------ */
 @media (max-width: 860px) {

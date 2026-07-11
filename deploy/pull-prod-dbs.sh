@@ -28,6 +28,7 @@ DBS=(
   "data/magiscope.prod.db"                    # host: PROD-scoped settings (prod = source of truth)
   "functions/betelgeuse/data/portfolio.db"    # betelgeuse: portfolio + transactions
   "functions/notifier/data/notifier.db"       # notifier: personal reminder text + schedule
+  "functions/polaris/data/polaris.db"         # polaris: journal entries
 )
 # NOTE: data/magiscope.dev.db is deliberately NOT listed — dev OWNS its scoped settings,
 # so a deploy never overwrites them. magiscope.prod.db is mirrored down so dev can SEE

@@ -1,0 +1,708 @@
+{% extends "base.html" %}
+{% block title %}magi · Polaris{% endblock %}
+{% block content %}
+<div class="pol-header">
+  <div>
+    <h1 class="view-title">Polaris</h1>
+    <p class="lead">Your journal. Entries are dated, written in free text, and stored locally on this machine.</p>
+  </div>
+</div>
+
+<!-- Page-level toolbar: search spans the whole view, not just the list -->
+<div class="pol-toolbar">
+  <div class="pol-searchwrap">
+    <svg class="pol-searchicon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+    <input id="polSearch" type="text" class="pol-search" autocomplete="off"
+           placeholder="Search titles, entry text, or a date — try “2026-07”   (press / to focus)"
+           oninput="onSearch()">
+    <button id="polClear" class="pol-clear" type="button" onclick="clearSearch()" title="Clear search" style="display:none;">&times;</button>
+  </div>
+  <button class="btn primary" onclick="newEntry()">New entry</button>
+</div>
+
+<div class="pol-shell">
+
+  <!-- Left: year → month → entry tree -->
+  <aside class="pol-tree-pane">
+    <div id="polResults" class="pol-results" style="display:none;"></div>
+    <div id="polTree" class="pol-tree"></div>
+    <div id="polEmpty" class="pol-empty" style="display:none;"></div>
+  </aside>
+
+  <!-- Right: the editor -->
+  <section class="card pol-editor">
+    <div class="pol-editor-head">
+      <input id="polDate" type="date" class="pol-date">
+      <span id="polMeta" class="pol-meta"></span>
+    </div>
+
+    <input id="polTitle" type="text" class="pol-title" placeholder="Title" oninput="markDirty()">
+
+    <!-- Tags: chips always; the add/remove controls only in edit mode -->
+    <div class="pol-tagrow" id="polTagRow">
+      <span id="polTagChips" class="pol-tagchips"></span>
+      <select id="polTagAdd" class="pol-tagadd" onchange="addTag(this.value)"></select>
+      <a id="polTagDefine" class="pol-link pol-tagdefine" href="/polaris/tags">Define tags →</a>
+    </div>
+
+    <!-- Rich-text body. Edited as HTML, stored as Markdown (static/polaris-md.js). -->
+    <div class="pol-fmt" id="polFmt">
+      <button type="button" class="btn sm pol-fbtn" data-block="h1" title="Large heading">H1</button>
+      <button type="button" class="btn sm pol-fbtn" data-block="h2" title="Medium heading">H2</button>
+      <button type="button" class="btn sm pol-fbtn" data-block="h3" title="Small heading">H3</button>
+      <button type="button" class="btn sm pol-fbtn" data-block="p" title="Normal text">Body</button>
+      <span class="pol-fmt-sep"></span>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+      <button type="button" class="btn sm pol-fbtn" data-code="1" title="Inline code"><code>code</code></button>
+      <span class="pol-fmt-sep"></span>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+    </div>
+    <div id="polBody" class="pol-body pol-rte" contenteditable="true"
+         data-placeholder="Write…" oninput="markDirty(); updateCount()"></div>
+
+    <!-- Third section: attachments. One row: label · drop zone · button (no wasted height) -->
+    <div class="pol-attach" id="polAttach">
+      <div class="pol-attach-bar">
+        <span class="pol-section-label">Attachments</span>
+        <div id="polDrop" class="pol-drop">Drop files here, or paste an image</div>
+        <button class="btn sm" type="button" onclick="document.getElementById('polFile').click()">Add files</button>
+        <input id="polFile" type="file" multiple hidden onchange="uploadFiles(this.files); this.value='';">
+      </div>
+      <div id="polAttachList" class="pol-attach-grid"></div>
+    </div>
+
+    <div class="pol-actions">
+      <button id="polEdit" class="btn primary" onclick="enterEdit()">Edit</button>
+      <button id="polSave" class="btn primary" onclick="saveEntry()">Save</button>
+      <button id="polDiscard" class="btn" onclick="discardChanges()">Discard</button>
+      <button id="polDelete" class="btn pol-danger" onclick="deleteEntry()" style="display:none;">Delete</button>
+      <span id="polCount" class="pol-count-words"></span>
+      <span id="polStatus" class="pol-status"></span>
+    </div>
+  </section>
+</div>
+
+<script src="/static/polaris-md.js"></script>
+<script>
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+
+// octicons chevron-right — a real glyph, so it renders identically everywhere
+const CARET = '<svg class="pol-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"/></svg>';
+
+let currentId = null;   // null = an unsaved new entry
+let entries = [];
+let attachments = [];   // metadata for the open entry (bytes stay on the server)
+let dirty = false;
+let query = '';
+let mode = 'edit';      // 'view' (read-only, Edit button) | 'edit' (Save + Discard)
+let allTags = [];       // every defined tag [{id,name,entry_count}]
+let entryTags = [];     // the open entry's tags [{id,name}]
+let loaded = null;      // server-state snapshot {date,title,body,tags} — what Discard restores
+
+// Which year/month nodes are open, e.g. "2026" and "2026-07". Survives reloads.
+let expanded = new Set(JSON.parse(localStorage.getItem('polaris-expanded') || '[]'));
+
+const $ = id => document.getElementById(id);
+
+function saveExpanded() {
+  localStorage.setItem('polaris-expanded', JSON.stringify([...expanded]));
+}
+
+/** Mirror {search, open entry} into the URL, so both are linkable and survive a reload. */
+function syncUrl() {
+  const p = new URLSearchParams();
+  if (query) p.set('q', query);
+  if (currentId) p.set('entry', currentId);
+  const qs = p.toString();
+  history.replaceState(null, '', qs ? `?${qs}` : location.pathname);
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/** Escape, then wrap occurrences of the live query in <mark>. */
+function highlight(text) {
+  const safe = escapeHtml(text || '');
+  if (!query) return safe;
+  const q = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return safe.replace(new RegExp(q, 'gi'), m => `<mark class="pol-mark">${m}</mark>`);
+}
+
+function status(msg, kind = '') {
+  const el = $('polStatus');
+  el.textContent = msg;
+  el.className = 'pol-status ' + kind;
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 2500);
+}
+
+function markDirty() { dirty = true; }
+
+// ---- view / edit mode ------------------------------------------------------
+
+function setMode(m) {
+  mode = m;
+  const editing = m === 'edit';
+  document.querySelector('.pol-editor').classList.toggle('viewing', !editing);
+  $('polBody').contentEditable = editing;
+  $('polTitle').readOnly = !editing;
+  $('polDate').disabled = !editing;
+  $('polFmt').style.display = editing ? '' : 'none';
+  $('polEdit').style.display = (!editing && currentId) ? '' : 'none';
+  $('polSave').style.display = editing ? '' : 'none';
+  $('polDiscard').style.display = editing ? '' : 'none';
+  $('polDelete').style.display = currentId ? '' : 'none';
+  renderTags();
+  syncAttachVisibility();
+}
+
+async function enterEdit() {
+  await loadAllTags();   // pick up tags defined on the Tags page since load
+  setMode('edit');
+  $('polBody').focus();
+}
+
+/** Revert to the last-saved state (confirming if there are unsaved changes). */
+function discardChanges() {
+  if (dirty && !confirm('Discard your changes? The entry goes back to how it was saved.')) return;
+  dirty = false;
+  if (!currentId) { newEntry(); return; }   // an unsaved new entry → back to a blank one
+  $('polDate').value = loaded.date;
+  $('polTitle').value = loaded.title;
+  setBody(loaded.body);
+  entryTags = loaded.tags.map(t => ({ ...t }));
+  updateCount();
+  setMode('view');
+  status('Changes discarded', '');
+}
+
+// ---- tags ------------------------------------------------------------------
+
+async function loadAllTags() {
+  try {
+    allTags = (await (await fetch('/polaris/api/tags')).json()).tags;
+  } catch (_) { /* tags are cosmetic — never block the editor on them */ }
+}
+
+function renderTags() {
+  const editing = mode === 'edit';
+  const chips = $('polTagChips');
+  chips.innerHTML = '';
+  for (const t of entryTags) {
+    const chip = document.createElement('span');
+    chip.className = 'pol-tag';
+    chip.innerHTML = `${escapeHtml(t.name)}${editing ? '<button type="button" class="pol-tag-x" title="Remove tag">&times;</button>' : ''}`;
+    if (editing) chip.querySelector('.pol-tag-x').onclick = () => removeTag(t.id);
+    chips.appendChild(chip);
+  }
+  // The add control: a select of the not-yet-applied tags (edit mode only).
+  const sel = $('polTagAdd');
+  const remaining = allTags.filter(a => !entryTags.some(t => t.id === a.id));
+  sel.innerHTML = '<option value="">+ tag</option>' +
+    remaining.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  sel.style.display = (editing && remaining.length) ? '' : 'none';
+  // No tags defined at all → point at the manager instead of an empty select.
+  $('polTagDefine').style.display = (editing && !allTags.length) ? '' : 'none';
+  // View mode with no tags: no dead row.
+  $('polTagRow').style.display = (!editing && !entryTags.length) ? 'none' : '';
+}
+
+function addTag(id) {
+  const t = allTags.find(a => a.id === +id);
+  $('polTagAdd').value = '';
+  if (!t || entryTags.some(x => x.id === t.id)) return;
+  entryTags.push({ id: t.id, name: t.name });
+  markDirty();
+  renderTags();
+}
+
+function removeTag(id) {
+  entryTags = entryTags.filter(t => t.id !== id);
+  markDirty();
+  renderTags();
+}
+
+// ---- rich text body (edited as HTML, stored as Markdown) -----------------
+
+/** The body's Markdown — what we persist. */
+function getBody() { return PolarisMD.htmlToMd($('polBody')); }
+
+/** Load Markdown into the editor. */
+function setBody(md) {
+  const el = $('polBody');
+  el.innerHTML = PolarisMD.mdToHtml(md || '');
+  syncPlaceholder();
+}
+
+/** A contenteditable is never really ":empty" (it keeps a stray <br>), so drive it in JS. */
+function syncPlaceholder() {
+  const el = $('polBody');
+  el.classList.toggle('is-empty', !el.textContent.trim());
+}
+
+function updateCount() {
+  syncPlaceholder();
+  const words = $('polBody').innerText.trim().split(/\s+/).filter(Boolean).length;
+  $('polCount').textContent = words ? `${words} word${words === 1 ? '' : 's'}` : '';
+}
+
+/** Wrap the selection in <code> (execCommand has no command for it). */
+function wrapCode() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const code = document.createElement('code');
+  try {
+    sel.getRangeAt(0).surroundContents(code);
+  } catch (_) {
+    return;  // selection spans element boundaries — nothing sane to wrap
+  }
+  markDirty();
+}
+
+/** Toolbar: block format (h1/h2/h3/p), inline commands, and code. */
+function initToolbar() {
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+  for (const btn of document.querySelectorAll('#polFmt .pol-fbtn')) {
+    // mousedown, not click: don't let the button steal the selection from the editor
+    btn.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      $('polBody').focus();
+      if (btn.dataset.block) document.execCommand('formatBlock', false, `<${btn.dataset.block}>`);
+      else if (btn.dataset.cmd) document.execCommand(btn.dataset.cmd);
+      else if (btn.dataset.code) wrapCode();
+      markDirty();
+      updateCount();
+      refreshToolbar();
+    });
+  }
+  document.addEventListener('selectionchange', refreshToolbar);
+}
+
+/** Light up the buttons that apply to the caret's position. */
+function refreshToolbar() {
+  const body = $('polBody');
+  const sel = window.getSelection();
+  const inside = sel.rangeCount && body.contains(sel.anchorNode);
+  let block = '';
+  if (inside) {
+    let n = sel.anchorNode;
+    while (n && n !== body) {
+      const t = n.nodeType === 1 ? n.tagName.toLowerCase() : '';
+      if (/^(h1|h2|h3|p)$/.test(t)) { block = t; break; }
+      n = n.parentNode;
+    }
+  }
+  for (const btn of document.querySelectorAll('#polFmt .pol-fbtn')) {
+    let on = false;
+    if (inside) {
+      if (btn.dataset.block) on = btn.dataset.block === block;
+      else if (btn.dataset.cmd) { try { on = document.queryCommandState(btn.dataset.cmd); } catch (_) {} }
+    }
+    btn.classList.toggle('is-active', !!on);
+  }
+}
+
+// ---- the tree ------------------------------------------------------------
+
+async function loadTree() {
+  const r = await fetch('/polaris/api/entries?q=' + encodeURIComponent(query));
+  entries = (await r.json()).entries;
+  renderTree();
+}
+
+/** entries (already newest-first) → [{year, count, months:[{key, month, entries}]}] */
+function groupByYearMonth(list) {
+  const years = new Map();
+  for (const e of list) {
+    const [y, m] = e.date.split('-');
+    if (!years.has(y)) years.set(y, new Map());
+    const months = years.get(y);
+    if (!months.has(m)) months.set(m, []);
+    months.get(m).push(e);
+  }
+  return [...years].map(([year, months]) => ({
+    year,
+    count: [...months.values()].reduce((n, es) => n + es.length, 0),
+    months: [...months].map(([m, es]) => ({ key: `${year}-${m}`, month: MONTHS[+m - 1], entries: es })),
+  }));
+}
+
+function renderTree() {
+  const tree = $('polTree');
+  tree.innerHTML = '';
+
+  const empty = $('polEmpty');
+  const results = $('polResults');
+  if (query) {
+    results.style.display = '';
+    results.textContent = entries.length
+      ? `${entries.length} match${entries.length === 1 ? '' : 'es'} for “${query}”`
+      : '';
+  } else {
+    results.style.display = 'none';
+  }
+  if (!entries.length) {
+    empty.style.display = 'block';
+    empty.textContent = query ? `No entries match “${query}”.` : 'No entries yet — write your first one.';
+    return;
+  }
+  empty.style.display = 'none';
+
+  for (const y of groupByYearMonth(entries)) {
+    // A search implicitly opens everything it matched.
+    const yOpen = query || expanded.has(y.year);
+    const yearEl = document.createElement('div');
+    yearEl.className = 'pol-year';
+    yearEl.innerHTML = `
+      <button class="pol-node pol-node-year" aria-expanded="${!!yOpen}">
+        ${CARET}
+        <span class="pol-node-label">${y.year}</span>
+        <span class="pol-count">${y.count}</span>
+      </button>
+      <div class="pol-children ${yOpen ? 'open' : ''}"></div>`;
+    yearEl.querySelector('.pol-node-year').onclick = () => toggle(y.year);
+    const yearKids = yearEl.querySelector('.pol-children');
+
+    for (const m of y.months) {
+      const mOpen = query || expanded.has(m.key);
+      const monthEl = document.createElement('div');
+      monthEl.className = 'pol-month';
+      monthEl.innerHTML = `
+        <button class="pol-node pol-node-month" aria-expanded="${!!mOpen}">
+          ${CARET}
+          <span class="pol-node-label">${m.month}</span>
+          <span class="pol-count">${m.entries.length}</span>
+        </button>
+        <div class="pol-children pol-children-month ${mOpen ? 'open' : ''}"></div>`;
+      monthEl.querySelector('.pol-node-month').onclick = () => toggle(m.key);
+      const monthKids = monthEl.querySelector('.pol-children');
+
+      for (const e of m.entries) {
+        const day = e.date.split('-')[2];
+        const item = document.createElement('a');
+        item.className = 'pol-entry' + (e.id === currentId ? ' active' : '');
+        item.onclick = () => openEntry(e.id);
+        const clip = e.attachment_count
+          ? `<span class="pol-clip" title="${e.attachment_count} attachment${e.attachment_count === 1 ? '' : 's'}">${CLIP}</span>`
+          : '';
+        item.innerHTML = `
+          <span class="pol-day">${day}</span>
+          <span class="pol-entry-main">
+            <span class="pol-entry-titlerow">
+              <span class="pol-entry-title">${highlight(e.title || 'Untitled')}</span>${clip}
+            </span>
+            ${query && e.preview ? `<span class="pol-snippet">${highlight(e.preview)}</span>` : ''}
+          </span>`;
+        monthKids.appendChild(item);
+      }
+      yearKids.appendChild(monthEl);
+    }
+    tree.appendChild(yearEl);
+  }
+}
+
+function toggle(key) {
+  if (query) return;  // while searching the tree is forced open
+  expanded.has(key) ? expanded.delete(key) : expanded.add(key);
+  saveExpanded();
+  renderTree();
+}
+
+/** Make sure an entry's year + month are open, so it's visible after save/select. */
+function revealDate(date) {
+  const [y, m] = date.split('-');
+  expanded.add(y);
+  expanded.add(`${y}-${m}`);
+  saveExpanded();
+}
+
+// ---- editor --------------------------------------------------------------
+
+function confirmDiscard() {
+  return !dirty || confirm('Discard unsaved changes to this entry?');
+}
+
+function newEntry() {
+  if (!confirmDiscard()) return;
+  currentId = null;
+  dirty = false;
+  attachments = [];
+  entryTags = [];
+  loaded = null;
+  $('polDate').value = today();
+  $('polTitle').value = '';
+  setBody('');
+  $('polMeta').textContent = 'New entry';
+  updateCount();
+  renderAttachments();
+  setMode('edit');          // nothing to view yet — start writing
+  syncUrl();
+  renderTree();
+  $('polTitle').focus();
+}
+
+/** Remember the server's copy of the open entry — Edit starts from it, Discard restores it. */
+function snapshot(e) {
+  loaded = { date: e.date, title: e.title, body: e.body, tags: (e.tags || []).map(t => ({ ...t })) };
+}
+
+async function openEntry(id) {
+  if (!confirmDiscard()) return;
+  const r = await fetch('/polaris/api/entries/' + id);
+  if (!r.ok) { status('Could not load entry', 'err'); return; }
+  const e = (await r.json()).entry;
+  currentId = e.id;
+  dirty = false;
+  attachments = e.attachments || [];
+  entryTags = (e.tags || []).map(t => ({ ...t }));
+  snapshot(e);
+  $('polDate').value = e.date;
+  $('polTitle').value = e.title;
+  setBody(e.body);
+  $('polMeta').textContent = 'Last edited ' + new Date(e.updated_at).toLocaleString();
+  updateCount();
+  renderAttachments();
+  setMode('view');          // read first; Edit is one click away
+  syncUrl();
+  revealDate(e.date);
+  renderTree();
+}
+
+/** `allowEmpty` is for ensureSaved(): attaching a file to a blank entry still creates it. */
+async function saveEntry(allowEmpty = false) {
+  const title = $('polTitle').value.trim();
+  const body = getBody();   // Markdown, serialized from the rich-text editor
+  if (!title && !body.trim() && !allowEmpty) { status('Nothing to save', 'err'); return; }
+  $('polSave').disabled = true;
+  try {
+    const r = await fetch('/polaris/api/entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: currentId, date: $('polDate').value, title, body,
+        tags: entryTags.map(t => t.id),
+      }),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'save failed');
+    const e = (await r.json()).entry;
+    currentId = e.id;
+    dirty = false;
+    attachments = e.attachments || [];
+    entryTags = (e.tags || []).map(t => ({ ...t }));
+    snapshot(e);
+    $('polMeta').textContent = 'Last edited ' + new Date(e.updated_at).toLocaleString();
+    renderAttachments();
+    revealDate(e.date);
+    // A mid-edit autosave (attaching to a new entry) must NOT yank the user out of edit.
+    if (!allowEmpty) setMode('view');
+    else setMode(mode);     // refresh button visibility now that currentId exists
+    syncUrl();
+    await loadTree();
+    if (!allowEmpty) status('Saved', 'ok');
+  } catch (err) {
+    status(err.message, 'err');
+  } finally {
+    $('polSave').disabled = false;
+  }
+}
+
+async function deleteEntry() {
+  if (!currentId || !confirm('Delete this entry? This cannot be undone.')) return;
+  const r = await fetch('/polaris/api/entries/' + currentId, { method: 'DELETE' });
+  if (!r.ok) { status('Delete failed', 'err'); return; }
+  dirty = false;
+  newEntry();
+  await loadTree();
+  status('Deleted', 'ok');
+}
+
+// ---- attachments ---------------------------------------------------------
+
+const CLIP = '<svg class="pol-clipicon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3.25a2.25 2.25 0 0 1 4.5 0v6.5a1.25 1.25 0 1 1-2.5 0V4.5a.75.75 0 0 1 1.5 0v5.25a.25.25 0 0 0 .5 0v-6.5a1.25 1.25 0 0 0-2.5 0v6.5a3.25 3.25 0 1 0 6.5 0V4.5a.75.75 0 0 1 1.5 0v5.25a4.75 4.75 0 1 1-9.5 0Z"/></svg>';
+
+const IMG_MAX_DIM = 1600;          // longest edge kept after downscale
+const IMG_DOWNSCALE_OVER = 1.5e6;  // only bother for images over ~1.5MB
+
+function fmtBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Big photos/screenshots get re-encoded in the browser, so the DB stays small. */
+async function maybeDownscale(file) {
+  if (!file.type.startsWith('image/') || file.size <= IMG_DOWNSCALE_OVER) return file;
+  if (file.type === 'image/gif') return file;  // would lose animation
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, IMG_MAX_DIM / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && file.size <= IMG_DOWNSCALE_OVER) return file;
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * scale);
+    c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    // webp keeps alpha; fall back to the original if the browser won't encode it.
+    const blob = await new Promise(res => c.toBlob(res, 'image/webp', 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    const name = file.name.replace(/\.[^.]+$/, '') + '.webp';
+    return new File([blob], name, { type: 'image/webp' });
+  } catch (_) {
+    return file;  // any decode failure → upload the original untouched
+  }
+}
+
+/** Attachments only change in edit mode; view/no-attachments shows nothing at all. */
+function syncAttachVisibility() {
+  $('polAttach').style.display = (mode === 'view' && !attachments.length) ? 'none' : '';
+}
+
+async function uploadFiles(fileList) {
+  if (mode !== 'edit') return;   // paste/drop while viewing must not mutate the entry
+  const files = [...(fileList || [])];
+  if (!files.length) return;
+  const id = await ensureSaved();
+  if (!id) return;
+  for (const raw of files) {
+    const file = await maybeDownscale(raw);
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    try {
+      const r = await fetch(`/polaris/api/entries/${id}/attachments`, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'upload failed');
+      attachments.push(j.attachment);
+    } catch (err) {
+      status(err.message, 'err');
+    }
+  }
+  renderAttachments();
+  await loadTree();   // refresh the paperclip counts
+  status('Attached', 'ok');
+}
+
+function renderAttachments() {
+  syncAttachVisibility();
+  const wrap = $('polAttachList');
+  wrap.innerHTML = '';
+  for (const a of attachments) {
+    const el = document.createElement('div');
+    el.className = 'pol-att';
+    const thumb = a.inline
+      ? `<img class="pol-att-thumb" src="${a.url}" alt="${escapeHtml(a.filename)}">`
+      : `<div class="pol-att-thumb pol-att-file">${CLIP}</div>`;
+    el.innerHTML = `
+      <a href="${a.url}" target="_blank" rel="noopener" title="${escapeHtml(a.filename)}">${thumb}</a>
+      <div class="pol-att-meta">
+        <span class="pol-att-name">${escapeHtml(a.filename)}</span>
+        <span class="pol-att-size">${fmtBytes(a.size)}</span>
+      </div>
+      <button class="pol-att-del" type="button" title="Remove attachment">&times;</button>`;
+    el.querySelector('.pol-att-del').onclick = () => removeAttachment(a.id);
+    wrap.appendChild(el);
+  }
+}
+
+async function removeAttachment(attId) {
+  if (!confirm('Remove this attachment? This cannot be undone.')) return;
+  const r = await fetch('/polaris/api/attachments/' + attId, { method: 'DELETE' });
+  if (!r.ok) { status('Remove failed', 'err'); return; }
+  attachments = attachments.filter(a => a.id !== attId);
+  renderAttachments();
+  await loadTree();
+  status('Removed', 'ok');
+}
+
+/** Attachments need an entry to hang off, so an unsaved entry is created first. */
+async function ensureSaved() {
+  if (currentId) return currentId;
+  await saveEntry(true);
+  if (!currentId) status('Could not create the entry', 'err');
+  return currentId;
+}
+
+// Paste an image anywhere on the page (but not while typing into the title).
+document.addEventListener('paste', ev => {
+  const files = [...(ev.clipboardData?.files || [])];
+  if (files.length) { ev.preventDefault(); uploadFiles(files); return; }
+  // Into the body: force PLAIN TEXT. Pasted markup would carry styles/tags the Markdown
+  // subset can't represent, and htmlToMd() would silently drop them.
+  const body = $('polBody');
+  if (body.contains(ev.target) || document.activeElement === body) {
+    ev.preventDefault();
+    document.execCommand('insertText', false, ev.clipboardData.getData('text/plain'));
+    markDirty();
+    updateCount();
+  }
+});
+
+// Drag & drop onto the drop zone; the window handlers stop the browser opening the file.
+const drop = $('polDrop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, ev => {
+  ev.preventDefault(); drop.classList.add('over');
+}));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, () => drop.classList.remove('over')));
+drop.addEventListener('drop', ev => { ev.preventDefault(); uploadFiles(ev.dataTransfer.files); });
+['dragover', 'drop'].forEach(t => window.addEventListener(t, ev => ev.preventDefault()));
+
+// ---- search --------------------------------------------------------------
+
+let searchTimer;
+function onSearch() {
+  query = $('polSearch').value.trim();
+  $('polClear').style.display = query ? '' : 'none';
+  syncUrl();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadTree, 200);
+}
+
+function clearSearch() {
+  $('polSearch').value = '';
+  onSearch();
+  $('polSearch').focus();
+}
+
+document.addEventListener('keydown', ev => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === 's') {
+    ev.preventDefault();
+    if (mode === 'edit') saveEntry();
+    return;
+  }
+  if (ev.key === 'Escape' && document.activeElement === $('polSearch')) { clearSearch(); return; }
+  // "/" focuses search, unless you're typing into a field.
+  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if (ev.key === '/' && !typing) { ev.preventDefault(); $('polSearch').focus(); }
+});
+window.addEventListener('beforeunload', ev => { if (dirty) ev.preventDefault(); });
+
+(async function init() {
+  // Read the URL BEFORE newEntry() — it calls syncUrl(), which would clear the params.
+  const params = new URLSearchParams(location.search);
+  initToolbar();
+  await loadAllTags();
+  newEntry();
+  revealDate(today());  // current year+month open on a first visit
+  const q = params.get('q') || '';
+  if (q) {
+    $('polSearch').value = q;
+    query = q;
+    $('polClear').style.display = '';
+  }
+  const entry = params.get('entry');
+  if (entry) {
+    await openEntry(+entry);           // ?entry=<id> — a linkable entry (opens in view)
+    if (params.get('mode') === 'edit') await enterEdit();
+  }
+  await loadTree();
+})();
+</script>
+{% endblock %}

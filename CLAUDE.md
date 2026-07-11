@@ -108,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.11.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.13.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
@@ -122,12 +122,12 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.5.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.11.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.13.0` in the sidebar footer.
 
 ### Function contract
 
@@ -139,7 +139,12 @@ Two styles, both registered in the `FUNCTIONS` list in **`magi.py`** and both
   templates live in `functions/<name>/templates/<name>/…` and `{% extends
   "base.html" %}` (Flask finds the host's `base.html`). Flask-free logic goes in a
   sibling module (e.g. `functions/youtube/logic.py`). Register with
-  `app.register_blueprint(bp)`.
+  `app.register_blueprint(bp)`. A function with several pages may declare
+  **`META["subnav"] = [{key,label,url[,icon]}]`** — `base.html` renders them as a
+  collapse-when-active sub-nav under the function's sidebar item (the Settings-groups
+  pattern; `key` is what each page passes as `active`). polaris (Journal, Tags) is the
+  first user. Betelgeuse's `header.html` needs no change: the subnav only shows while
+  ON one of those pages, and you're never on a host function page inside betelgeuse.
 - **Mounted sub-app** (a formerly-standalone Flask app, e.g. betelgeuse): mounted
   unchanged via `DispatcherMiddleware` at its prefix. It keeps its OWN templates
   and renders the magi shell itself — it includes the shared `/static/shell.css`
@@ -203,8 +208,13 @@ first child) that reveals its children only when you're inside it (collapse-when
 (`{% if active in ['config','appearance'] %}` / Tools shows for `health`/`database` + the three
 telegram values); the parent links to its first child. **Telegram** itself is a parent: when on any
 telegram page it reveals a `.magi-nav-sub2` with **magi control** + **betelgeuse**. **Betelgeuse** likewise shows its pages only on betelgeuse pages. Children
-are text-only, drawn with CSS tree connectors (`.magi-nav-sub .magi-nav-item::before/::after` in
-`shell.css` — a vertical rail + an elbow tick per child, last child = `└`). betelgeuse's
+are **GitHub-styled** (the Primer ActionList look, adopted magi-wide): each child carries its own
+16px octicon and simply indents in 24px steps (`padding-left` 32/56/72 for sub/sub2/sub3 — **no
+tree rails**); the **active item** wears a subtle fill + weight 600 + a **detached 4px accent
+pill** on the sidebar's left edge (`.magi-nav-item.active::before`), at every depth. Rows are
+Primer metrics: 32px (6px pad + 20px line), 14px/400 labels, 8px icon gap, muted icons
+(`--fg-muted`, active → `--fg`). Third-level items (Telegram's consumers, betelgeuse's settings
+panels) stay text-only, like GitHub's expanded children. betelgeuse's
 `header.html` mirrors the two parents (General, Tools) as plain links into the host shell — you're
 never on a host `/general/*` or `/tools/*` page while inside betelgeuse, so they don't expand there.
 
@@ -303,7 +313,10 @@ host's per-env `telegram_betelgeuse_enabled` (`_betelgeuse_notifications_enabled
 pytest/standalone are never gated; unset → ON). The `com.magi.betelgeuse-worker` plist sets
 `MAGI_ENV`+`MAGI_DATA_DIR` so the worker reads the right env's gate. **Vendored-only:** re-apply these
 `notifications.py` / `settings.html` / `header.html` edits after re-vendoring betelgeuse from prod
-(like the prefix/tokenize scripts).
+(like the prefix/tokenize scripts). `header.html`'s magi-side edits now also include the
+**octicons on its page sub-nav** (Overview→graph, My Portfolio→briefcase, Groups→stack,
+Notifications→bell, Settings→gear, Training→mortar-board, Tracker→history) and the gear on the
+mirrored General link.
 
 ### Application Health (the second cross-function aggregation)
 
@@ -337,15 +350,52 @@ value (and fills the version label), and on change `applyTheme(pref, true)` writ
 through to the DB. `system` resolves via `matchMedia`. **New UI must use the theme
 tokens** (`var(--fg)`, `var(--surface)`, `var(--accent)`, …), never hardcoded colors.
 
+### The UI scale contract (buttons, inputs, type) — REUSE, don't reinvent
+
+Colors have tokens; **sizes have this contract.** Every new page/component drifted before
+this was written down (six pages each invented their own "small button"), so: **never write
+a bespoke `padding`/`font-size` for a control that already has a primitive.** Read this
+before adding any button, input, or heading, and prefer the closest existing class over a
+new one.
+
+- **Buttons — there is exactly ONE primitive: `.btn`** (`9px 16px`, `14px`, weight 500),
+  with **`.primary`** (green, for the single main action) and **`.sm`** (`6px 12px`, `13px`,
+  for toolbar/secondary actions like "Add files"). A page class may set **layout only**
+  (`margin-left:auto`, grid placement) — **never** its own padding/font/background. Need a
+  size that doesn't exist? Add a **modifier to `.btn`** in the "generic UI bits" block of
+  `theme.css`, don't fork it per page.
+- **Inputs:** `input[type=text]` = `9px 12px`, `14px`, radius 6. Match it for any text-ish
+  control (search boxes, URL fields). **Specificity trap:** that base rule is `(0,1,1)`, so a
+  single-class `.foo` `(0,1,0)` **loses** to it — override with two classes
+  (`.pol-toolbar .pol-search`), or your padding is silently ignored (this bit polaris).
+- **Type scale** (don't invent intermediates like 14.5px / 21px):
+  page title `22px/600` (`.view-title`) · section heading `17px/600` (`.settings-h`,
+  `.ntf-title`, `.pol-title`) · card title `15px/600` · **body `14px`** · secondary `13px` ·
+  uppercase section label `12px/700` (`.ntf-section-label`, `.pol-section-label`) ·
+  micro/tabular counts `11–11.5px`. A per-item title inside a page is a **section heading**
+  (17px), never a second `<h1>`. **Rich-text *content* headings** (inside polaris's editor) are
+  their own sub-scale: `h1 20 / h2 17 / h3 15`, all weight 600.
+- **Surfaces/rhythm:** `.card` padding `16px` (a dense editor may go to `18–20px`), radius
+  `10px` cards / `6–8px` controls. **Shell sidebar** = Primer ActionList: 32px rows, 14px/400,
+  16px muted icons, 8px gap (see Sidebar groups); **in-page trees** (polaris's year/month pane)
+  are denser: ~26px rows at 12.5px.
+- **Before adding a component:** `grep` `theme.css` for an existing rule playing the same
+  role and reuse it. Shared primitives live in the **"generic UI bits"** block; page-specific
+  classes go in that page's block and should carry layout + color-role, not new metrics.
+- **Known debt** (one-offs predating `.btn.sm`; migrate opportunistically, verifying both
+  themes): `.ntf-fbtn`, `.ntf-day`, `.db-tbtn`, `.health-refresh`, `.btn-env-save`.
+
 **Definition of done for UI work:** a layout/color/theming change isn't finished until
 it's **verified legible and consistent in BOTH themes** (and, in future, mobile widths) —
-a hardcoded color is correct in at most one theme. The **`/look-and-feel` skill** is the
-how-to (token maps, the known breakages like betelgeuse's inline-literal debt, and the
-screenshot-both-themes recipe); run it after any non-trivial UI change. (Advisory, like
-"tests green = done" — not enforced; the skill is also auto-discoverable from its own
-description.)
+a hardcoded color is correct in at most one theme — **and it matches the scale contract
+above**. The cheap check: screenshot the new page and an existing one (e.g. `/youtube/`) at
+the same viewport and confirm the headings, buttons and inputs line up. The
+**`/look-and-feel` skill** is the how-to (token maps, the scale audit, the known breakages
+like betelgeuse's inline-literal debt, and the screenshot-both-themes recipe); run it after
+any non-trivial UI change. (Advisory, like "tests green = done" — not enforced; the skill is
+also auto-discoverable from its own description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.11.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.13.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -568,6 +618,63 @@ inside `functions/betelgeuse/`), with only settings shared.
   Notifications page but in the magi shell/theme tokens. **Importing touches no network/FS** (lazy
   schema; apscheduler/pytz imported lazily inside the schedule fns). The reminder fires only when
   **magi control** is enabled for the running env (Tools → Telegram → magi control).
+- The **Polaris** function (a blueprint, `/polaris/`) is a **personal journal**. An entry has
+  **three sections: title, body, attachments**. The body is a **rich-text editor
+  (`contenteditable`) that STORES Markdown** — `static/polaris-md.js` (`PolarisMD.mdToHtml` /
+  `htmlToMd`) converts on load/save, so entries stay plain, greppable, portable text (the `LIKE`
+  search + tree snippets read them directly; `logic._strip_md()` keeps previews prose).
+  It is a **deliberately CLOSED subset** — blocks `h1/h2/h3`, `ul`, `ol`, `p`; inline
+  `**bold**`, `*italic*`, `` `code` `` — nothing else. That closure is what makes the
+  md → html → md round-trip stable, so **paste is forced to plain text** and `htmlToMd()` only
+  ever emits those shapes (a browser's `<div>`/`&nbsp;`/`<b>` soup is normalized). No WYSIWYG
+  bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
+  `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
+  Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`
+  drives everything off a `.pol-editor.viewing` class + per-control flags; **Discard restores
+  the `loaded` server-state snapshot** (date/title/body/tags, confirm when dirty); a mid-edit
+  autosave (`saveEntry(allowEmpty=true)`, used when attaching to an unsaved entry) must NOT
+  flip back to view mode. Deep links: `?entry=<id>` opens in view, `&mode=edit` jumps into edit.
+  **Tags** (betelgeuse-style groups, minus the guardrails): defined on **`/polaris/tags`**
+  (`active='polaris-tags'`, a `META["subnav"]` page), any number per entry, unique
+  case-insensitively; **deleting a tag never checks usage** — it just unlinks (`tags` +
+  `entry_tags` junction; `delete_entry` cleans the junction too, sqlite FKs are OFF). The entry
+  POST takes an optional `tags: [ids]` (replaces the set; unknown ids silently dropped);
+  `GET/POST/DELETE /polaris/api/tags[/<id>]` is the manager API.
+  The page is a **page-level search toolbar** over a
+  two-pane body: a **year → month → entry tree** on the left (collapsible, counts per node,
+  newest first; open nodes persist in `localStorage['polaris-expanded']`, and the current
+  year+month open on a first visit) and the editor on the right (Cmd/Ctrl+S saves, `/`
+  focuses search, word count, unsaved-changes guard). **Search** matches the title, the body,
+  OR the ISO date (so `2026-07` narrows to a month), force-opens the tree, shows a match
+  count, and renders a `<mark>`-highlighted snippet centered on each body match. The page
+  state is **deep-linkable** — `?q=<search>` and `?entry=<id>`, kept in step by `syncUrl()` via
+  `history.replaceState`. **`init()` must read `location.search` BEFORE calling `newEntry()`**,
+  which calls `syncUrl()` and would otherwise wipe the params it is about to parse. Like youtube/taxation/notifier
+  it **never imports the host**: it owns `functions/polaris/data/polaris.db` (an `entries`
+  + `attachments` tables; **no migration engine**, lazy idempotent `_SCHEMA` in `_connect()`,
+  like the host's own store — an existing DB picks up new tables on next connect).
+  Routes: `GET/POST /polaris/api/entries` (list — carries a `preview` snippet + `attachment_count`,
+  not the full body — / create+update), `GET|DELETE /polaris/api/entries/<id>`,
+  `POST /polaris/api/entries/<id>/attachments` (multipart), `DELETE /polaris/api/attachments/<id>`,
+  `GET /polaris/media/<id>`, `GET /polaris/api/health`. **Importing touches no network/FS** (same crash-loop lesson as
+  youtube). Its DB is in `pull-prod-dbs.sh`'s `DBS`, so `./magi upgrade dev` mirrors prod's
+  journal down (prod = source of truth; local is backed up first) — **write entries on prod**,
+  or a pull overwrites dev's.
+  - **Attachment bytes are BLOBs in `polaris.db`, on purpose.** `deploy.sh` excludes
+    `functions/*/data/` from rsync and `pull-prod-dbs.sh` only mirrors `.db` files, so files on
+    disk would never sync prod→dev (broken images on dev). In the DB they are backed up and
+    snapshot-consistent with their entry for free. Cost: DB size — images are **downscaled
+    client-side** (canvas → webp, longest edge 1600px, only over ~1.5MB) and `ATTACH_MAX_BYTES`
+    (25MB) is the backstop. If you ever paste many large originals, move to disk + add an rsync
+    path. `delete_entry()` removes the entry's attachments explicitly (sqlite FKs are OFF by
+    default per connection). **`GET /polaris/media/<id>` serves only `INLINE_MIMES`
+    (png/jpeg/gif/webp) inline; everything else — notably `image/svg+xml`, which can carry
+    script — is forced to `as_attachment`, plus `nosniff`**, so a stored file can never execute
+    in the app's origin.
+  - **CSS gotcha:** `theme.css`'s global `input[type=text]` rule has specificity (0,1,1), so a
+    single-class `.pol-*` selector (0,1,0) **loses** to it — the search box and the borderless
+    title need two-class selectors (`.pol-toolbar .pol-search`, `.pol-editor .pol-title`) or
+    they silently inherit the global padding/border. Same trap for any new host page component.
 - The host binds to `127.0.0.1`. For phone/LAN access bind `0.0.0.0` (trusted
   networks only).
 

@@ -130,16 +130,23 @@
 .magi-account .magi-name { font-weight: 600; font-size: 15px; line-height: 1.2; color: var(--fg); }
 .magi-account .magi-role { color: var(--fg-muted); font-size: 12px; }
 
-.magi-nav { display: flex; flex-direction: column; gap: 2px; }
+.magi-nav { display: flex; flex-direction: column; gap: 0; }
+/* GitHub Primer ActionList metrics: 32px rows (6px pad + 20px line), 8px icon gap,
+   14px/400 labels, muted 16px icons. Active = subtle fill + 600 + a detached 4px
+   accent pill on the sidebar's left edge (::before — nothing shifts the item box). */
 .magi-nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px 7px 8px; border-radius: 6px;
-  color: var(--fg); text-decoration: none; font-size: 14px;
-  border-left: 2px solid transparent;
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  color: var(--fg); text-decoration: none; font-size: 14px; line-height: 20px;
 }
 .magi-nav-item:hover { background: var(--surface-2); text-decoration: none; }
-.magi-nav-item.active { background: var(--surface-2); font-weight: 600; border-left-color: var(--accent); }
-.magi-nav-item svg { fill: var(--fg-muted); flex-shrink: 0; }
+.magi-nav-item.active { background: var(--surface-2); font-weight: 600; }
+.magi-nav-item.active::before {
+  content: ""; position: absolute; left: -10px; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 20px; border-radius: 2px; background: var(--accent);
+}
+.magi-nav-item svg { width: 16px; height: 16px; fill: var(--fg-muted); flex-shrink: 0; }
 .magi-nav-item.active svg { fill: var(--fg); }
 .magi-nav-item.disabled { color: var(--fg-subtle); cursor: default; }
 .magi-nav-item.disabled svg { fill: var(--fg-subtle); }
@@ -148,68 +155,38 @@
   color: var(--fg-muted); border: 1px solid var(--border); border-radius: 20px; padding: 1px 7px;
 }
 .magi-nav-section {
-  margin-top: 10px; padding: 14px 10px 8px;
+  margin-top: 10px; padding: 14px 8px 6px;
   border-top: 1px solid var(--border);
-  font-size: 13px; font-weight: 600; color: var(--fg-muted);
+  font-size: 12px; font-weight: 600; color: var(--fg-muted);
 }
 
-/* ---- sub-navigation (a function's own pages, shown under it) -------- */
-.magi-nav-sub { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
-.magi-nav-sub .magi-nav-item { position: relative; padding-left: 34px; font-size: 13.5px; }
-/* tree connectors: a vertical rail down the group (under the parent icon) with an
-   elbow tick to each child — last child's rail stops at the elbow (└), others run
-   through (├). Aligned to the parent nav-item icon's centre (left: 16px). */
-.magi-nav-sub .magi-nav-item::before {
-  content: ""; position: absolute; left: 16px; top: 0; bottom: 0;
-  width: 1px; background: var(--border);
-}
-.magi-nav-sub .magi-nav-item:last-child::before { bottom: 50%; }
-.magi-nav-sub .magi-nav-item::after {
-  content: ""; position: absolute; left: 16px; top: 50%;
-  width: 10px; height: 1px; background: var(--border);
-}
+/* ---- sub-navigation (a function's own pages, shown under it) --------
+   GitHub-style: children simply indent so their icon sits under the parent's label
+   (8px pad + 16px icon + 8px gap = 32px); no tree rails. The active pill (above)
+   stays on the sidebar's left edge at every depth, exactly like Primer. */
+.magi-nav-sub { display: flex; flex-direction: column; gap: 0; margin-bottom: 2px; }
+.magi-nav-sub .magi-nav-item { padding-left: 32px; }
 
-/* second-level sub-nav (e.g. Betelgeuse → Settings → its panels) — deeper indent,
-   its own tree rail shifted right (left: 34px, under the level-1 label). */
-.magi-nav-sub2 { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; }
-.magi-nav-sub2 .magi-nav-item { position: relative; padding-left: 52px; font-size: 13px; }
-.magi-nav-sub2 .magi-nav-item::before {
-  content: ""; position: absolute; left: 34px; top: 0; bottom: 0;
-  width: 1px; background: var(--border);
-}
-.magi-nav-sub2 .magi-nav-item:last-child::before { bottom: 50%; }
-.magi-nav-sub2 .magi-nav-item::after {
-  content: ""; position: absolute; left: 34px; top: 50%;
-  width: 9px; height: 1px; background: var(--border);
-}
+/* second level (e.g. Betelgeuse → Settings → its panels): one more 24px step. */
+.magi-nav-sub2 { display: flex; flex-direction: column; gap: 0; margin: 0 0 2px; }
+.magi-nav-sub2 .magi-nav-item { padding-left: 56px; font-size: 13px; }
 /* A nav item that's the parent of an expanded subtree shouldn't wear the full filled
    active block — that double-stacks with the highlighted leaf below it. Keep it bold
-   (you're in this section) but drop the fill + accent rail. */
-.magi-nav-item.active:has(+ .magi-subtree) {
-  background: transparent;
-  border-left-color: transparent;
-}
+   (you're in this section) but drop the fill + pill. */
+.magi-nav-item.active:has(+ .magi-subtree) { background: transparent; }
+.magi-nav-item.active:has(+ .magi-subtree)::before { display: none; }
 
 /* a second-level subtree that also carries a third level (e.g. Settings → Markets →
    HK/Crypto): wrapper + a non-clickable group header + the deeper level. */
-.magi-subtree { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.magi-subtree { display: flex; flex-direction: column; gap: 0; margin-bottom: 2px; }
 .magi-subtree .magi-nav-sub2 { margin-bottom: 0; }
 .magi-nav-item.magi-nav-group {
   color: var(--fg-subtle); font-weight: 700; cursor: default;
   font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
 }
 .magi-nav-item.magi-nav-group:hover { background: transparent; }
-.magi-nav-sub3 { display: flex; flex-direction: column; gap: 2px; }
-.magi-nav-sub3 .magi-nav-item { position: relative; padding-left: 68px; font-size: 12.5px; }
-.magi-nav-sub3 .magi-nav-item::before {
-  content: ""; position: absolute; left: 52px; top: 0; bottom: 0;
-  width: 1px; background: var(--border);
-}
-.magi-nav-sub3 .magi-nav-item:last-child::before { bottom: 50%; }
-.magi-nav-sub3 .magi-nav-item::after {
-  content: ""; position: absolute; left: 52px; top: 50%;
-  width: 9px; height: 1px; background: var(--border);
-}
+.magi-nav-sub3 { display: flex; flex-direction: column; gap: 0; }
+.magi-nav-sub3 .magi-nav-item { padding-left: 72px; font-size: 12.5px; }
 
 /* ---- version label (bottom of sidebar) ----------------------------- */
 .magi-ver {

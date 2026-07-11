@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}magi · Polaris · Tags{% endblock %}
+{% block content %}
+<h1 class="view-title">Tags</h1>
+<p class="lead">Group your journal entries. An entry can carry any number of tags; deleting a tag
+just unlinks it — the entries themselves are never touched.</p>
+
+<div class="pol-tags-shell">
+  <div class="pol-tags-new">
+    <input id="tagName" type="text" placeholder="New tag name…" maxlength="60"
+           onkeydown="if (event.key === 'Enter') createTag()">
+    <button class="btn primary" onclick="createTag()">Add tag</button>
+    <span id="tagStatus" class="pol-status"></span>
+  </div>
+
+  <div id="tagList" class="pol-tags-list"></div>
+  <div id="tagEmpty" class="pol-empty" style="display:none;">No tags yet — add your first one above.</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let tags = [];
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function status(msg, kind = '') {
+  const el = $('tagStatus');
+  el.textContent = msg;
+  el.className = 'pol-status ' + kind;
+  if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 2500);
+}
+
+async function loadTags() {
+  tags = (await (await fetch('/polaris/api/tags')).json()).tags;
+  render();
+}
+
+function render() {
+  const list = $('tagList');
+  list.innerHTML = '';
+  $('tagEmpty').style.display = tags.length ? 'none' : 'block';
+  for (const t of tags) {
+    const row = document.createElement('div');
+    row.className = 'pol-tags-row';
+    row.innerHTML = `
+      <span class="pol-tag">${escapeHtml(t.name)}</span>
+      <span class="pol-tags-count">${t.entry_count} ${t.entry_count === 1 ? 'entry' : 'entries'}</span>
+      <span class="pol-tags-actions">
+        <button class="btn sm">Rename</button>
+        <button class="btn sm pol-danger">Delete</button>
+      </span>`;
+    const [ren, del] = row.querySelectorAll('button');
+    ren.onclick = () => renameTag(t);
+    del.onclick = () => deleteTag(t);
+    list.appendChild(row);
+  }
+}
+
+async function createTag() {
+  const name = $('tagName').value.trim();
+  if (!name) return;
+  const r = await fetch('/polaris/api/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!r.ok) { status((await r.json()).error || 'create failed', 'err'); return; }
+  $('tagName').value = '';
+  await loadTags();
+  status('Added', 'ok');
+}
+
+async function renameTag(t) {
+  const name = prompt('Rename tag:', t.name);
+  if (name === null || !name.trim() || name.trim() === t.name) return;
+  const r = await fetch('/polaris/api/tags/' + t.id, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  if (!r.ok) { status((await r.json()).error || 'rename failed', 'err'); return; }
+  await loadTags();
+  status('Renamed', 'ok');
+}
+
+async function deleteTag(t) {
+  const inUse = t.entry_count
+    ? ` It is on ${t.entry_count} ${t.entry_count === 1 ? 'entry' : 'entries'} — they keep their text, only the tag is removed.`
+    : '';
+  if (!confirm(`Delete tag “${t.name}”?${inUse}`)) return;
+  const r = await fetch('/polaris/api/tags/' + t.id, { method: 'DELETE' });
+  if (!r.ok) { status('Delete failed', 'err'); return; }
+  await loadTags();
+  status('Deleted', 'ok');
+}
+
+loadTags();
+</script>
+{% endblock %}
