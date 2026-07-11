@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.6.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.7.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -637,9 +637,19 @@ inside `functions/betelgeuse/`), with only settings shared.
   **Tags** (betelgeuse-style groups, minus the guardrails): defined on **`/polaris/tags`**
   (`active='polaris-tags'`, a `META["subnav"]` page), any number per entry, unique
   case-insensitively; **deleting a tag never checks usage** — it just unlinks (`tags` +
-  `entry_tags` junction; `delete_entry` cleans the junction too, sqlite FKs are OFF). The entry
-  POST takes an optional `tags: [ids]` (replaces the set; unknown ids silently dropped);
-  `GET/POST/DELETE /polaris/api/tags[/<id>]` is the manager API.
+  `entry_tags` junction; `delete_entry` cleans the junction too, sqlite FKs are OFF). Each tag
+  carries an optional **emoji icon**, picked from the **100 curated journal emoji** in
+  **`static/polaris-ui.js`** (`POLARIS_EMOJI` — exactly 100, node-asserted — +
+  `buildEmojiPicker()`, shared by the entry page's New-tag modal and the manager's
+  create/per-row Icon chooser). The entry POST takes an optional `tags: [ids]` (replaces the
+  set; unknown ids silently dropped) and an optional **`reminder`** ISO date (schema v2's
+  `entries.reminder_date`; "" clears — a stored field only, nothing fires yet). The editor head
+  is two labeled fields (Date + **checkbox-gated Reminder**, hidden in view mode unless set);
+  entries with a reminder get a ⏰ marker in the tree. `GET/POST/DELETE /polaris/api/tags[/<id>]`
+  is the manager API (POST does partial updates: `{name}` and/or `{emoji}`). The attachments bar
+  gains a **Gallery** button (visible in BOTH modes when image attachments exist): a lightbox
+  over every inline-image attachment with ‹/›/arrow-key navigation, wrap-around, Esc to close;
+  clicking an image thumbnail opens it at that image.
   - **Backups & rollback** (title/body/date/attachments/tags all live in the ONE polaris.db, so a
     snapshot is complete). Two automatic layers land in `functions/polaris/data/backup/`
     (rsync-excluded + gitignored — each box keeps its own):

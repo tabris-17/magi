@@ -519,6 +519,7 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .pol-entry-titlerow { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .pol-entry-title { font-size: 12.5px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pol-clip { flex: 0 0 auto; display: flex; }
+.pol-remdot { flex: 0 0 auto; font-size: 10px; line-height: 1; }
 .pol-clipicon { width: 10px; height: 10px; fill: var(--fg-subtle); }
 .pol-entry.active .pol-entry-title { font-weight: 600; }
 .pol-snippet { font-size: 11.5px; color: var(--fg-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
@@ -529,7 +530,16 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 /* Right pane: the editor */
 .pol-editor { display: block; padding: 18px 20px; }
 .pol-editor:hover { border-color: var(--border); }
-.pol-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pol-editor-head { display: flex; align-items: flex-end; gap: 20px; margin-bottom: 12px; }
+.pol-field { display: grid; gap: 3px; }
+.pol-field-label {
+  display: flex; align-items: center; gap: 6px; min-height: 16px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--fg-subtle);
+}
+.pol-rem-label { cursor: pointer; }
+.pol-rem-label input[type=checkbox] { margin: 0; accent-color: var(--accent); }
+.pol-editor-head .pol-meta { margin-left: auto; align-self: flex-start; }
 .pol-date {
   padding: 6px 10px; font-size: 13px; color: var(--fg); background: var(--surface-2);
   border: 1px solid var(--border); border-radius: 6px; color-scheme: light dark;
@@ -585,7 +595,8 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .pol-editor.viewing .pol-title { border-bottom-color: transparent; }
 .pol-editor.viewing .pol-date { background: transparent; border-color: transparent; opacity: 1; color: var(--fg); }
 .pol-editor.viewing .pol-body { background: transparent; border-color: transparent; resize: none; box-shadow: none; min-height: 0; }
-.pol-editor.viewing .pol-attach-bar { display: none; }
+.pol-editor.viewing .pol-editonly { display: none; }
+.pol-editor.viewing .pol-rem-label input[type=checkbox] { display: none; }
 .pol-editor.viewing .pol-att-del { display: none; }
 
 /* Format toolbar. Buttons are `.btn.sm` — sizing comes from the primitive, never from here. */
@@ -658,6 +669,68 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .pol-status { font-size: 12.5px; color: var(--fg-muted); min-width: 54px; text-align: right; }
 .pol-status.ok { color: var(--success-fg); }
 .pol-status.err { color: var(--danger-fg); }
+
+/* Modal (new-tag / emoji chooser) */
+.pol-modal-backdrop {
+  position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, .55);
+  display: flex; align-items: center; justify-content: center;
+}
+.pol-modal {
+  width: min(500px, 92vw); padding: 16px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.pol-modal-title { font-size: 15px; font-weight: 600; color: var(--fg); margin-bottom: 12px; }
+.pol-modal-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pol-modal-row input { flex: 1 1 auto; min-width: 0; }
+.pol-modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.pol-modal-actions .pol-status { margin-right: auto; }
+
+.pol-emoji-preview {
+  flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center;
+  font-size: 19px; line-height: 1; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+}
+.pol-emoji-preview:hover { border-color: var(--accent); }
+.pol-emoji-grid {
+  display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px;
+  max-height: 250px; overflow-y: auto; padding: 6px;
+  background: var(--canvas); border: 1px solid var(--border-muted); border-radius: 8px;
+}
+.pol-emoji-btn {
+  font-size: 17px; line-height: 1.4; padding: 4px 0; cursor: pointer;
+  background: none; border: none; border-radius: 6px;
+}
+.pol-emoji-btn:hover { background: var(--surface-2); }
+.pol-emoji-btn.picked { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.pol-emoji-none {
+  grid-column: span 2; font-size: 11px; color: var(--fg-muted); cursor: pointer;
+  background: none; border: 1px dashed var(--border); border-radius: 6px;
+}
+.pol-emoji-none:hover { color: var(--fg); border-color: var(--accent); }
+
+/* Gallery lightbox — deliberately dark in BOTH themes (a lightbox dims the room). */
+.pol-gal-backdrop {
+  position: fixed; inset: 0; z-index: 110; background: rgba(0, 0, 0, .85);
+  display: flex; align-items: center; justify-content: center;
+}
+.pol-gal-img { max-width: 88vw; max-height: 84vh; border-radius: 6px; box-shadow: 0 12px 48px rgba(0, 0, 0, .6); }
+.pol-gal-nav {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  width: 52px; height: 76px; font-size: 36px; line-height: 1; color: #fff;
+  background: rgba(255, 255, 255, .1); border: none; border-radius: 10px; cursor: pointer;
+}
+.pol-gal-nav:hover { background: rgba(255, 255, 255, .22); }
+.pol-gal-prev { left: 18px; }
+.pol-gal-next { right: 18px; }
+.pol-gal-close {
+  position: fixed; top: 12px; right: 20px; font-size: 32px; line-height: 1;
+  color: #fff; background: none; border: none; cursor: pointer;
+}
+.pol-gal-caption {
+  position: fixed; bottom: 16px; left: 0; right: 0; text-align: center;
+  color: #ccc; font-size: 13px;
+}
 
 /* Tags manager (/polaris/tags) */
 .pol-tags-shell { max-width: 640px; }

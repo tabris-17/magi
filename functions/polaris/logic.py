@@ -38,7 +38,7 @@ DB_PATH = os.path.join(DATA_DIR, "polaris.db")
 #   * polaris-daily-<stamp>.db — the shared magi worker's daily job (03:30), skipped
 #     when the DB hasn't changed; only the newest BACKUP_KEEP_DAILY are kept.
 # Rollback is manual by design: stop the app, copy a snapshot over polaris.db, start.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 BACKUP_DIR = os.path.join(DATA_DIR, "backup")
 BACKUP_KEEP_DAILY = 14
 
@@ -53,12 +53,13 @@ INLINE_MIMES = {"image/png", "image/jpeg", "image/gif", "image/webp"}
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_date TEXT NOT NULL,
-    title      TEXT NOT NULL DEFAULT '',
-    body       TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_date    TEXT NOT NULL,
+    title         TEXT NOT NULL DEFAULT '',
+    body          TEXT NOT NULL DEFAULT '',
+    reminder_date TEXT NOT NULL DEFAULT '',
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_entries_date ON entries (entry_date DESC, id DESC);
 
@@ -76,6 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_att_entry ON attachments (entry_id, id);
 CREATE TABLE IF NOT EXISTS tags (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    emoji      TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS entry_tags (
@@ -129,11 +131,23 @@ def _schema_guard():
         conn = sqlite3.connect(DB_PATH)
         try:
             conn.executescript(_SCHEMA)
+            _ensure_columns(conn)
             conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             conn.commit()
         finally:
             conn.close()
         _schema_checked = True
+
+
+def _ensure_columns(conn):
+    """Additive upgrades for DBs created before a column existed (CREATE IF NOT EXISTS
+    won't touch an existing table). Runs only under _schema_guard, AFTER its snapshot."""
+    have = {r[1] for r in conn.execute("PRAGMA table_info(entries)")}
+    if "reminder_date" not in have:  # v2
+        conn.execute("ALTER TABLE entries ADD COLUMN reminder_date TEXT NOT NULL DEFAULT ''")
+    have = {r[1] for r in conn.execute("PRAGMA table_info(tags)")}
+    if "emoji" not in have:          # v2
+        conn.execute("ALTER TABLE tags ADD COLUMN emoji TEXT NOT NULL DEFAULT ''")
 
 
 def snapshot_db(reason):
@@ -205,6 +219,7 @@ def _row(r):
         "date": r["entry_date"],
         "title": r["title"],
         "body": r["body"],
+        "reminder": r["reminder_date"] or None,
         "created_at": r["created_at"],
         "updated_at": r["updated_at"],
     }
@@ -351,28 +366,31 @@ def delete_attachment(att_id):
 
 # ---- writes --------------------------------------------------------------------------
 
-def save_entry(entry_id=None, date=None, title="", body=""):
+def save_entry(entry_id=None, date=None, title="", body="", reminder=None):
     """Create (entry_id None) or update an entry. Returns the saved row.
 
     An empty date defaults to today; an entry with neither title nor body is still
-    allowed (the UI blocks it, but the store stays dumb).
+    allowed (the UI blocks it, but the store stays dumb). `reminder` is an optional
+    ISO date ("" / None clears it) — just a stored field for now, nothing fires.
     """
     date = (date or "").strip() or _today()
     title = (title or "").strip()
     body = body or ""
+    reminder = (reminder or "").strip()
     now = _now()
     conn = _connect()
     try:
         if entry_id:
             cur = conn.execute(
-                "UPDATE entries SET entry_date = ?, title = ?, body = ?, updated_at = ? "
-                "WHERE id = ?", (date, title, body, now, entry_id))
+                "UPDATE entries SET entry_date = ?, title = ?, body = ?, reminder_date = ?, "
+                "updated_at = ? WHERE id = ?", (date, title, body, reminder, now, entry_id))
             if cur.rowcount == 0:
                 raise KeyError(f"no entry {entry_id}")
         else:
             cur = conn.execute(
-                "INSERT INTO entries (entry_date, title, body, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?)", (date, title, body, now, now))
+                "INSERT INTO entries (entry_date, title, body, reminder_date, created_at, "
+                "updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (date, title, body, reminder, now, now))
             entry_id = cur.lastrowid
         conn.commit()
     finally:
@@ -399,9 +417,9 @@ def delete_entry(entry_id):
 
 def _tag_rows(conn, entry_id):
     rows = conn.execute(
-        "SELECT t.id, t.name FROM tags t JOIN entry_tags et ON et.tag_id = t.id "
+        "SELECT t.id, t.name, t.emoji FROM tags t JOIN entry_tags et ON et.tag_id = t.id "
         "WHERE et.entry_id = ? ORDER BY t.name COLLATE NOCASE", (entry_id,))
-    return [{"id": r["id"], "name": r["name"]} for r in rows]
+    return [{"id": r["id"], "name": r["name"], "emoji": r["emoji"]} for r in rows]
 
 
 def list_tags():
@@ -409,39 +427,50 @@ def list_tags():
     conn = _connect()
     try:
         rows = conn.execute(
-            "SELECT t.id, t.name, COUNT(et.entry_id) AS n FROM tags t "
+            "SELECT t.id, t.name, t.emoji, COUNT(et.entry_id) AS n FROM tags t "
             "LEFT JOIN entry_tags et ON et.tag_id = t.id "
             "GROUP BY t.id ORDER BY t.name COLLATE NOCASE")
-        return [{"id": r["id"], "name": r["name"], "entry_count": r["n"]} for r in rows]
+        return [{"id": r["id"], "name": r["name"], "emoji": r["emoji"],
+                 "entry_count": r["n"]} for r in rows]
     finally:
         conn.close()
 
 
-def create_tag(name):
+def create_tag(name, emoji=""):
     name = " ".join((name or "").split())
+    emoji = (emoji or "").strip()
     if not name:
         raise ValueError("tag name is empty")
     conn = _connect()
     try:
         try:
-            cur = conn.execute("INSERT INTO tags (name, created_at) VALUES (?, ?)",
-                               (name, _now()))
+            cur = conn.execute("INSERT INTO tags (name, emoji, created_at) VALUES (?, ?, ?)",
+                               (name, emoji, _now()))
             conn.commit()
         except sqlite3.IntegrityError:
             raise ValueError(f"tag “{name}” already exists")
-        return {"id": cur.lastrowid, "name": name, "entry_count": 0}
+        return {"id": cur.lastrowid, "name": name, "emoji": emoji, "entry_count": 0}
     finally:
         conn.close()
 
 
-def rename_tag(tag_id, name):
-    name = " ".join((name or "").split())
-    if not name:
-        raise ValueError("tag name is empty")
+def update_tag(tag_id, name=None, emoji=None):
+    """Rename and/or re-emoji a tag (None = leave that field alone)."""
+    sets, args = [], []
+    if name is not None:
+        name = " ".join(name.split())
+        if not name:
+            raise ValueError("tag name is empty")
+        sets.append("name = ?"); args.append(name)
+    if emoji is not None:
+        sets.append("emoji = ?"); args.append(emoji.strip())
+    if not sets:
+        return
     conn = _connect()
     try:
         try:
-            cur = conn.execute("UPDATE tags SET name = ? WHERE id = ?", (name, tag_id))
+            cur = conn.execute(f"UPDATE tags SET {', '.join(sets)} WHERE id = ?",
+                               (*args, tag_id))
             conn.commit()
         except sqlite3.IntegrityError:
             raise ValueError(f"tag “{name}” already exists")

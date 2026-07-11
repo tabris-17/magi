@@ -31,7 +31,7 @@ META = {
     "description": "Your journal — dated entries with attachments, kept locally.",
     "icon": ICON,
     "url": "/polaris/",
-    "version": "polaris-1.6.0",
+    "version": "polaris-1.7.0",
     # Sidebar sub-pages (rendered by base.html's generic subnav loop, collapse-when-active,
     # like the Settings groups). `key` values are what the pages pass as `active`.
     "subnav": [
@@ -58,7 +58,7 @@ def api_tags():
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
         try:
-            tag = logic.create_tag(data.get("name", ""))
+            tag = logic.create_tag(data.get("name", ""), data.get("emoji", ""))
         except ValueError as exc:
             return jsonify(error=str(exc)), 400
         return jsonify(tag=tag)
@@ -73,7 +73,10 @@ def api_tag(tag_id):
         return jsonify(ok=True)
     data = request.get_json(silent=True) or {}
     try:
-        logic.rename_tag(tag_id, data.get("name", ""))
+        # partial update: only the provided fields change
+        logic.update_tag(tag_id,
+                         name=data.get("name") if "name" in data else None,
+                         emoji=data.get("emoji") if "emoji" in data else None)
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     except KeyError as exc:
@@ -91,6 +94,7 @@ def api_entries():
                 date=data.get("date"),
                 title=data.get("title", ""),
                 body=data.get("body", ""),
+                reminder=data.get("reminder", ""),
             )
         except KeyError as exc:
             return jsonify(error=exc.args[0]), 404

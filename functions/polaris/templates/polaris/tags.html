@@ -7,6 +7,8 @@ just unlinks it — the entries themselves are never touched.</p>
 
 <div class="pol-tags-shell">
   <div class="pol-tags-new">
+    <button id="tagEmojiBtn" class="pol-emoji-preview" type="button" title="Choose an icon"
+            onclick="pickEmoji(e => setNewEmoji(e), 'Icon for the new tag')">🏷️</button>
     <input id="tagName" type="text" placeholder="New tag name…" maxlength="60"
            onkeydown="if (event.key === 'Enter') createTag()">
     <button class="btn primary" onclick="createTag()">Add tag</button>
@@ -17,9 +19,38 @@ just unlinks it — the entries themselves are never touched.</p>
   <div id="tagEmpty" class="pol-empty" style="display:none;">No tags yet — add your first one above.</div>
 </div>
 
+<!-- Emoji chooser (shared grid from polaris-ui.js) -->
+<div id="tagEmojiModal" class="pol-modal-backdrop" style="display:none;">
+  <div class="pol-modal">
+    <div class="pol-modal-title" id="tagEmojiTitle">Choose an icon</div>
+    <div id="tagEmojiGrid" class="pol-emoji-grid"></div>
+    <div class="pol-modal-actions">
+      <button class="btn sm" type="button" onclick="closeEmojiModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/polaris-ui.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let tags = [];
+let newEmoji = '';
+
+// ---- emoji chooser (one modal, reused for create + per-row change) --------
+function pickEmoji(cb, title) {
+  $('tagEmojiTitle').textContent = title;
+  buildEmojiPicker($('tagEmojiGrid'), e => { closeEmojiModal(); cb(e); });
+  $('tagEmojiModal').style.display = '';
+}
+function closeEmojiModal() { $('tagEmojiModal').style.display = 'none'; }
+function setNewEmoji(e) {
+  newEmoji = e;
+  $('tagEmojiBtn').textContent = e || '🏷️';
+}
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeEmojiModal(); });
+$('tagEmojiModal') && $('tagEmojiModal').addEventListener('click', ev => {
+  if (ev.target === $('tagEmojiModal')) closeEmojiModal();
+});
 
 function escapeHtml(s) {
   const d = document.createElement('div');
@@ -47,13 +78,15 @@ function render() {
     const row = document.createElement('div');
     row.className = 'pol-tags-row';
     row.innerHTML = `
-      <span class="pol-tag">${escapeHtml(t.name)}</span>
+      <span class="pol-tag">${t.emoji ? escapeHtml(t.emoji) + ' ' : ''}${escapeHtml(t.name)}</span>
       <span class="pol-tags-count">${t.entry_count} ${t.entry_count === 1 ? 'entry' : 'entries'}</span>
       <span class="pol-tags-actions">
+        <button class="btn sm">Icon</button>
         <button class="btn sm">Rename</button>
         <button class="btn sm pol-danger">Delete</button>
       </span>`;
-    const [ren, del] = row.querySelectorAll('button');
+    const [ico, ren, del] = row.querySelectorAll('button');
+    ico.onclick = () => pickEmoji(e => setTagEmoji(t, e), `Icon for “${t.name}”`);
     ren.onclick = () => renameTag(t);
     del.onclick = () => deleteTag(t);
     list.appendChild(row);
@@ -66,12 +99,24 @@ async function createTag() {
   const r = await fetch('/polaris/api/tags', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, emoji: newEmoji }),
   });
   if (!r.ok) { status((await r.json()).error || 'create failed', 'err'); return; }
   $('tagName').value = '';
+  setNewEmoji('');
   await loadTags();
   status('Added', 'ok');
+}
+
+async function setTagEmoji(t, emoji) {
+  const r = await fetch('/polaris/api/tags/' + t.id, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ emoji }),
+  });
+  if (!r.ok) { status('icon change failed', 'err'); return; }
+  await loadTags();
+  status('Icon set', 'ok');
 }
 
 async function renameTag(t) {
