@@ -678,8 +678,11 @@ document.addEventListener('keydown', ev => {
     return;
   }
   if (ev.key === 'Escape' && document.activeElement === $('polSearch')) { clearSearch(); return; }
-  // "/" focuses search, unless you're typing into a field.
-  const typing = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  // "/" focuses search — but never while typing. The rich-text body is a
+  // contenteditable DIV (no INPUT/TEXTAREA tag), so isContentEditable must be
+  // checked too, or "/" could never be typed into an entry.
+  const el = document.activeElement;
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable;
   if (ev.key === '/' && !typing) { ev.preventDefault(); $('polSearch').focus(); }
 });
 window.addEventListener('beforeunload', ev => { if (dirty) ev.preventDefault(); });

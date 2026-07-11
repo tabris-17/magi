@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.5.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.5.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
