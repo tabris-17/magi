@@ -38,11 +38,13 @@
 
     <input id="polTitle" type="text" class="pol-title" placeholder="Title" oninput="markDirty()">
 
-    <!-- Tags: chips always; the add/remove controls only in edit mode -->
+    <!-- Tags: chips always; the "+ add" picker only in edit mode -->
     <div class="pol-tagrow" id="polTagRow">
       <span id="polTagChips" class="pol-tagchips"></span>
-      <select id="polTagAdd" class="pol-tagadd" onchange="addTag(this.value)"></select>
-      <a id="polTagDefine" class="pol-link pol-tagdefine" href="/polaris/tags">Define tags →</a>
+      <span class="pol-tagadd-wrap">
+        <button type="button" id="polTagAddBtn" class="pol-tag-addbtn" onclick="toggleTagMenu(event)">+ add</button>
+        <div id="polTagMenu" class="pol-tagmenu" style="display:none;"></div>
+      </span>
     </div>
 
     <!-- Rich-text body. Edited as HTML, stored as Markdown (static/polaris-md.js). -->
@@ -52,12 +54,12 @@
       <button type="button" class="btn sm pol-fbtn" data-block="h3" title="Small heading">H3</button>
       <button type="button" class="btn sm pol-fbtn" data-block="p" title="Normal text">Body</button>
       <span class="pol-fmt-sep"></span>
-      <button type="button" class="btn sm pol-fbtn" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
-      <button type="button" class="btn sm pol-fbtn" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
-      <button type="button" class="btn sm pol-fbtn" data-code="1" title="Inline code"><code>code</code></button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="bold" title="Bold (⌘B)"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M4 2h4.5a3.501 3.501 0 0 1 2.852 5.53A3.499 3.499 0 0 1 9.5 14H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Zm1 7v3h4.5a1.5 1.5 0 0 0 0-3Zm3.5-2a1.5 1.5 0 0 0 0-3H5v3Z"/></svg></button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="italic" title="Italic (⌘I)"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M6 2.75A.75.75 0 0 1 6.75 2h6.5a.75.75 0 0 1 0 1.5h-2.505l-3.858 9H9.25a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.505l3.858-9H6.75A.75.75 0 0 1 6 2.75Z"/></svg></button>
+      <button type="button" class="btn sm pol-fbtn" data-code="1" title="Inline code"><svg width="16" height="16" viewBox="0 0 16 16"><path d="m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z"/></svg></button>
       <span class="pol-fmt-sep"></span>
-      <button type="button" class="btn sm pol-fbtn" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
-      <button type="button" class="btn sm pol-fbtn" data-cmd="insertOrderedList" title="Numbered list">1. List</button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="insertUnorderedList" title="Bullet list"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"/></svg></button>
+      <button type="button" class="btn sm pol-fbtn" data-cmd="insertOrderedList" title="Numbered list"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M5 3.25a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 5 3.25Zm0 5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5A.75.75 0 0 1 5 8.25Zm0 5a.75.75 0 0 1 .75-.75h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1-.75-.75ZM.924 10.32a.5.5 0 0 1-.851-.525l.001-.001.001-.002.002-.004.007-.011c.097-.144.215-.273.348-.384.228-.19.588-.392 1.068-.392.468 0 .858.181 1.126.484.259.294.377.673.377 1.038 0 .987-.686 1.495-1.156 1.845l-.047.035c-.303.225-.522.4-.654.597h1.357a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5c0-1.005.692-1.52 1.167-1.875l.035-.025c.531-.396.8-.625.8-1.078a.57.57 0 0 0-.128-.376C1.806 10.068 1.695 10 1.5 10a.658.658 0 0 0-.429.163.835.835 0 0 0-.144.153ZM2.003 2.5V6h.503a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1h.503V3.308l-.28.14a.5.5 0 0 1-.446-.895l1.003-.5a.5.5 0 0 1 .723.447Z"/></svg></button>
     </div>
     <div id="polBody" class="pol-body pol-rte" contenteditable="true"
          data-placeholder="Write…" oninput="markDirty(); updateCount()"></div>
@@ -205,21 +207,67 @@ function renderTags() {
     if (editing) chip.querySelector('.pol-tag-x').onclick = () => removeTag(t.id);
     chips.appendChild(chip);
   }
-  // The add control: a select of the not-yet-applied tags (edit mode only).
-  const sel = $('polTagAdd');
-  const remaining = allTags.filter(a => !entryTags.some(t => t.id === a.id));
-  sel.innerHTML = '<option value="">+ tag</option>' +
-    remaining.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  sel.style.display = (editing && remaining.length) ? '' : 'none';
-  // No tags defined at all → point at the manager instead of an empty select.
-  $('polTagDefine').style.display = (editing && !allTags.length) ? '' : 'none';
+  $('polTagAddBtn').style.display = editing ? '' : 'none';
+  closeTagMenu();
   // View mode with no tags: no dead row.
   $('polTagRow').style.display = (!editing && !entryTags.length) ? 'none' : '';
 }
 
+/** The "+ add" picker: remaining tags to click, plus "New tag…" and the manager link. */
+function buildTagMenu() {
+  const remaining = allTags.filter(a => !entryTags.some(t => t.id === a.id));
+  const items = remaining.map(t =>
+    `<button type="button" class="pol-tagmenu-item" data-id="${t.id}">${escapeHtml(t.name)}</button>`);
+  if (remaining.length) items.push('<div class="pol-tagmenu-sep"></div>');
+  items.push('<button type="button" class="pol-tagmenu-item pol-tagmenu-new">+ New tag…</button>');
+  items.push('<a class="pol-tagmenu-item pol-tagmenu-manage" href="/polaris/tags">Manage tags →</a>');
+  return items.join('');
+}
+
+function toggleTagMenu(ev) {
+  ev.stopPropagation();
+  const menu = $('polTagMenu');
+  if (menu.style.display !== 'none') { closeTagMenu(); return; }
+  menu.innerHTML = buildTagMenu();
+  for (const el of menu.querySelectorAll('[data-id]')) el.onclick = () => addTag(el.dataset.id);
+  menu.querySelector('.pol-tagmenu-new').onclick = newTagInline;
+  menu.style.display = '';
+}
+
+function closeTagMenu() {
+  const menu = $('polTagMenu');
+  if (menu) menu.style.display = 'none';
+}
+document.addEventListener('click', ev => {
+  if (!ev.target.closest('.pol-tagadd-wrap')) closeTagMenu();
+});
+
+/** Create a tag right here and put it on the entry (the manager page still owns
+    rename/delete). A duplicate name just applies the existing tag. */
+async function newTagInline() {
+  closeTagMenu();
+  const name = (prompt('New tag name:') || '').trim();
+  if (!name) return;
+  const r = await fetch('/polaris/api/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (r.ok) {
+    const t = (await r.json()).tag;
+    allTags.push(t);
+    addTag(t.id);
+    return;
+  }
+  await loadAllTags();  // maybe it already exists (case-insensitively) — apply that one
+  const existing = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+  if (existing) addTag(existing.id);
+  else status((await r.json()).error || 'could not create tag', 'err');
+}
+
 function addTag(id) {
+  closeTagMenu();
   const t = allTags.find(a => a.id === +id);
-  $('polTagAdd').value = '';
   if (!t || entryTags.some(x => x.id === t.id)) return;
   entryTags.push({ id: t.id, name: t.name });
   markDirty();

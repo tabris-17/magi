@@ -558,13 +558,28 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   color: var(--fg-muted); background: none; border: none;
 }
 .pol-tag-x:hover { color: var(--danger-fg); }
-.pol-tagadd {
-  padding: 2px 8px; font-size: 12px; color: var(--fg-muted); cursor: pointer;
-  background: var(--surface); border: 1px dashed var(--border); border-radius: 999px;
-  color-scheme: light dark;
+/* "+ add" is deliberately NOT a chip look-alike: dashed outline, no fill, muted —
+   it reads as an affordance, the solid chips read as data. */
+.pol-tagadd-wrap { position: relative; display: inline-flex; }
+.pol-tag-addbtn {
+  padding: 2px 10px; font-size: 12px; font-weight: 500; color: var(--fg-muted); cursor: pointer;
+  background: transparent; border: 1px dashed var(--border); border-radius: 999px;
 }
-.pol-tagadd:focus { outline: none; border-color: var(--accent); }
-.pol-tagdefine { font-size: 12px; }
+.pol-tag-addbtn:hover { color: var(--accent); border-color: var(--accent); }
+.pol-tagmenu {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 170px;
+  padding: 4px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; box-shadow: var(--shadow);
+}
+.pol-tagmenu-item {
+  display: block; width: 100%; padding: 6px 10px; font: inherit; font-size: 13px;
+  text-align: left; color: var(--fg); cursor: pointer;
+  background: none; border: none; border-radius: 5px;
+}
+.pol-tagmenu-item:hover { background: var(--surface-2); text-decoration: none; }
+.pol-tagmenu-sep { height: 1px; margin: 4px 6px; background: var(--border-muted); }
+.pol-tagmenu-new { color: var(--accent); }
+.pol-tagmenu-manage { font-size: 12px; color: var(--fg-muted); }
 
 /* View mode: the same layout with the input chrome switched off. */
 .pol-editor.viewing .pol-title { border-bottom-color: transparent; }
@@ -575,8 +590,8 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 
 /* Format toolbar. Buttons are `.btn.sm` — sizing comes from the primitive, never from here. */
 .pol-fmt { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
-.pol-fbtn { min-width: 34px; text-align: center; }
-.pol-fbtn code { background: none; padding: 0; font-size: 12px; }
+.pol-fbtn { min-width: 34px; min-height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+.pol-fbtn svg { fill: currentColor; }
 .pol-fbtn.is-active { background: color-mix(in srgb, var(--accent) 20%, transparent); border-color: var(--accent); color: var(--fg); }
 .pol-fmt-sep { width: 1px; height: 18px; background: var(--border); margin: 0 3px; }
 
