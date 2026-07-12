@@ -83,7 +83,9 @@
 
   // ---- html → markdown (save) ----------------------------------------------
 
-  const escMd = s => s.replace(/([\\*_`])/g, '\\$1');
+  // NBSP → space: contenteditable loves &nbsp;, but stored U+00A0 would silently
+  // break LIKE-search for the visually identical text.
+  const escMd = s => s.replace(/\u00a0/g, ' ').replace(/([\\*_`])/g, '\\$1');
 
   /** Inline markdown for a node's children (strong/em/code/br/text; anything else unwraps). */
   function inlineToMd(node) {

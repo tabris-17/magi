@@ -103,7 +103,7 @@
   <div class="pol-modal">
     <div class="pol-modal-title">New tag</div>
     <div class="pol-modal-row">
-      <span id="polTagEmojiPrev" class="pol-emoji-preview" title="Chosen icon">🏷️</span>
+      <span id="polTagEmojiPrev" class="pol-emoji-preview" title="Chosen icon"></span>
       <input id="polTagName" type="text" placeholder="Tag name…" maxlength="60"
              onkeydown="if (event.key === 'Enter') confirmTagModal()">
     </div>
@@ -275,8 +275,7 @@ function renderTags() {
   for (const t of entryTags) {
     const chip = document.createElement('span');
     chip.className = 'pol-tag';
-    const face = `${t.emoji ? escapeHtml(t.emoji) + ' ' : ''}${escapeHtml(t.name)}`;
-    chip.innerHTML = `${face}${editing ? '<button type="button" class="pol-tag-x" title="Remove tag">&times;</button>' : ''}`;
+    chip.innerHTML = `${tagFace(t.emoji)}${escapeHtml(t.name)}${editing ? '<button type="button" class="pol-tag-x" title="Remove tag">&times;</button>' : ''}`;
     if (editing) chip.querySelector('.pol-tag-x').onclick = () => removeTag(t.id);
     chips.appendChild(chip);
   }
@@ -290,7 +289,7 @@ function renderTags() {
 function buildTagMenu() {
   const remaining = allTags.filter(a => !entryTags.some(t => t.id === a.id));
   const items = remaining.map(t =>
-    `<button type="button" class="pol-tagmenu-item" data-id="${t.id}">${t.emoji ? escapeHtml(t.emoji) + ' ' : ''}${escapeHtml(t.name)}</button>`);
+    `<button type="button" class="pol-tagmenu-item" data-id="${t.id}">${tagFace(t.emoji)}<span>${escapeHtml(t.name)}</span></button>`);
   if (remaining.length) items.push('<div class="pol-tagmenu-sep"></div>');
   items.push('<button type="button" class="pol-tagmenu-item pol-tagmenu-new">+ New tag…</button>');
   items.push('<a class="pol-tagmenu-item pol-tagmenu-manage" href="/polaris/tags">Manage tags →</a>');
@@ -323,12 +322,12 @@ function newTagInline() {
   chosenEmoji = '';
   $('polTagName').value = '';
   $('polTagModalErr').textContent = '';
-  $('polTagEmojiPrev').textContent = '🏷️';
-  buildEmojiPicker($('polEmojiGrid'), e => {
-    chosenEmoji = e;
-    $('polTagEmojiPrev').textContent = e || '🏷️';
+  $('polTagEmojiPrev').innerHTML = tagFace('tag');
+  buildIconPicker($('polEmojiGrid'), name => {
+    chosenEmoji = name;
+    $('polTagEmojiPrev').innerHTML = tagFace(name) || tagFace('tag');
     for (const b of $('polEmojiGrid').querySelectorAll('.pol-emoji-btn'))
-      b.classList.toggle('picked', b.textContent === e);
+      b.classList.toggle('picked', b.dataset.name === name);
   });
   $('polTagModal').style.display = '';
   $('polTagName').focus();

@@ -8,7 +8,7 @@ just unlinks it — the entries themselves are never touched.</p>
 <div class="pol-tags-shell">
   <div class="pol-tags-new">
     <button id="tagEmojiBtn" class="pol-emoji-preview" type="button" title="Choose an icon"
-            onclick="pickEmoji(e => setNewEmoji(e), 'Icon for the new tag')">🏷️</button>
+            onclick="pickEmoji(e => setNewEmoji(e), 'Icon for the new tag')"></button>
     <input id="tagName" type="text" placeholder="New tag name…" maxlength="60"
            onkeydown="if (event.key === 'Enter') createTag()">
     <button class="btn primary" onclick="createTag()">Add tag</button>
@@ -39,14 +39,15 @@ let newEmoji = '';
 // ---- emoji chooser (one modal, reused for create + per-row change) --------
 function pickEmoji(cb, title) {
   $('tagEmojiTitle').textContent = title;
-  buildEmojiPicker($('tagEmojiGrid'), e => { closeEmojiModal(); cb(e); });
+  buildIconPicker($('tagEmojiGrid'), name => { closeEmojiModal(); cb(name); });
   $('tagEmojiModal').style.display = '';
 }
 function closeEmojiModal() { $('tagEmojiModal').style.display = 'none'; }
 function setNewEmoji(e) {
   newEmoji = e;
-  $('tagEmojiBtn').textContent = e || '🏷️';
+  $('tagEmojiBtn').innerHTML = tagFace(e) || tagFace('tag');
 }
+setNewEmoji('');
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeEmojiModal(); });
 $('tagEmojiModal') && $('tagEmojiModal').addEventListener('click', ev => {
   if (ev.target === $('tagEmojiModal')) closeEmojiModal();
@@ -78,7 +79,7 @@ function render() {
     const row = document.createElement('div');
     row.className = 'pol-tags-row';
     row.innerHTML = `
-      <span class="pol-tag">${t.emoji ? escapeHtml(t.emoji) + ' ' : ''}${escapeHtml(t.name)}</span>
+      <span class="pol-tag">${tagFace(t.emoji)}${escapeHtml(t.name)}</span>
       <span class="pol-tags-count">${t.entry_count} ${t.entry_count === 1 ? 'entry' : 'entries'}</span>
       <span class="pol-tags-actions">
         <button class="btn sm">Icon</button>

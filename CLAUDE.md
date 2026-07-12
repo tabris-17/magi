@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.7.2`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.8.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -633,8 +633,10 @@ inside `functions/betelgeuse/`), with only settings shared.
   sentinels BEFORE the bold/italic regexes run** (unescaping only at the end let `sync\_dell`'s
   backslash act as an italic boundary, corrupting a little more each save→load cycle). A third invariant from the next breakage: **`htmlToMd` must recurse blocks fully** (`blocksOf`) —
   a `<ul>` nested inside a `<div>` fell into the inline serializer and lists lost their bullets
-  on every save. The node/browser test battery in the repo history covers all three — run it
-  before touching the converter. No WYSIWYG
+  on every save. **`functions/polaris/tests/run.sh`** is the COMMITTED battery
+  (44 cases: all three bugs, escape fixed-points, the real Chrome type→select→listify flow,
+  NBSP normalization, the full round-trip suite; needs the dev server up) — it must print
+  ALL PASS before AND after any converter change. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
   `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
   Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`
@@ -646,10 +648,13 @@ inside `functions/betelgeuse/`), with only settings shared.
   (`active='polaris-tags'`, a `META["subnav"]` page), any number per entry, unique
   case-insensitively; **deleting a tag never checks usage** — it just unlinks (`tags` +
   `entry_tags` junction; `delete_entry` cleans the junction too, sqlite FKs are OFF). Each tag
-  carries an optional **emoji icon**, picked from the **100 curated journal emoji** in
-  **`static/polaris-ui.js`** (`POLARIS_EMOJI` — exactly 100, node-asserted — +
-  `buildEmojiPicker()`, shared by the entry page's New-tag modal and the manager's
-  create/per-row Icon chooser). The entry POST takes an optional `tags: [ids]` (replaces the
+  carries an optional icon, picked from **100 monochrome LINE icons** (Lucide, ISC — fetched
+  from lucide-icons/lucide, normalized to 16px `stroke="currentColor"`, so they match the
+  octicon look and follow the theme; deliberately NOT color emoji) in **`static/polaris-ui.js`**
+  (`POLARIS_ICONS`/`ICON_SVGS` — exactly 100, node-asserted — + `buildIconPicker()` and
+  **`tagFace(value)`**: a known icon NAME renders its svg, anything else — legacy emoji chars
+  from the earlier picker — renders as escaped text, so old tags keep working; the DB `emoji`
+  column now stores the icon name). The entry POST takes an optional `tags: [ids]` (replaces the
   set; unknown ids silently dropped) and an optional **`reminder`** ISO date (schema v2's
   `entries.reminder_date`; "" clears — a stored field only, nothing fires yet). The editor head
   is two labeled fields (Date + **checkbox-gated Reminder**, hidden in view mode unless set);

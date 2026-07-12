@@ -1,0 +1,90 @@
+<!doctype html><meta charset="utf-8">
+<!--
+  Polaris Markdown-converter battery — run via ./run.sh (needs the dev server up).
+
+  Covers every converter bug that has actually shipped, plus the round-trip suite:
+    #1  Safari nested-div lines merged with no separator     (fixed in 1.7.1)
+    #2  escaped \_ \* re-parsed as italics, compounding      (fixed in 1.7.1)
+    #3  <ul>/<ol> nested in a <div> lost bullets/numbering   (fixed in 1.7.2)
+  Any change to static/polaris-md.js MUST keep this page printing ALL PASS.
+-->
+<body><pre id="out">running</pre>
+<div id="ed" contenteditable="true"></div>
+<script src="http://127.0.0.1:8080/static/polaris-md.js"></script>
+<script>
+const lines = []; let bad = 0;
+function ok(name, cond, extra) { if (!cond) bad++; lines.push((cond ? 'ok   ' : 'FAIL ') + name + (cond ? '' : '  got ' + extra)); }
+function fromDom(html) { const d = document.createElement('div'); d.innerHTML = html; return PolarisMD.htmlToMd(d); }
+function render(md) { const d = document.createElement('div'); d.innerHTML = PolarisMD.mdToHtml(md); return d; }
+function cycle(md) { return PolarisMD.htmlToMd(render(md)); }
+
+// ---- mdToHtml unit expectations -------------------------------------------
+const units = [
+  ['# Title', '<h1>Title</h1>'],
+  ['## Sub', '<h2>Sub</h2>'],
+  ['### Deep', '<h3>Deep</h3>'],
+  ['plain para', '<p>plain para</p>'],
+  ['a **bold** b', '<p>a <strong>bold</strong> b</p>'],
+  ['a *it* b', '<p>a <em>it</em> b</p>'],
+  ['use `code` here', '<p>use <code>code</code> here</p>'],
+  ['- one\n- two', '<ul><li>one</li><li>two</li></ul>'],
+  ['1. first\n2. second', '<ol><li>first</li><li>second</li></ol>'],
+  ['a 0 b', '<p>a 0 b</p>'],                                        // sentinel collision
+  ['`*not bold*`', '<p><code>*not bold*</code></p>'],               // code not re-parsed
+  ['<script>x</scr' + 'ipt>', '<p>&lt;script&gt;x&lt;/script&gt;</p>'],  // html escaped
+];
+for (const [src, want] of units) ok('mdToHtml ' + JSON.stringify(src.slice(0, 24)), PolarisMD.mdToHtml(src) === want, PolarisMD.mdToHtml(src));
+
+// ---- bug #3: lists nested inside other blocks ------------------------------
+ok('ul in div', fromDom('<div><ul><li>aaa</li><li>bbb</li></ul></div>') === '- aaa\n- bbb', JSON.stringify(fromDom('<div><ul><li>aaa</li><li>bbb</li></ul></div>')));
+ok('ol in div', fromDom('<div><ol><li>x</li><li>y</li></ol></div>') === '1. x\n2. y', JSON.stringify(fromDom('<div><ol><li>x</li><li>y</li></ol></div>')));
+ok('ul in div in div', fromDom('<div><div><ul><li>q</li></ul></div></div>') === '- q', '');
+ok('text+list+text in one div', fromDom('<div>intro<ul><li>a</li></ul>outro</div>') === 'intro\n\n- a\n\noutro', JSON.stringify(fromDom('<div>intro<ul><li>a</li></ul>outro</div>')));
+ok('styled items', fromDom('<ul><li><b><i>12343</i></b></li></ul>') === '- ***12343***', JSON.stringify(fromDom('<ul><li><b><i>12343</i></b></li></ul>')));
+ok('styled items cycle', cycle('- ***12343***\n- ***12***') === '- ***12343***\n- ***12***', JSON.stringify(cycle('- ***12343***\n- ***12***')));
+ok('empty bold+italic emits nothing', fromDom('<p><b><i><br></i></b></p>') === '', JSON.stringify(fromDom('<p><b><i><br></i></b></p>')));
+ok('h4 clamps to h3', fromDom('<h4>deep</h4>') === '### deep', '');
+ok('inline child of block keeps markers', fromDom('<p>a <strong>bold</strong> b</p>') === 'a **bold** b', JSON.stringify(fromDom('<p>a <strong>bold</strong> b</p>')));
+
+// ---- bug #1: Safari nested-div lines --------------------------------------
+ok('nested divs → paragraphs', fromDom('<div>aa<div>bb</div><div>cc</div></div>') === 'aa\n\nbb\n\ncc', JSON.stringify(fromDom('<div>aa<div>bb</div><div>cc</div></div>')));
+ok('sibling divs → paragraphs', fromDom('<div>aa</div><div>bb</div>') === 'aa\n\nbb', '');
+ok('p with brs → line breaks', fromDom('<p>aa<br>bb</p>') === 'aa\nbb', '');
+ok('browser soup normalized', fromDom('<div>loose</div><p>para&nbsp;text</p><ul><li><b>bold</b> item</li></ul>') === 'loose\n\npara text\n\n- **bold** item', JSON.stringify(fromDom('<div>loose</div><p>para&nbsp;text</p><ul><li><b>bold</b> item</li></ul>')));
+
+// ---- bug #2: escaped literals are inert, forever ---------------------------
+for (const md of [
+  'copy sync\\_dell\\_to\\_macbookair to nas',
+  'path oneoff\\\\ftx-claim here',
+  'a \\* b and c \\_ d',
+  '5\\*3=15',
+  '`code_with_underscore` and `a*b`',
+  'text with \\\\ backslash',
+]) {
+  const c1 = cycle(md), c2 = cycle(c1), c3 = cycle(c2);
+  ok('fixed point ' + JSON.stringify(md.slice(0, 26)), c1 === md && c2 === md && c3 === md, JSON.stringify(c3));
+}
+
+// ---- full-document round trips ---------------------------------------------
+for (const md of [
+  '# Title', 'plain para', 'a **bold** b', 'a *it* b', 'use `code` here',
+  '- one\n- two', '1. first\n2. second', '2 \\* 3 = 6',
+  '# T\n\nIntro.\n\n## S\n\n- a\n- b\n\n1. x\n2. y\n\nEnd **w**.',
+  '# MVP\n\nHit pain points\nMVP first\nlow cost KOL\npromote to unlock',
+  'copy immi 2FA to dog\n\ncheck oneoff\\\\ftx-claim copied or not.\n\n\\\\sync\\_dell\\_to\\_macbookair coy to nas\n\nCopy bitgo.zip',
+]) ok('round-trip ' + JSON.stringify(md.slice(0, 26)), cycle(md) === md, JSON.stringify(cycle(md)));
+
+// ---- the real editor flow: type, select, toggle list, full cycle -----------
+const ed = document.getElementById('ed');
+document.execCommand('defaultParagraphSeparator', false, 'p');
+ed.focus();
+document.execCommand('insertText', false, 'aaa\nbbb');
+document.execCommand('selectAll');
+document.execCommand('insertUnorderedList');
+const saved = PolarisMD.htmlToMd(ed);
+ok('chrome listify flow', saved === '- aaa\n- bbb', JSON.stringify(saved));
+ok('chrome flow stable', cycle(saved) === saved && cycle(cycle(saved)) === saved, JSON.stringify(cycle(saved)));
+
+lines.push(bad ? bad + ' FAILURES' : 'ALL PASS');
+document.getElementById('out').textContent = lines.join('\n');
+</script></body>
