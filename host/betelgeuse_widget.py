@@ -14,14 +14,22 @@ from markupsafe import escape
 
 def widget_types(get_client):
     """The widget TYPE list for the registry. `get_client` → a fresh Flask test client
-    bound to the mounted betelgeuse app (called at render time, never at import)."""
+    bound to the mounted betelgeuse app (called at render time, never at import).
+
+    `mask` is the eye-closed privacy view: the same card (bars, colors, percentages)
+    with every currency AMOUNT replaced by ••••• — built server-side, so the real
+    numbers never reach the browser while the eye is closed."""
     return [{
         "key": "pnl",
         "label": "Portfolio P&L",
         "description": "Unrealized P&L per holding plus the total, in your base currency.",
         "params": [],
         "render": lambda config: render_pnl(get_client()),
+        "mask": lambda config: render_pnl(get_client(), masked=True),
     }]
+
+
+MASK = "•••••"
 
 
 def _fmt(amount, signed=False):
@@ -40,7 +48,7 @@ def _fmt_pct(pct):
     return f"({pct:+.0f}%)"
 
 
-def render_pnl(client):
+def render_pnl(client, masked=False):
     resp = client.get("/api/portfolio/pnl")
     data = resp.get_json(silent=True)
     if resp.status_code != 200 or not data:
@@ -57,6 +65,10 @@ def render_pnl(client):
     if not holdings:
         return {"title": "Portfolio P&L", "html": '<div class="alt-note">No current holdings.</div>'}
 
+    # while masked, every AMOUNT becomes ••••• (bars + percentages stay — they carry
+    # relative performance, not absolute wealth)
+    amt = (lambda v, signed=False: MASK) if masked else _fmt
+
     max_abs = max((abs(h["pnl"]) for h in complete), default=0) or 1
     rows = []
     for h in complete:
@@ -70,7 +82,7 @@ def render_pnl(client):
             f'<span class="alt-pnl-sym">{escape(h["symbol"])}</span>'
             f'<span class="alt-pnl-track"><span class="alt-pnl-bar" '
             f'style="{side}width:{width:.1f}%;background:{color}"></span></span>'
-            f'<span class="alt-pnl-val" style="color:{color}">{_fmt(pnl, signed=True)} '
+            f'<span class="alt-pnl-val" style="color:{color}">{amt(pnl, signed=True)} '
             f'<small>{_fmt_pct(pct)}</small></span>'
             f'</div>')
 
@@ -78,9 +90,9 @@ def render_pnl(client):
     t_color = "var(--success-fg)" if (t_pnl or 0) >= 0 else "var(--danger-fg)"
     rows.append(
         f'<div class="alt-pnl-total"><span>Total</span>'
-        f'<span class="alt-pnl-meta">value {_fmt(totals.get("value"))} · '
-        f'cost {_fmt(totals.get("cost"))}</span>'
-        f'<span style="color:{t_color}">{_fmt(t_pnl, signed=True)} '
+        f'<span class="alt-pnl-meta">value {amt(totals.get("value"))} · '
+        f'cost {amt(totals.get("cost"))}</span>'
+        f'<span style="color:{t_color}">{amt(t_pnl, signed=True)} '
         f'<small>{_fmt_pct(t_pct)}</small></span></div>')
 
     incomplete = totals.get("incomplete") or 0

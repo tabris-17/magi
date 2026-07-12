@@ -53,7 +53,9 @@ function renderFeed() {
   feed.innerHTML = '';
   $('altEmpty').style.display = widgets.length ? 'none' : '';
   for (const w of widgets) feed.appendChild(buildCard(w));
-  for (const w of widgets) if (!w.hidden) renderWidget(w.id);  // hidden cards fetch nothing
+  // hidden+maskable still renders (the server sends the ••••• view);
+  // hidden without a mask view collapses and fetches nothing
+  for (const w of widgets) if (!w.hidden || w.maskable) renderWidget(w.id);
 }
 
 function buildCard(w) {
@@ -109,16 +111,21 @@ async function renderWidget(id) {
   }
 }
 
-function refreshFeed() { for (const w of widgets) if (!w.hidden) renderWidget(w.id); }
+function refreshFeed() { for (const w of widgets) if (!w.hidden || w.maskable) renderWidget(w.id); }
 
-// ---- the eye toggle: hide a widget's body (persisted server-side) -----------------
+// ---- the eye toggle (persisted server-side) ---------------------------------------
+// Maskable widgets (the P&L) keep their card while hidden — the server renders the
+// ••••• privacy view, so the real numbers never reach the page. Widgets without a
+// mask view collapse to their title row and fetch nothing.
 
 function applyHidden(card, w) {
-  card.classList.toggle('hidden', w.hidden);
+  const collapsed = w.hidden && !w.maskable;
+  card.classList.toggle('hidden', collapsed);
   const eye = card.querySelector('.alt-eye');
   eye.innerHTML = w.hidden ? EYE_CLOSED : EYE_OPEN;
-  eye.title = w.hidden ? 'Show this widget' : 'Hide this widget';
-  card.querySelector('.alt-card-body').style.display = w.hidden ? 'none' : '';
+  eye.title = w.hidden ? (w.maskable ? 'Show the numbers' : 'Show this widget')
+                       : (w.maskable ? 'Mask the numbers' : 'Hide this widget');
+  card.querySelector('.alt-card-body').style.display = collapsed ? 'none' : '';
 }
 
 async function toggleHidden(id) {
@@ -128,15 +135,16 @@ async function toggleHidden(id) {
   const card = document.querySelector(`.alt-card[data-id="${id}"]`);
   if (card) {
     applyHidden(card, w);
-    if (!w.hidden) renderWidget(id);                       // body was never fetched
-    else card.querySelector('.alt-card-body').innerHTML =
-      '<span class="alt-loading">loading…</span>';         // drop the numbers from the DOM
+    // drop whatever is in the DOM first, then fetch the right view from the server
+    card.querySelector('.alt-card-body').innerHTML =
+      '<span class="alt-loading">loading…</span>';
   }
   const r = await fetch(`/altair/api/widgets/${id}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hidden: w.hidden }),
   });
   if (!r.ok) { w.hidden = !w.hidden; if (card) applyHidden(card, w); }  // roll back
+  if (!w.hidden || w.maskable) renderWidget(id);           // full or masked view
 }
 
 // ---- edit mode: drag to reorder + remove ------------------------------------------

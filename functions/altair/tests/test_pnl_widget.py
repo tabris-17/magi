@@ -45,6 +45,26 @@ def test_widget_types_shape():
     types = bw.widget_types(lambda: FakeClient(_payload([])))
     (t,) = types
     assert t["key"] == "pnl" and t["params"] == [] and callable(t["render"])
+    assert callable(t["mask"])                # the ••••• privacy view
+
+
+def test_masked_render_hides_amounts_keeps_bars_and_pcts():
+    client = FakeClient(_payload([_h("AAA", -50, -10), _h("BBB", 100, 25)]))
+    html = bw.render_pnl(client, masked=True)["html"]
+    # amounts are gone…
+    assert "+100" not in html and "-50" not in html
+    assert "400,000" not in html and "600,000" not in html and "-200,000" not in html
+    assert html.count(bw.MASK) >= 5           # 2 holdings + value/cost/total P&L
+    # …but the shape of the card survives: bars, colors, percentages, symbols
+    assert "alt-pnl-bar" in html and "left:50%" in html and "right:50%" in html
+    assert "(+25%)" in html and "(-10%)" in html
+    assert "BBB" in html and "AAA" in html
+
+
+def test_mask_callable_routes_through_masked_render():
+    t = bw.widget_types(lambda: FakeClient(_payload([_h("XYZ", 10, 5)])))[0]
+    html = t["mask"]({})["html"]
+    assert bw.MASK in html and "+10" not in html
 
 
 def test_render_rows_sorted_and_colored():

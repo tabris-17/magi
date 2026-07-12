@@ -30,13 +30,18 @@ def isolate(tmp_path, monkeypatch):
 
 @pytest.fixture
 def registry():
-    """A two-type fake registry: alpha.one renders fine (recording its config),
-    beta.two always raises. Returns (types, calls) for assertions."""
+    """A two-type fake registry: alpha.one renders fine (recording its config) and is
+    MASKABLE (has a privacy view); beta.two always raises and has no mask. Returns
+    (types, calls) for assertions."""
     calls = {}
 
     def render_ok(config):
         calls["config"] = config
         return {"html": "<b>hi</b>", "title": "T:" + config.get("x", "")}
+
+    def mask_ok(config):
+        calls["mask_config"] = config
+        return {"html": "<b>•••••</b>", "title": "T:masked"}
 
     def render_boom(config):
         raise RuntimeError("boom")
@@ -44,7 +49,7 @@ def registry():
     types = [
         {"id": "alpha.one", "source": "Alpha", "key": "one", "label": "One",
          "description": "d1", "params": [{"name": "x", "label": "X", "type": "text"}],
-         "render": render_ok},
+         "render": render_ok, "mask": mask_ok},
         {"id": "beta.two", "source": "Beta", "key": "two", "label": "Two",
          "description": "d2", "params": [], "render": render_boom},
     ]

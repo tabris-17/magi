@@ -13,7 +13,14 @@ imports the host or another function). Each registry entry is a widget TYPE:
      "source": "<function label>", # e.g. "Betelgeuse"
      "key", "label", "description",
      "params": [{name,label,type: select|number|text, options?, default?}, …],
-     "render": callable(config: dict) -> {"html": str, "title"?: str}}
+     "render": callable(config: dict) -> {"html": str, "title"?: str},
+     "mask"?:  callable(config: dict) -> {"html": str, "title"?: str}}
+
+A type MAY also declare `mask` — the privacy view used while the instance's eye is
+closed (e.g. the P&L with its amounts replaced by •••••). Masking happens SERVER-side:
+while hidden, render_instance() only ever returns the mask output, so the real numbers
+never reach the browser. A type without `mask` simply collapses when hidden (the page
+shows only the card's title row and fetches nothing).
 
 `params` drives the Add-widget form; `render` produces the card body (called guarded —
 a raising widget becomes an error card, never a broken feed). A function that wants to
@@ -89,10 +96,12 @@ def _connect():
 # ---- widget types (what the Add-widget gallery offers) --------------------------------
 
 def available_types():
-    """The registry, minus the render callables — JSON-safe for the page."""
+    """The registry, minus the render/mask callables — JSON-safe for the page."""
     out = []
     for t in _registry():
-        out.append({k: v for k, v in t.items() if k != "render"})
+        entry = {k: v for k, v in t.items() if k not in ("render", "mask")}
+        entry["maskable"] = callable(t.get("mask"))
+        out.append(entry)
     return out
 
 
@@ -110,6 +119,8 @@ def _instance_row(r, types_by_id):
         "config": config,
         "position": r["position"],
         "hidden": bool(r["hidden"]),
+        # a maskable widget renders a •••••-masked body while hidden, instead of collapsing
+        "maskable": bool(t and callable(t.get("mask"))),
         # display metadata from the live registry; a widget whose provider vanished
         # stays in the feed as known:False (removable, renders an error card)
         "known": t is not None,
@@ -212,9 +223,14 @@ def render_instance(instance_id):
         config = json.loads(r["config"]) or {}
     except ValueError:
         config = {}
+    hidden = bool(r["hidden"])
+    if hidden and not callable(t.get("mask")):
+        # no privacy view — while hidden this instance renders NOTHING (the page
+        # collapses the card client-side and shouldn't even ask; belt-and-braces)
+        return {"ok": True, "masked": True, "title": t["label"], "html": ""}
     try:
-        out = t["render"](config) or {}
-        return {"ok": True,
+        out = (t["mask"] if hidden else t["render"])(config) or {}
+        return {"ok": True, "masked": hidden,
                 "title": out.get("title") or t["label"],
                 "html": out.get("html", "")}
     except Exception as exc:  # noqa: BLE001 — one widget must never break the feed

@@ -13,8 +13,9 @@ def test_no_resolver_means_no_types():
 def test_available_types_excludes_render(registry):
     types = logic.available_types()
     assert [t["id"] for t in types] == ["alpha.one", "beta.two"]
-    assert all("render" not in t for t in types)
+    assert all("render" not in t and "mask" not in t for t in types)
     assert types[0]["params"][0]["name"] == "x"
+    assert [t["maskable"] for t in types] == [True, False]
 
 
 # ---- add ---------------------------------------------------------------------------------
@@ -114,8 +115,28 @@ def test_render_passes_config_and_returns_title_html(registry):
     _, calls = registry
     a = logic.add_instance("alpha.one", {"x": "42"})
     out = logic.render_instance(a["id"])
-    assert out == {"ok": True, "title": "T:42", "html": "<b>hi</b>"}
+    assert out == {"ok": True, "masked": False, "title": "T:42", "html": "<b>hi</b>"}
     assert calls["config"] == {"x": "42"}
+
+
+def test_render_hidden_maskable_uses_mask(registry):
+    _, calls = registry
+    a = logic.add_instance("alpha.one", {"x": "42"})
+    logic.set_hidden(a["id"], True)
+    out = logic.render_instance(a["id"])
+    assert out == {"ok": True, "masked": True, "title": "T:masked", "html": "<b>•••••</b>"}
+    assert calls["mask_config"] == {"x": "42"}
+    (row,) = logic.list_instances()
+    assert row["maskable"] is True
+
+
+def test_render_hidden_without_mask_returns_nothing(registry):
+    b = logic.add_instance("beta.two")
+    logic.set_hidden(b["id"], True)
+    out = logic.render_instance(b["id"])
+    # no privacy view -> empty body server-side (and beta.two's raising render
+    # was never called, or ok would be False)
+    assert out == {"ok": True, "masked": True, "title": "Two", "html": ""}
 
 
 def test_render_missing_instance_is_none(registry):

@@ -67,7 +67,13 @@ def test_render_route(client, registry):
     b = logic.add_instance("beta.two")
     ok = client.get(f"/altair/api/widgets/{a['id']}/render")
     assert ok.status_code == 200
-    assert ok.get_json() == {"ok": True, "title": "T:7", "html": "<b>hi</b>"}
+    assert ok.get_json() == {"ok": True, "masked": False, "title": "T:7", "html": "<b>hi</b>"}
+
+    # eye closed on a maskable widget -> the SERVER answers with the mask view
+    client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": True})
+    masked = client.get(f"/altair/api/widgets/{a['id']}/render").get_json()
+    assert masked["masked"] is True and "•••••" in masked["html"]
+    client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": False})
 
     # a raising widget is STILL 200 — the feed shows it as an error card
     bad = client.get(f"/altair/api/widgets/{b['id']}/render")
