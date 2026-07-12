@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.3.0`**;
+  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.3.1`**;
   betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
@@ -342,7 +342,7 @@ under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tool
 
 ### Widgets — the altair feed (the third cross-function aggregation)
 
-**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.3.0`, first in the
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.3.1`, first in the
 sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
 by other functions, arranged by the user. The **widget contract** parallels
 `settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
@@ -359,6 +359,17 @@ never imports the host or another function). Because the callable runs per reque
 param options (polaris's tag list) stay live. **Program the interface first**: a future
 function offers widgets by adding ONE callable to its META — zero altair changes.
 
+**Widget UI-consistency principle (user-set).** A widget is altair's OWN compact UI, NOT a
+replica of the source function's page — but it must stay consistent **in kind** with that
+source: reuse the same metaphors and affordances, not the same pixels. The canonical case is
+privacy: betelgeuse's Overview eye **blurs** its money panels, so the P&L widget's mask
+**blurs** its amounts too — never a different masking style (•••••/redaction) for the same
+concept in two places. Apply the same test to future widgets (a tag shown in a widget should
+look like polaris's tag chips; a status color should reuse the source's semantic role). When
+consistency and a stronger implementation conflict (the blur mask ships real values to the
+browser under CSS, where ••••• was server-side redaction), the user chose consistency —
+match the source function's tier, and note the tradeoff in the provider docstring.
+
 - **Altair owns only the LAYOUT** — `functions/altair/data/altair.db` (a `widgets` table:
   namespaced type id + JSON `config` + `position` + `hidden`; lazy idempotent schema with a
   polaris-style column-add guard in `_connect()`, no migration
@@ -371,8 +382,9 @@ function offers widgets by adding ONE callable to its META — zero altair chang
   (privacy) toggle** — octicon eye/eye-closed, always visible (not edit-mode-gated), state
   persisted server-side (`hidden`). While hidden, a **maskable** type (one declaring `mask`;
   `maskable` is surfaced in the feed payload) keeps its card and serves the mask output —
-  `/render` returns `{masked:true}` and **only ever the mask view**, so the real numbers
-  never reach the browser; a type without `mask` collapses to its title row and the page
+  `/render` returns `{masked:true}` and **only ever the mask view** (how much that view
+  withholds is the provider's choice — the P&L blurs, per the consistency principle above);
+  a type without `mask` collapses to its title row and the page
   fetches nothing (the route would answer with an empty body anyway — belt and braces). **Rendering is guarded twice**
   (`logic.render_instance` catches; the route stays 200 with `{ok:false,error}`) so one broken
   provider becomes an error CARD, never a broken feed; a vanished provider's instances stay
@@ -392,8 +404,9 @@ function offers widgets by adding ONE callable to its META — zero altair chang
   health), then draws per-holding bars around a zero axis (sorted by P&L desc, incomplete
   holdings noted + excluded, `--success-fg`/`--danger-fg`) plus a **Total** row
   (value · cost · P&L %). No params. Its `mask` view is the same card with every currency
-  AMOUNT replaced by `•••••` server-side — bars and percentages stay (relative performance,
-  not absolute wealth). **Betelgeuse's own Overview page has a sibling privacy eye**
+  AMOUNT wrapped in an `.alt-blur` span (CSS blur — privacy looks like betelgeuse's blur,
+  per the consistency principle above); bars and percentages stay crisp (relative
+  performance, not absolute wealth). **Betelgeuse's own Overview page has a sibling privacy eye**
   (vendored-only edit in `functions/betelgeuse/templates/overview.html` — re-apply after
   re-vendoring): a `.bt-eye` next to the "Portfolio Overview" h2 toggling `body.bt-private`,
   which CSS-blurs `#kpiRow`/`#pnlCharts`/`#pnlSections` (the money panels; the Watch List's

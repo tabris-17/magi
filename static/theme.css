@@ -794,6 +794,9 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 /* instant client-side cover while the server's masked view is on its way —
    blur keeps the layout identical, so the card never jumps */
 .alt-card-body.alt-masking { filter: blur(6px); }
+/* the masked view's per-amount blur (emitted by widget mask renders) — the SAME
+   privacy metaphor as betelgeuse's Overview eye, per the consistency principle */
+.alt-blur { filter: blur(5px); user-select: none; pointer-events: none; }
 .alt-remove {
   display: none; background: none; border: 0; color: var(--fg-muted);
   cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;

@@ -48,23 +48,29 @@ def test_widget_types_shape():
     assert callable(t["mask"])                # the ••••• privacy view
 
 
-def test_masked_render_hides_amounts_keeps_bars_and_pcts():
+def test_masked_render_blurs_amounts_keeps_bars_and_pcts():
+    """Privacy = BLUR, consistent with betelgeuse's own Overview eye (not ••••• dots):
+    every amount is wrapped in an .alt-blur span; bars/percentages/symbols stay crisp."""
     client = FakeClient(_payload([_h("AAA", -50, -10), _h("BBB", 100, 25)]))
     html = bw.render_pnl(client, masked=True)["html"]
-    # amounts are gone…
-    assert "+100" not in html and "-50" not in html
-    assert "400,000" not in html and "600,000" not in html and "-200,000" not in html
-    assert html.count(bw.MASK) >= 5           # 2 holdings + value/cost/total P&L
-    # …but the shape of the card survives: bars, colors, percentages, symbols
+    assert '<span class="alt-blur">+100</span>' in html
+    assert '<span class="alt-blur">-50</span>' in html
+    assert 'value <span class="alt-blur">400,000</span>' in html
+    assert 'cost <span class="alt-blur">600,000</span>' in html
+    assert '<span class="alt-blur">-200,000</span>' in html
+    assert html.count("alt-blur") >= 5        # 2 holdings + value/cost/total P&L
+    # the shape of the card survives, unblurred: bars, colors, percentages, symbols
     assert "alt-pnl-bar" in html and "left:50%" in html and "right:50%" in html
     assert "(+25%)" in html and "(-10%)" in html
     assert "BBB" in html and "AAA" in html
+    # and the full (unmasked) render carries no blur spans
+    assert "alt-blur" not in bw.render_pnl(client)["html"]
 
 
 def test_mask_callable_routes_through_masked_render():
     t = bw.widget_types(lambda: FakeClient(_payload([_h("XYZ", 10, 5)])))[0]
     html = t["mask"]({})["html"]
-    assert bw.MASK in html and "+10" not in html
+    assert '<span class="alt-blur">+10</span>' in html
 
 
 def test_render_rows_sorted_and_colored():

@@ -17,8 +17,10 @@ def widget_types(get_client):
     bound to the mounted betelgeuse app (called at render time, never at import).
 
     `mask` is the eye-closed privacy view: the same card (bars, colors, percentages)
-    with every currency AMOUNT replaced by ••••• — built server-side, so the real
-    numbers never reach the browser while the eye is closed."""
+    with every currency AMOUNT wrapped in a `.alt-blur` span — a CSS blur, matching
+    betelgeuse's own Overview privacy eye (the widget-consistency principle: privacy
+    looks like BLUR everywhere, not ••••• redaction). Note the blurred values do reach
+    the browser — the same privacy tier as betelgeuse's eye, traded for consistency."""
     return [{
         "key": "pnl",
         "label": "Portfolio P&L",
@@ -27,9 +29,6 @@ def widget_types(get_client):
         "render": lambda config: render_pnl(get_client()),
         "mask": lambda config: render_pnl(get_client(), masked=True),
     }]
-
-
-MASK = "•••••"
 
 
 def _fmt(amount, signed=False):
@@ -65,9 +64,13 @@ def render_pnl(client, masked=False):
     if not holdings:
         return {"title": "Portfolio P&L", "html": '<div class="alt-note">No current holdings.</div>'}
 
-    # while masked, every AMOUNT becomes ••••• (bars + percentages stay — they carry
+    # while masked, every AMOUNT is blurred (bars + percentages stay — they carry
     # relative performance, not absolute wealth)
-    amt = (lambda v, signed=False: MASK) if masked else _fmt
+    if masked:
+        def amt(v, signed=False):
+            return f'<span class="alt-blur">{_fmt(v, signed)}</span>'
+    else:
+        amt = _fmt
 
     max_abs = max((abs(h["pnl"]) for h in complete), default=0) or 1
     rows = []
