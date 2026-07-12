@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.8.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.8.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -633,10 +633,18 @@ inside `functions/betelgeuse/`), with only settings shared.
   sentinels BEFORE the bold/italic regexes run** (unescaping only at the end let `sync\_dell`'s
   backslash act as an italic boundary, corrupting a little more each save→load cycle). A third invariant from the next breakage: **`htmlToMd` must recurse blocks fully** (`blocksOf`) —
   a `<ul>` nested inside a `<div>` fell into the inline serializer and lists lost their bullets
-  on every save. **`functions/polaris/tests/run.sh`** is the COMMITTED battery
-  (44 cases: all three bugs, escape fixed-points, the real Chrome type→select→listify flow,
-  NBSP normalization, the full round-trip suite; needs the dev server up) — it must print
-  ALL PASS before AND after any converter change. No WYSIWYG
+  on every save. **Two committed test layers** cover polaris: (1) the **JS converter battery**
+  **`functions/polaris/tests/run.sh`** (44 cases: all three bugs, escape fixed-points, the real
+  Chrome type→select→listify flow, NBSP normalization, the full round-trip suite; runs the real
+  `polaris-md.js` in headless Chrome, so it **needs the dev server up**) — it must print ALL PASS
+  before AND after any converter change; and (2) the **Python `pytest` suite**
+  **`functions/polaris/tests/{test_logic.py,test_api.py}`** (44 cases over the whole
+  `logic.py` store + the blueprint's JSON/media routes: entry CRUD + search/previews, tags
+  unique/partial/unlink, entry↔tag links, attachment blobs + the inline-vs-download gate, and the
+  **backup/schema-guard rollback net** — asserts a `pre-vN` snapshot captures the pre-change bytes
+  on a version bump — plus the daily-backup prune and worker interface). Run it from the repo root,
+  **no server needed**: `python3 -m pytest functions/polaris/tests/ -q` (`conftest.py` points
+  `logic` at a throwaway DB per test). Run both after touching polaris. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
   `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
   Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`
