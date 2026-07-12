@@ -144,6 +144,7 @@ let mode = 'edit';      // 'view' (read-only, Edit button) | 'edit' (Save + Disc
 let allTags = [];       // every defined tag [{id,name,entry_count}]
 let entryTags = [];     // the open entry's tags [{id,name}]
 let loaded = null;      // server-state snapshot {date,title,body,tags} — what Discard restores
+let priorViewId = null; // entry that was open before a NEW one — where Discard returns to
 
 // Which year/month nodes are open, e.g. "2026" and "2026-07". Survives reloads.
 let expanded = new Set(JSON.parse(localStorage.getItem('polaris-expanded') || '[]'));
@@ -250,7 +251,11 @@ async function enterEdit() {
 function discardChanges() {
   if (dirty && !confirm('Discard your changes? The entry goes back to how it was saved.')) return;
   dirty = false;
-  if (!currentId) { newEntry(); return; }   // an unsaved new entry → back to a blank one
+  if (!currentId) {                         // an unsaved new entry — nothing to restore
+    if (priorViewId) return void openEntry(priorViewId);  // reset to the entry we came from
+    newEntry();                             // …or, with nothing to return to, a blank one
+    return;
+  }
   $('polDate').value = loaded.date;
   setReminder(loaded.reminder);
   $('polTitle').value = loaded.title;
@@ -581,6 +586,7 @@ function confirmDiscard() {
 
 function newEntry() {
   if (!confirmDiscard()) return;
+  priorViewId = currentId;   // if this new entry is discarded, return to what was open
   currentId = null;
   dirty = false;
   attachments = [];
@@ -672,6 +678,7 @@ async function deleteEntry() {
   const r = await fetch('/polaris/api/entries/' + currentId, { method: 'DELETE' });
   if (!r.ok) { status('Delete failed', 'err'); return; }
   dirty = false;
+  currentId = null;   // so the just-deleted entry can't become a Discard return target
   newEntry();
   await loadTree();
   status('Deleted', 'ok');

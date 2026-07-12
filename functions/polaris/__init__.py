@@ -33,7 +33,7 @@ META = {
     "description": "Your journal — dated entries with attachments, kept locally.",
     "icon": ICON,
     "url": "/polaris/",
-    "version": "polaris-1.9.0",
+    "version": "polaris-1.9.1",
     # Sidebar sub-pages (rendered by base.html's generic subnav loop, collapse-when-active,
     # like the Settings groups). `key` values are what the pages pass as `active`.
     "subnav": [

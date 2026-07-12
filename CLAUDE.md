@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.9.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.9.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -649,7 +649,12 @@ inside `functions/betelgeuse/`), with only settings shared.
   `node`, so the round-trip is unit-testable — **test it there before touching the converter**.
   Entries open **read-only (view mode)** — Edit/Save/Discard: `setMode('view'|'edit')`
   drives everything off a `.pol-editor.viewing` class + per-control flags; **Discard restores
-  the `loaded` server-state snapshot** (date/title/body/tags, confirm when dirty); a mid-edit
+  the `loaded` server-state snapshot** (date/title/body/tags, confirm when dirty). Discarding a
+  **new, unsaved** entry has no snapshot to restore, so it **returns to the entry you were on
+  before starting the new one** (`priorViewId`, captured by `newEntry()` as the pre-blank
+  `currentId`; `deleteEntry` nulls `currentId` first so a just-deleted entry is never the
+  target) — reopening it read-only rather than dumping you in a blank editor; with no prior
+  entry (fresh load / empty journal) it falls back to a blank new entry. A mid-edit
   autosave (`saveEntry(allowEmpty=true)`, used when attaching to an unsaved entry) must NOT
   flip back to view mode. Deep links: `?entry=<id>` opens in view, `&mode=edit` jumps into edit.
   **Tags** (betelgeuse-style groups, minus the guardrails): defined on **`/polaris/tags`**
