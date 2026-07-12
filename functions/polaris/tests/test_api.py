@@ -3,6 +3,7 @@ test client (the two HTML page routes render the host's base.html, so they're co
 the logic + JS suites, not here). Confirms status codes, error shapes, the tags-on-save
 path, the upload guards, and the inline-vs-download security gate on /media."""
 import io
+import zipfile
 
 import pytest
 from flask import Flask
@@ -123,6 +124,30 @@ def test_attachment_oversize_413(client, monkeypatch):
     e = _new(client, title="t")
     r = _upload(client, e["id"], "big.png", "image/png", b"12345")
     assert r.status_code == 413
+
+
+def test_attachments_zip_bundles_deduped_in_order(client):
+    e = _new(client, title="t")
+    _upload(client, e["id"], "a.png", "image/png", b"AAA")
+    _upload(client, e["id"], "a.png", "image/png", b"BBB")      # same name → deduped
+    _upload(client, e["id"], "notes.txt", "text/plain", b"hello")
+
+    r = client.get(f"/polaris/api/entries/{e['id']}/attachments.zip")
+    assert r.status_code == 200
+    assert r.mimetype == "application/zip"
+    assert "attachment" in r.headers["Content-Disposition"]
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+
+    z = zipfile.ZipFile(io.BytesIO(r.data))
+    assert z.namelist() == ["a.png", "a (1).png", "notes.txt"]  # upload order, deduped
+    assert z.read("a.png") == b"AAA" and z.read("a (1).png") == b"BBB"
+    assert z.read("notes.txt") == b"hello"
+
+
+def test_attachments_zip_empty_or_missing_404(client):
+    e = _new(client, title="t")                                  # no attachments
+    assert client.get(f"/polaris/api/entries/{e['id']}/attachments.zip").status_code == 404
+    assert client.get("/polaris/api/entries/99999/attachments.zip").status_code == 404
 
 
 def test_attachment_delete(client):

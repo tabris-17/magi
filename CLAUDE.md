@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.8.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.9.0`**; betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
@@ -670,7 +670,12 @@ inside `functions/betelgeuse/`), with only settings shared.
   is the manager API (POST does partial updates: `{name}` and/or `{emoji}`). The attachments bar
   gains a **Gallery** button (visible in BOTH modes when image attachments exist): a lightbox
   over every inline-image attachment with ‹/›/arrow-key navigation, wrap-around, Esc to close;
-  clicking an image thumbnail opens it at that image.
+  clicking an image thumbnail opens it at that image. Alongside it a **Download all** button
+  (visible in BOTH modes when the entry has ANY attachment) hits
+  **`GET /polaris/api/entries/<id>/attachments.zip`** — the route streams a `ZIP_DEFLATED`
+  bundle of every attachment's bytes (from `logic.attachment_blobs`), filenames basename-only
+  (no stored path escapes the archive) and de-duplicated in place (`photo.png` → `photo (1).png`),
+  served `as_attachment` + `nosniff`.
   - **Backups & rollback** (title/body/date/attachments/tags all live in the ONE polaris.db, so a
     snapshot is complete). Two automatic layers land in `functions/polaris/data/backup/`
     (rsync-excluded + gitignored — each box keeps its own):
@@ -702,7 +707,9 @@ inside `functions/betelgeuse/`), with only settings shared.
   like the host's own store — an existing DB picks up new tables on next connect).
   Routes: `GET/POST /polaris/api/entries` (list — carries a `preview` snippet + `attachment_count`,
   not the full body — / create+update), `GET|DELETE /polaris/api/entries/<id>`,
-  `POST /polaris/api/entries/<id>/attachments` (multipart), `DELETE /polaris/api/attachments/<id>`,
+  `POST /polaris/api/entries/<id>/attachments` (multipart),
+  `GET /polaris/api/entries/<id>/attachments.zip` (download-all bundle),
+  `DELETE /polaris/api/attachments/<id>`,
   `GET /polaris/media/<id>`, `GET /polaris/api/health`. **Importing touches no network/FS** (same crash-loop lesson as
   youtube). Its DB is in `pull-prod-dbs.sh`'s `DBS`, so `./magi upgrade dev` mirrors prod's
   journal down (prod = source of truth; local is backed up first) — **write entries on prod**,

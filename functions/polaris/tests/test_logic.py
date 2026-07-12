@@ -248,6 +248,15 @@ def test_list_attachments_ordered():
     assert [a["id"] for a in logic.list_attachments(e["id"])] == [first["id"], second["id"]]
 
 
+def test_attachment_blobs_returns_all_with_bytes_in_order():
+    e = logic.save_entry(title="t")
+    logic.add_attachment(e["id"], "1.png", "image/png", b"one")
+    logic.add_attachment(e["id"], "2.txt", "text/plain", b"two")
+    assert logic.attachment_blobs(e["id"]) == [
+        ("1.png", "image/png", b"one"), ("2.txt", "text/plain", b"two")]
+    assert logic.attachment_blobs(9999) == []      # unknown entry → empty
+
+
 # ---- backups + schema guard (the rollback safety net) ----------------------------------
 
 def test_snapshot_none_when_no_db():

@@ -8,6 +8,8 @@ Never imports the host.
   META  : sidebar/dashboard metadata + the `health` callable the host aggregates
 """
 import io
+import os
+import zipfile
 
 from flask import Blueprint, jsonify, render_template, request, send_file
 
@@ -31,7 +33,7 @@ META = {
     "description": "Your journal — dated entries with attachments, kept locally.",
     "icon": ICON,
     "url": "/polaris/",
-    "version": "polaris-1.8.1",
+    "version": "polaris-1.9.0",
     # Sidebar sub-pages (rendered by base.html's generic subnav loop, collapse-when-active,
     # like the Settings groups). `key` values are what the pages pass as `active`.
     "subnav": [
@@ -132,6 +134,33 @@ def api_attach(entry_id):
     except KeyError as exc:
         return jsonify(error=exc.args[0]), 404
     return jsonify(attachment=att)
+
+
+@bp.route("/api/entries/<int:entry_id>/attachments.zip")
+def api_attachments_zip(entry_id):
+    """Bundle every attachment of an entry into a single download. Filenames are
+    basename-only (no stored path escapes the archive) and de-duplicated in place."""
+    if not logic.get_entry(entry_id):
+        return jsonify(error="not found"), 404
+    blobs = logic.attachment_blobs(entry_id)
+    if not blobs:
+        return jsonify(error="no attachments"), 404
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        seen = {}
+        for filename, _mime, data in blobs:
+            base = os.path.basename(filename or "") or "file"
+            n = seen.get(base, 0)
+            seen[base] = n + 1
+            if n:                                   # 2nd "photo.png" → "photo (1).png"
+                stem, dot, ext = base.rpartition(".")
+                base = f"{stem} ({n}){dot}{ext}" if dot else f"{base} ({n})"
+            z.writestr(base, data)
+    buf.seek(0)
+    resp = send_file(buf, mimetype="application/zip", as_attachment=True,
+                     download_name=f"polaris-{entry_id}-attachments.zip")
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 @bp.route("/api/attachments/<int:att_id>", methods=["DELETE"])

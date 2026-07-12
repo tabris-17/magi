@@ -81,6 +81,7 @@
         <span class="pol-section-label">Attachments</span>
         <div id="polDrop" class="pol-drop pol-editonly">Drop files here, or paste an image</div>
         <button id="polGalleryBtn" class="btn sm" type="button" onclick="openGallery(0)" style="display:none;">Gallery</button>
+        <button id="polZipBtn" class="btn sm" type="button" onclick="downloadAllAttachments()" style="display:none;">Download all</button>
         <button class="btn sm pol-editonly" type="button" onclick="document.getElementById('polFile').click()">Add files</button>
         <input id="polFile" type="file" multiple hidden onchange="uploadFiles(this.files); this.value='';">
       </div>
@@ -715,6 +716,13 @@ async function maybeDownscale(file) {
 function syncAttachVisibility() {
   $('polAttach').style.display = (mode === 'view' && !attachments.length) ? 'none' : '';
   $('polGalleryBtn').style.display = galleryImages().length ? '' : 'none';
+  $('polZipBtn').style.display = attachments.length ? '' : 'none';   // any type, both modes
+}
+
+/** Download every attachment of the open entry as one zip (a browser download; no nav). */
+function downloadAllAttachments() {
+  if (currentId && attachments.length)
+    window.location = `/polaris/api/entries/${currentId}/attachments.zip`;
 }
 
 // ---- gallery (all image attachments, arrow navigation) --------------------

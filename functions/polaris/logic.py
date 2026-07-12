@@ -354,6 +354,19 @@ def get_attachment(att_id):
     return (r["filename"], r["mime"], bytes(r["data"])) if r else None
 
 
+def attachment_blobs(entry_id):
+    """[(filename, mime, data), …] for every attachment of an entry, in upload order —
+    the bytes to pack into the 'Download all' zip."""
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT filename, mime, data FROM attachments WHERE entry_id = ? ORDER BY id",
+            (entry_id,)).fetchall()
+    finally:
+        conn.close()
+    return [(r["filename"], r["mime"], bytes(r["data"])) for r in rows]
+
+
 def delete_attachment(att_id):
     conn = _connect()
     try:
