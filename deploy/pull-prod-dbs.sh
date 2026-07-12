@@ -29,6 +29,7 @@ DBS=(
   "functions/betelgeuse/data/portfolio.db"    # betelgeuse: portfolio + transactions
   "functions/notifier/data/notifier.db"       # notifier: personal reminder text + schedule
   "functions/polaris/data/polaris.db"         # polaris: journal entries
+  "functions/altair/data/altair.db"           # altair: widget-feed layout
 )
 # NOTE: data/magiscope.dev.db is deliberately NOT listed — dev OWNS its scoped settings,
 # so a deploy never overwrites them. magiscope.prod.db is mirrored down so dev can SEE

@@ -36,6 +36,10 @@ def _polaris_db_path():
     return os.path.join(ROOT, "functions", "polaris", "data", "polaris.db")
 
 
+def _altair_db_path():
+    return os.path.join(ROOT, "functions", "altair", "data", "altair.db")
+
+
 # Databases surfaced on the page, in display order. A new function that ships a DB adds an
 # entry here; `path` is a callable so a missing/renamed file degrades to "not found" rather
 # than breaking import.
@@ -58,6 +62,9 @@ DATABASES = [
     {"key": "polaris", "label": "Polaris",
      "desc": "Journal entries (polaris.db)",
      "path": _polaris_db_path},
+    {"key": "altair", "label": "Altair",
+     "desc": "Widget-feed layout — which widgets, config, order (altair.db)",
+     "path": _altair_db_path},
 ]
 
 

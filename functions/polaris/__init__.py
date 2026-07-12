@@ -14,6 +14,7 @@ import zipfile
 from flask import Blueprint, jsonify, render_template, request, send_file
 
 from . import logic
+from . import widgets as _widgets
 
 bp = Blueprint("polaris", __name__, url_prefix="/polaris", template_folder="templates")
 
@@ -33,7 +34,7 @@ META = {
     "description": "Your journal — dated entries with attachments, kept locally.",
     "icon": ICON,
     "url": "/polaris/",
-    "version": "polaris-1.9.1",
+    "version": "polaris-1.10.0",
     # Sidebar sub-pages (rendered by base.html's generic subnav loop, collapse-when-active,
     # like the Settings groups). `key` values are what the pages pass as `active`.
     "subnav": [
@@ -198,3 +199,6 @@ def health_payload():
 
 
 META["health"] = health_payload
+# altair widget contribution ('Journal feed' — per-tag / entry-date-window instances).
+# A callable so the tag options in the param schema are read live per request.
+META["widgets"] = _widgets.widget_types

@@ -280,6 +280,35 @@ def list_entries(query="", limit=500):
     return out
 
 
+def entries_for_widget(tag_id=None, since=None, before=None, limit=5):
+    """Entries for the altair 'Journal feed' widget: optionally narrowed to one tag
+    and/or an entry_date window (ISO strings compare lexically — since inclusive,
+    before exclusive), newest first. Returns light rows: id/date/title/preview."""
+    sql = "SELECT e.id, e.entry_date, e.title, e.body FROM entries e"
+    where, args = [], []
+    if tag_id:
+        sql += " JOIN entry_tags et ON et.entry_id = e.id"
+        where.append("et.tag_id = ?")
+        args.append(int(tag_id))
+    if since:
+        where.append("e.entry_date >= ?")
+        args.append(since)
+    if before:
+        where.append("e.entry_date < ?")
+        args.append(before)
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY e.entry_date DESC, e.id DESC LIMIT ?"
+    args.append(max(1, int(limit)))
+    conn = _connect()
+    try:
+        rows = conn.execute(sql, args).fetchall()
+    finally:
+        conn.close()
+    return [{"id": r["id"], "date": r["entry_date"], "title": r["title"],
+             "preview": _snippet(r["body"])} for r in rows]
+
+
 def get_entry(entry_id):
     """The full entry, with its attachment metadata (never the bytes) and tags."""
     conn = _connect()

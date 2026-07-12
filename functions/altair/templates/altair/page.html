@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}magi · Altair{% endblock %}
+{% block content %}
+<div class="alt-shell" id="altShell">
+  <div class="alt-toolbar">
+    <h1 class="view-title">Altair</h1>
+    <div class="alt-actions">
+      <button class="btn sm" id="altRefresh" onclick="refreshFeed()" title="Re-render every widget">Refresh</button>
+      <button class="btn sm" id="altAdd" onclick="openGallery()">＋ Add widget</button>
+      <button class="btn sm" id="altEdit" onclick="toggleEdit()">Edit</button>
+    </div>
+  </div>
+  <p class="lead">Your push feed — widgets contributed by magi's functions. <span class="alt-edit-hint">Drag cards to reorder; ✕ removes.</span></p>
+
+  <div class="alt-feed" id="altFeed"></div>
+  <div class="alt-empty" id="altEmpty" style="display:none;">
+    No widgets yet. <a href="#" onclick="openGallery(); return false;">Add your first widget</a> —
+    each function can contribute its own.
+  </div>
+</div>
+
+<!-- Add-widget gallery (the iPhone add-a-widget flow: pick a type, fill its options, add) -->
+<div class="alt-modal-backdrop" id="altModal" style="display:none;" onclick="if (event.target === this) closeGallery()">
+  <div class="alt-modal card">
+    <div class="alt-modal-head">
+      <div class="alt-modal-title" id="altModalTitle">Add widget</div>
+      <button class="btn sm" onclick="closeGallery()">✕</button>
+    </div>
+    <div class="alt-modal-body" id="altModalBody"></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let types = [];        // available widget types (from the registry, param schemas included)
+let widgets = [];      // configured instances, in feed order
+let editing = false;
+
+async function loadFeed() {
+  const r = await fetch('/altair/api/feed');
+  const data = await r.json();
+  types = data.types || [];
+  widgets = data.widgets || [];
+  renderFeed();
+}
+
+function renderFeed() {
+  const feed = $('altFeed');
+  feed.innerHTML = '';
+  $('altEmpty').style.display = widgets.length ? 'none' : '';
+  for (const w of widgets) feed.appendChild(buildCard(w));
+  for (const w of widgets) renderWidget(w.id);   // bodies load after the shells paint
+}
+
+function buildCard(w) {
+  const card = document.createElement('div');
+  card.className = 'card alt-card';
+  card.dataset.id = w.id;
+  card.innerHTML = `
+    <div class="alt-card-head">
+      <span class="alt-handle" title="Drag to reorder">⠿</span>
+      <span class="alt-card-title"></span>
+      <span class="alt-card-src"></span>
+      <button class="alt-remove" title="Remove widget">✕</button>
+    </div>
+    <div class="alt-card-body"><span class="alt-loading">loading…</span></div>`;
+  card.querySelector('.alt-card-title').textContent = w.label;
+  card.querySelector('.alt-card-src').textContent = w.source || '';
+  card.querySelector('.alt-remove').onclick = () => removeWidget(w.id);
+  card.draggable = false;   // enabled in edit mode
+  card.addEventListener('dragstart', e => {
+    if (!editing) { e.preventDefault(); return; }
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  card.addEventListener('dragend', async () => {
+    card.classList.remove('dragging');
+    await saveOrder();
+  });
+  return card;
+}
+
+async function renderWidget(id) {
+  const card = document.querySelector(`.alt-card[data-id="${id}"]`);
+  if (!card) return;
+  const body = card.querySelector('.alt-card-body');
+  try {
+    const r = await fetch(`/altair/api/widgets/${id}/render`);
+    const data = await r.json();
+    if (data.title) card.querySelector('.alt-card-title').textContent = data.title;
+    if (data.ok) {
+      body.innerHTML = data.html;   // provider-built server-side HTML (escaped there)
+    } else {
+      body.innerHTML = '';
+      const err = document.createElement('div');
+      err.className = 'alt-error';
+      err.textContent = data.error || 'widget failed to render';
+      body.appendChild(err);
+    }
+  } catch (e) {
+    body.innerHTML = '<div class="alt-error">could not reach the server</div>';
+  }
+}
+
+function refreshFeed() { for (const w of widgets) renderWidget(w.id); }
+
+// ---- edit mode: drag to reorder + remove ------------------------------------------
+
+function toggleEdit() {
+  editing = !editing;
+  $('altShell').classList.toggle('editing', editing);
+  $('altEdit').textContent = editing ? 'Done' : 'Edit';
+  $('altEdit').classList.toggle('primary', editing);
+  document.querySelectorAll('.alt-card').forEach(c => { c.draggable = editing; });
+}
+
+// container-level sorting: while dragging, keep moving the dragged card to the slot
+// under the pointer; the drop itself is a no-op (order is read off the DOM at dragend)
+$('altFeed').addEventListener('dragover', e => {
+  if (!editing) return;
+  e.preventDefault();
+  const dragging = document.querySelector('.alt-card.dragging');
+  if (!dragging) return;
+  const after = dragAfterElement(e.clientY);
+  if (after == null) $('altFeed').appendChild(dragging);
+  else $('altFeed').insertBefore(dragging, after);
+});
+
+function dragAfterElement(y) {
+  const others = [...document.querySelectorAll('.alt-card:not(.dragging)')];
+  let closest = { offset: -Infinity, el: null };
+  for (const el of others) {
+    const box = el.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) closest = { offset, el };
+  }
+  return closest.el;
+}
+
+async function saveOrder() {
+  const ids = [...document.querySelectorAll('.alt-card')].map(c => Number(c.dataset.id));
+  await fetch('/altair/api/widgets/order', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids }),
+  });
+  widgets.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+}
+
+async function removeWidget(id) {
+  if (!confirm('Remove this widget from the feed?')) return;
+  await fetch(`/altair/api/widgets/${id}`, { method: 'DELETE' });
+  widgets = widgets.filter(w => w.id !== id);
+  renderFeed();
+}
+
+// ---- Add-widget gallery -------------------------------------------------------------
+
+function openGallery() {
+  $('altModal').style.display = '';
+  $('altModalTitle').textContent = 'Add widget';
+  const body = $('altModalBody');
+  body.innerHTML = '';
+  if (!types.length) {
+    body.innerHTML = '<p class="alt-gallery-none">No functions offer widgets yet.</p>';
+    return;
+  }
+  // group types by their source function, like the iPhone widget gallery
+  const bySource = {};
+  for (const t of types) (bySource[t.source || 'Other'] ||= []).push(t);
+  for (const [source, list] of Object.entries(bySource)) {
+    const label = document.createElement('div');
+    label.className = 'alt-gallery-src';
+    label.textContent = source;
+    body.appendChild(label);
+    for (const t of list) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'alt-gallery-type';
+      row.innerHTML = '<span class="alt-gallery-name"></span><span class="alt-gallery-desc"></span>';
+      row.querySelector('.alt-gallery-name').textContent = t.label;
+      row.querySelector('.alt-gallery-desc').textContent = t.description || '';
+      row.onclick = () => configureType(t);
+      body.appendChild(row);
+    }
+  }
+}
+
+function configureType(t) {
+  $('altModalTitle').textContent = t.label;
+  const body = $('altModalBody');
+  body.innerHTML = '';
+  const form = document.createElement('div');
+  form.className = 'alt-config';
+  for (const p of (t.params || [])) {
+    const field = document.createElement('label');
+    field.className = 'alt-config-field';
+    const cap = document.createElement('span');
+    cap.textContent = p.label || p.name;
+    field.appendChild(cap);
+    let input;
+    if (p.type === 'select') {
+      input = document.createElement('select');
+      for (const o of (p.options || [])) {
+        const opt = document.createElement('option');
+        opt.value = o.value; opt.textContent = o.label;
+        input.appendChild(opt);
+      }
+    } else {
+      input = document.createElement('input');
+      input.type = p.type === 'number' ? 'number' : 'text';
+    }
+    if (p.default !== undefined && p.default !== null) input.value = p.default;
+    input.dataset.param = p.name;
+    field.appendChild(input);
+    form.appendChild(field);
+  }
+  const row = document.createElement('div');
+  row.className = 'alt-config-actions';
+  const back = document.createElement('button');
+  back.className = 'btn sm'; back.textContent = '‹ Back'; back.onclick = openGallery;
+  const add = document.createElement('button');
+  add.className = 'btn sm primary'; add.textContent = 'Add to feed';
+  add.onclick = async () => {
+    const config = {};
+    form.querySelectorAll('[data-param]').forEach(i => { config[i.dataset.param] = i.value; });
+    const r = await fetch('/altair/api/widgets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widget: t.id, config }),
+    });
+    const data = await r.json();
+    if (!r.ok) { alert(data.error || 'could not add widget'); return; }
+    closeGallery();
+    widgets.push(data.widget);
+    renderFeed();
+    if (editing) document.querySelectorAll('.alt-card').forEach(c => { c.draggable = true; });
+  };
+  row.appendChild(back); row.appendChild(add);
+  body.appendChild(form);
+  body.appendChild(row);
+}
+
+function closeGallery() { $('altModal').style.display = 'none'; }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('altModal').style.display !== 'none') closeGallery();
+});
+
+loadFeed();
+</script>
+{% endblock %}

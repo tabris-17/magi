@@ -108,7 +108,7 @@ isolated.
   `magiMenuBtn`.
 - **`host/`** — the host's own package (named `host`, NOT `core`, to avoid colliding
   with betelgeuse's `core` when its dir is on `sys.path`). `host/version.py` holds the
-  app version (`full_version()` → `magi-1.14.0`); `host/db.py` is the common-settings store —
+  app version (`full_version()` → `magi-1.15.0`); `host/db.py` is the common-settings store —
   GLOBAL keys in `data/magi.db`, SCOPED keys in per-env `data/magiscope.<env>.db` (see Storage
   below; `ensure_schema()` is idempotent — no migration engine for the host yet).
   `host/telegram.py` is the **per-consumer Telegram bot service** (see Telegram below);
@@ -122,12 +122,13 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.9.1`**; betelgeuse → **`betelgeuse-app-<x>` ·
+  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.0.0`**;
+  betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
   `WEB_VERSION`/`WORKER_VERSION`). The host treats the string as opaque, shows it on
   the dashboard card (`home.html`, `.card .v`) and in `/api/settings` (`functions[]`).
-  This is distinct from the host's own `magi-1.14.0` in the sidebar footer.
+  This is distinct from the host's own `magi-1.15.0` in the sidebar footer.
 
 ### Function contract
 
@@ -233,7 +234,7 @@ this: edit it on the function page, don't add it to General → Config.**
 **Database browser (`host/dbtool.py`).** Read-only, schema-agnostic introspection over a `DATABASES`
 registry (each entry: `key`, `label`, `desc`, lazily-resolved `path`; magi global → `hostdb.DB_PATH`,
 the two scope DBs → `hostdb.scope_db_path('dev'|'prod')`, betelgeuse → its `portfolio.db`, notifier →
-its `notifier.db`).
+its `notifier.db`, polaris → its `polaris.db`, altair → its `altair.db`).
 `list_all()` → per-DB `{available, tables:[{name,row_count}]}`;
 `table_data(dbkey, name, page, per_page)` → columns + a page of rows. Connections open with
 **`PRAGMA query_only=ON`** (physically reject writes — safe to point at betelgeuse's live WAL DB),
@@ -339,6 +340,56 @@ if ffmpeg missing; betelgeuse from worker-liveness + schema-gate). Health is the
 under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tools parent link
 (`header.html`). `APP_START_TIME` (module load) is the host's `started_at`.
 
+### Widgets — the altair feed (the third cross-function aggregation)
+
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.0.0`, first in the
+sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
+by other functions, arranged by the user. The **widget contract** parallels
+`settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
+returning widget TYPE descriptors —
+`{key, label, description, params: [{name,label,type: select|number|text, options?,
+default?}, …], render: callable(config) -> {html[, title]}}`.
+`magi.py`'s **`_widget_registry()`** composes the app-wide registry per request (guarded per
+function — a raising provider drops out), namespacing each type as **`<function>.<key>`** and
+tagging it with the function's `label` as `source`; it's injected into altair via
+**`altair_logic.set_widget_registry_resolver`** (the youtube/taxation resolver pattern — altair
+never imports the host or another function). Because the callable runs per request, dynamic
+param options (polaris's tag list) stay live. **Program the interface first**: a future
+function offers widgets by adding ONE callable to its META — zero altair changes.
+
+- **Altair owns only the LAYOUT** — `functions/altair/data/altair.db` (a `widgets` table:
+  namespaced type id + JSON `config` + `position`; lazy idempotent schema, no migration
+  engine; in `pull-prod-dbs.sh`'s `DBS` + dbtool's `DATABASES`). Routes: `GET /altair/api/feed`
+  ({widgets, types} — param schemas, never render callables), `POST /api/widgets`
+  ({widget,config} — config filtered to declared params, stringified),
+  `POST /api/widgets/order` ({ids}), `DELETE /api/widgets/<id>`,
+  `GET /api/widgets/<id>/render`, `GET /api/health`. **Rendering is guarded twice**
+  (`logic.render_instance` catches; the route stays 200 with `{ok:false,error}`) so one broken
+  provider becomes an error CARD, never a broken feed; a vanished provider's instances stay
+  listed (`known:false`) and removable. The page (`templates/altair/page.html`) is the
+  iPhone-widget flow: **Edit** toggles drag-to-reorder (HTML5 DnD, order read off the DOM at
+  dragend → `POST order`) + ✕ remove; **＋ Add widget** opens a gallery modal grouped by
+  `source`, whose config form is generated from the type's `params`. Widget bodies are
+  **provider-built server-side HTML** (escaped there, theme-token colors only); their shared
+  classes (`.alt-pnl-*`, `.alt-jf-*`) live in `theme.css`'s altair block so providers ship no
+  CSS. `.card`'s base is a flex ROW (dashboard) — `.alt-card`/`.alt-modal` re-set
+  `display:block`.
+- **Betelgeuse "Portfolio P&L"** (`betelgeuse.pnl`) is a **host-side adapter**
+  (`host/betelgeuse_widget.py` — betelgeuse stays byte-identical): render calls betelgeuse's
+  own `/api/portfolio/pnl` in-process via `betel_app.test_client()` (wired in `magi.py` next to
+  health), then draws per-holding bars around a zero axis (sorted by P&L desc, incomplete
+  holdings noted + excluded, `--success-fg`/`--danger-fg`) plus a **Total** row
+  (value · cost · P&L %). No params.
+- **Polaris "Journal feed"** (`polaris.tag-feed`, `functions/polaris/widgets.py` +
+  `logic.entries_for_widget`): params **tag** (select over live tags; empty = all entries),
+  **age** (entry-date window: any / last 7/30/90/365 days / **older than 1 year**) and
+  **limit**; renders date + title links (`/polaris/?entry=<id>`) + previews; title becomes
+  `Journal · <tag>`. Multiple instances = one widget per tag.
+- Tests: `functions/altair/tests/` (logic + API + the P&L adapter over a fake client;
+  `python3 -m pytest functions/altair/tests/ -q`) and `functions/polaris/tests/test_widgets.py`
+  (query filters + render). Both tests dirs carry an `__init__.py` so the suites can run
+  together despite same-named test modules.
+
 ### Theming
 
 `data-theme` (`dark`/`light`) on `<html>` selects the variable block in **`shell.css`**.
@@ -395,7 +446,7 @@ like betelgeuse's inline-literal debt, and the screenshot-both-themes recipe); r
 any non-trivial UI change. (Advisory, like "tests green = done" — not enforced; the skill is
 also auto-discoverable from its own description.)
 
-**Versioning:** `host/version.py` → `full_version()` = `magi-1.14.0` (the host/shell
+**Versioning:** `host/version.py` → `full_version()` = `magi-1.15.0` (the host/shell
 version, distinct from a function's own — see Per-function versioning above). Shown in
 the sidebar footer (`#magiVersion`; server-rendered on host pages, JS-filled from
 `/api/settings` on function pages) and returned by `/api/settings`. Bump it on
@@ -467,7 +518,8 @@ straight through).
 **High-level workflow verbs** (over the above; `dev` = this machine, `prod` = the mini):
 - **`./magi upgrade dev`** → `deploy/pull-prod-dbs.sh` — copies prod DBs in the script's
   `DBS` array down to local dev (host `data/magi.db` + `data/magiscope.prod.db` +
-  `functions/betelgeuse/data/portfolio.db` + `functions/notifier/data/notifier.db` — extend
+  `functions/betelgeuse/data/portfolio.db` + `functions/notifier/data/notifier.db` +
+  `functions/polaris/data/polaris.db` + `functions/altair/data/altair.db` — extend
   it when a new function ships a DB),
   backing up each local copy first. **`data/magiscope.dev.db` is deliberately NOT in `DBS`** —
   dev owns its scoped settings, so a deploy never overwrites them (the whole point of the
@@ -638,11 +690,12 @@ inside `functions/betelgeuse/`), with only settings shared.
   Chrome type→select→listify flow, NBSP normalization, the full round-trip suite; runs the real
   `polaris-md.js` in headless Chrome, so it **needs the dev server up**) — it must print ALL PASS
   before AND after any converter change; and (2) the **Python `pytest` suite**
-  **`functions/polaris/tests/{test_logic.py,test_api.py}`** (44 cases over the whole
-  `logic.py` store + the blueprint's JSON/media routes: entry CRUD + search/previews, tags
-  unique/partial/unlink, entry↔tag links, attachment blobs + the inline-vs-download gate, and the
+  **`functions/polaris/tests/{test_logic.py,test_api.py,test_widgets.py}`** (56 cases over the
+  whole `logic.py` store + the blueprint's JSON/media routes: entry CRUD + search/previews, tags
+  unique/partial/unlink, entry↔tag links, attachment blobs + the inline-vs-download gate, the
   **backup/schema-guard rollback net** — asserts a `pre-vN` snapshot captures the pre-change bytes
-  on a version bump — plus the daily-backup prune and worker interface). Run it from the repo root,
+  on a version bump — plus the daily-backup prune, worker interface, and the altair
+  Journal-feed widget filters/render). Run it from the repo root,
   **no server needed**: `python3 -m pytest functions/polaris/tests/ -q` (`conftest.py` points
   `logic` at a throwaway DB per test). Run both after touching polaris. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for
@@ -734,6 +787,13 @@ inside `functions/betelgeuse/`), with only settings shared.
     single-class `.pol-*` selector (0,1,0) **loses** to it — the search box and the borderless
     title need two-class selectors (`.pol-toolbar .pol-search`, `.pol-editor .pol-title`) or
     they silently inherit the global padding/border. Same trap for any new host page component.
+- The **Altair** function (a blueprint, `/altair/`) is the **widget feed** — see
+  "Widgets — the altair feed" above for the whole contract. Worth repeating here: it owns
+  ONLY the layout DB (`functions/altair/data/altair.db`, lazy schema, in `DBS`); widgets
+  come from the host-injected registry (`set_widget_registry_resolver`), so like the other
+  blueprints it **never imports the host** and **importing touches no network/FS**. Configure
+  the feed **on prod** (prod = source of truth; `./magi upgrade dev` mirrors it down, same as
+  polaris's journal).
 - The host binds to `127.0.0.1`. For phone/LAN access bind `0.0.0.0` (trusted
   networks only).
 

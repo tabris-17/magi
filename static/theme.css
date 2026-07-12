@@ -761,6 +761,99 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   .pol-attach-bar { flex-wrap: wrap; }
 }
 
+/* ---- altair function (widget feed) --------------------------------- */
+/* A single-column push feed of widget cards. Widget BODIES are provider-built HTML;
+   the shared widget classes they may emit (.alt-pnl-*, .alt-jf-*) live here too, so a
+   provider styles nothing itself — it just emits the documented classes + tokens. */
+.alt-shell { max-width: 760px; }
+.alt-toolbar { display: flex; align-items: center; gap: 10px; }
+.alt-toolbar .view-title { margin: 0; }
+.alt-actions { margin-left: auto; display: flex; gap: 8px; }
+.alt-edit-hint { display: none; }
+.alt-shell.editing .alt-edit-hint { display: inline; }
+.alt-feed { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+.alt-empty { margin-top: 24px; color: var(--fg-muted); font-size: 14px; }
+
+/* .card's base is a flex ROW (dashboard icon+text); feed cards + the modal stack. */
+.alt-card, .alt-modal { display: block; }
+.alt-card:hover { border-color: var(--border); }             /* not a link — no accent */
+.alt-shell.editing .alt-card:hover { border-color: var(--accent); }
+.alt-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.alt-card-title { font-size: 15px; font-weight: 600; }
+.alt-card-src { margin-left: auto; font-size: 11.5px; color: var(--fg-subtle); text-transform: uppercase; letter-spacing: .04em; }
+.alt-handle { display: none; cursor: grab; color: var(--fg-muted); user-select: none; }
+.alt-remove {
+  display: none; background: none; border: 0; color: var(--fg-muted);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;
+}
+.alt-remove:hover { color: var(--danger-fg); }
+.alt-shell.editing .alt-handle { display: inline; }
+.alt-shell.editing .alt-remove { display: inline; }
+.alt-shell.editing .alt-card { cursor: grab; }
+.alt-card.dragging { opacity: .55; border-style: dashed; }
+.alt-loading { color: var(--fg-muted); font-size: 13px; }
+.alt-error { color: var(--danger-fg); font-size: 13px; }
+.alt-note { margin-top: 8px; font-size: 12px; color: var(--fg-muted); }
+
+/* Add-widget gallery (modal) */
+.alt-modal-backdrop {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.45);
+  display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px;
+}
+.alt-modal { width: min(520px, 100%); max-height: 80vh; overflow: auto; }
+.alt-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.alt-modal-title { font-size: 17px; font-weight: 600; }
+.alt-gallery-src { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--fg-muted); margin: 14px 0 6px; }
+.alt-gallery-src:first-child { margin-top: 0; }
+.alt-gallery-type {
+  display: block; width: 100%; text-align: left; margin-bottom: 8px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--fg);
+}
+.alt-gallery-type:hover { background: var(--surface-hover); border-color: var(--accent); }
+.alt-gallery-name { display: block; font-size: 14px; font-weight: 600; }
+.alt-gallery-desc { display: block; font-size: 12.5px; color: var(--fg-muted); margin-top: 2px; }
+.alt-gallery-none { color: var(--fg-muted); font-size: 14px; }
+.alt-config { display: flex; flex-direction: column; gap: 12px; }
+.alt-config-field { display: flex; flex-direction: column; gap: 5px; }
+.alt-config-field > span { font-size: 13px; color: var(--fg-muted); }
+/* match the input[type=text] metrics for the form's selects/numbers */
+.alt-config-field select, .alt-config-field input {
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg);
+  padding: 9px 12px; border-radius: 6px; font-size: 14px;
+}
+.alt-config-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* Betelgeuse "Portfolio P&L" widget body (emitted by host/betelgeuse_widget.py) */
+.alt-pnl-row {
+  display: grid; grid-template-columns: 92px 1fr 150px; align-items: center;
+  gap: 10px; padding: 4px 0; font-size: 13px;
+}
+.alt-pnl-sym { font-weight: 500; }
+.alt-pnl-track { position: relative; height: 10px; }
+.alt-pnl-track::before {  /* the zero axis */
+  content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px;
+  background: var(--border);
+}
+.alt-pnl-bar { position: absolute; top: 0; height: 10px; border-radius: 3px; }
+.alt-pnl-val { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.alt-pnl-val small { font-size: 11.5px; }
+.alt-pnl-total {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  border-top: 1px solid var(--border); margin-top: 8px; padding-top: 8px;
+  font-size: 14px; font-weight: 600;
+}
+.alt-pnl-total .alt-pnl-meta { font-size: 12px; font-weight: 400; color: var(--fg-muted); }
+
+/* Polaris "Journal feed" widget body (emitted by functions/polaris/widgets.py) */
+.alt-jf-item { padding: 7px 0; border-bottom: 1px solid var(--border); }
+.alt-jf-item:last-child { border-bottom: 0; }
+.alt-jf-date { font-size: 12px; color: var(--fg-muted); font-variant-numeric: tabular-nums; margin-right: 8px; }
+.alt-jf-title { font-size: 14px; color: var(--accent); text-decoration: none; }
+.alt-jf-title:hover { text-decoration: underline; }
+.alt-jf-preview { font-size: 12.5px; color: var(--fg-muted); margin-top: 2px; }
+.alt-jf-none { color: var(--fg-muted); font-size: 13px; }
+
 /* ---- responsive (content) ------------------------------------------ */
 @media (max-width: 860px) {
   main { margin-left: 0; }
@@ -769,4 +862,5 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   .yt .meta img { width: 120px; }
   .env-row { flex-wrap: wrap; }
   .env-input { flex-basis: 100%; order: 3; }
+  .alt-pnl-row { grid-template-columns: 76px 1fr 120px; }
 }

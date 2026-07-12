@@ -18,10 +18,12 @@ import urllib.request
 from flask import Flask, jsonify, render_template, request
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
+from functions.altair import bp as altair_bp, META as ALTAIR_META, logic as altair_logic
 from functions.youtube import bp as youtube_bp, META as YOUTUBE_META, logic as youtube_logic
 from functions.taxation import bp as taxation_bp, META as TAXATION_META, logic as taxation_logic
 from functions.notifier import bp as notifier_bp, META as NOTIFIER_META
 from functions.polaris import bp as polaris_bp, META as POLARIS_META
+from host import betelgeuse_widget as host_betelgeuse_widget
 from host import db as hostdb
 from host import dbtool as host_dbtool
 from host import telegram as host_telegram
@@ -75,7 +77,33 @@ BETELGEUSE_META = {
     "version": _betelgeuse_version(),
 }
 
-FUNCTIONS = [YOUTUBE_META, TAXATION_META, NOTIFIER_META, POLARIS_META, BETELGEUSE_META]
+FUNCTIONS = [ALTAIR_META, YOUTUBE_META, TAXATION_META, NOTIFIER_META, POLARIS_META,
+             BETELGEUSE_META]
+
+
+def _widget_registry():
+    """Compose the app-wide widget registry from every function's META["widgets"].
+
+    The widget contract (the third cross-function aggregation, after settings_section
+    and health): a function opts in with a `widgets` callable on its META returning
+    widget TYPE descriptors {key,label,description,params,render}. The host namespaces
+    each type as "<function>.<key>", tags it with the function's label, and hands the
+    whole list to altair via its resolver — so altair renders widgets from any function
+    without importing one. Called per request (guarded per function, so one provider
+    can't break the gallery) to keep dynamic param options (e.g. polaris tags) live.
+    """
+    registry = []
+    for m in FUNCTIONS:
+        fn = m.get("widgets")
+        if not callable(fn):
+            continue
+        try:
+            types = fn() or []
+        except Exception:  # noqa: BLE001 — a broken provider just drops out
+            continue
+        for t in types:
+            registry.append({**t, "id": f"{m['key']}.{t['key']}", "source": m["label"]})
+    return registry
 
 
 def load_betelgeuse_wsgi():
@@ -125,6 +153,10 @@ def create_host_app():
     app.register_blueprint(notifier_bp)
     # Polaris (journal) is self-contained too — it owns polaris.db and needs no host resolver.
     app.register_blueprint(polaris_bp)
+    # Altair (the widget feed) owns only the layout (altair.db); the widgets themselves come
+    # from the registry the host composes — injected here so altair never imports the host.
+    app.register_blueprint(altair_bp)
+    altair_logic.set_widget_registry_resolver(_widget_registry)
 
     @app.context_processor
     def inject_nav():
@@ -365,6 +397,11 @@ def _betelgeuse_health():
 
 
 BETELGEUSE_META["health"] = _betelgeuse_health
+
+# Betelgeuse's altair widget (Portfolio P&L) — a host-side adapter over its own
+# /api/portfolio/pnl, called in-process via the test client (same pattern as health;
+# betelgeuse's code stays byte-identical to prod). See host/betelgeuse_widget.py.
+BETELGEUSE_META["widgets"] = lambda: host_betelgeuse_widget.widget_types(betel_app.test_client)
 
 # Give betelgeuse's templates the SAME shell context the host injects (base.html), so its
 # hand-authored magi sidebar (header.html) renders the identical, dynamic function list —
