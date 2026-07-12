@@ -133,18 +133,26 @@ async function toggleHidden(id) {
   if (!w) return;
   w.hidden = !w.hidden;                                    // optimistic
   const card = document.querySelector(`.alt-card[data-id="${id}"]`);
+  const body = card && card.querySelector('.alt-card-body');
   if (card) {
     applyHidden(card, w);
-    // drop whatever is in the DOM first, then fetch the right view from the server
-    card.querySelector('.alt-card-body').innerHTML =
-      '<span class="alt-loading">loading…</span>';
+    // NO blanking — that collapses the card for a split second. A maskable widget
+    // keeps its current body (blurred instantly when hiding, so the numbers are
+    // unreadable at once) and the server's masked/full view swaps in atomically.
+    if (w.maskable) body.classList.toggle('alt-masking', w.hidden);
+    else if (!w.hidden) body.innerHTML = '<span class="alt-loading">loading…</span>';
   }
   const r = await fetch(`/altair/api/widgets/${id}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ hidden: w.hidden }),
   });
-  if (!r.ok) { w.hidden = !w.hidden; if (card) applyHidden(card, w); }  // roll back
-  if (!w.hidden || w.maskable) renderWidget(id);           // full or masked view
+  if (!r.ok) {                                             // roll back
+    w.hidden = !w.hidden;
+    if (card) { applyHidden(card, w); body.classList.remove('alt-masking'); }
+    return;
+  }
+  if (!w.hidden || w.maskable) await renderWidget(id);     // full or masked view
+  if (body) body.classList.remove('alt-masking');          // real dots are in place now
 }
 
 // ---- edit mode: drag to reorder + remove ------------------------------------------

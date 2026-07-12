@@ -29,7 +29,7 @@ META = {
     "description": "Your push feed — widgets from every function, arranged your way.",
     "icon": ICON,
     "url": "/altair/",
-    "version": "altair-1.2.0",
+    "version": "altair-1.2.1",
 }
 
 

@@ -52,6 +52,13 @@ Tracker is `index.html` at `/tracker`; `/crypto` renders it with the crypto tab 
 above a **two-tab** body: **Watch List** (default) + **My Portfolio**. Tab state is remembered in
 `sessionStorage`; the KPI strip is shared above both.
 
+**Privacy eye (vendored-only magi edit — re-apply after re-vendoring).** A `.bt-eye` button next
+to the "Portfolio Overview" h2 (in a `.ph-row` flex wrapper, kept OUTSIDE the gradient-text h2)
+toggles `body.bt-private`, which CSS-blurs the money panels — `#kpiRow`, `#pnlCharts`,
+`#pnlSections` (`filter: blur(9px)` + `pointer-events:none`); the Watch List (public quotes)
+stays crisp. Persisted per browser in `localStorage['bt-privacy']`; octicon eye/eye-closed SVGs
++ the wiring live in a small standalone `<script>` before symbol-field.js.
+
 **Watch List tab** — consolidated register of **every** instrument across all markets
 (`/api/portfolio`): sticky toolbar (search, market chips), collapsible per-market sortable tables —
 **always grouped Market › Group** (the old Group-by toggle was removed). Columns (`COLS`, exact order):

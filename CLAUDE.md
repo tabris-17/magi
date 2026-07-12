@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.2.0`**;
+  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.2.1`**;
   betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
@@ -342,7 +342,7 @@ under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tool
 
 ### Widgets — the altair feed (the third cross-function aggregation)
 
-**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.2.0`, first in the
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.2.1`, first in the
 sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
 by other functions, arranged by the user. The **widget contract** parallels
 `settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
@@ -391,7 +391,11 @@ function offers widgets by adding ONE callable to its META — zero altair chang
   holdings noted + excluded, `--success-fg`/`--danger-fg`) plus a **Total** row
   (value · cost · P&L %). No params. Its `mask` view is the same card with every currency
   AMOUNT replaced by `•••••` server-side — bars and percentages stay (relative performance,
-  not absolute wealth).
+  not absolute wealth). **Betelgeuse's own Overview page has a sibling privacy eye**
+  (vendored-only edit in `functions/betelgeuse/templates/overview.html` — re-apply after
+  re-vendoring): a `.bt-eye` next to the "Portfolio Overview" h2 toggling `body.bt-private`,
+  which CSS-blurs `#kpiRow`/`#pnlCharts`/`#pnlSections` (the money panels; the Watch List's
+  public quotes stay crisp), persisted per browser in `localStorage['bt-privacy']`.
 - **Polaris "Journal feed"** (`polaris.tag-feed`, `functions/polaris/widgets.py` +
   `logic.entries_for_widget`): params **tag** (select over live tags; empty = all entries),
   **age** (entry-date window: any / last 7/30/90/365 days / **older than 1 year**) and

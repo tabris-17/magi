@@ -789,6 +789,9 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 }
 .alt-eye:hover { color: var(--fg); }
 .alt-card.hidden .alt-card-title { color: var(--fg-muted); }
+/* instant client-side cover while the server's masked view is on its way —
+   blur keeps the layout identical, so the card never jumps */
+.alt-card-body.alt-masking { filter: blur(6px); }
 .alt-remove {
   display: none; background: none; border: 0; color: var(--fg-muted);
   cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;
