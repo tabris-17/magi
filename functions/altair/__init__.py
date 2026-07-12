@@ -29,7 +29,7 @@ META = {
     "description": "Your push feed — widgets from every function, arranged your way.",
     "icon": ICON,
     "url": "/altair/",
-    "version": "altair-1.0.0",
+    "version": "altair-1.1.0",
 }
 
 
@@ -67,11 +67,19 @@ def api_order():
     return jsonify(ok=True)
 
 
-@bp.route("/api/widgets/<int:instance_id>", methods=["DELETE"])
-def api_remove_widget(instance_id):
-    if not logic.remove_instance(instance_id):
+@bp.route("/api/widgets/<int:instance_id>", methods=["POST", "DELETE"])
+def api_widget(instance_id):
+    if request.method == "DELETE":
+        if not logic.remove_instance(instance_id):
+            return jsonify(error="not found"), 404
+        return jsonify(ok=True)
+    # POST — partial update; today that's only the eye toggle
+    data = request.get_json(silent=True) or {}
+    if "hidden" not in data:
+        return jsonify(error="nothing to update"), 400
+    if not logic.set_hidden(instance_id, bool(data["hidden"])):
         return jsonify(error="not found"), 404
-    return jsonify(ok=True)
+    return jsonify(ok=True, hidden=bool(data["hidden"]))
 
 
 @bp.route("/api/widgets/<int:instance_id>/render")

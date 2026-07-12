@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS widgets (
     widget     TEXT NOT NULL,                 -- namespaced type id, "<function>.<key>"
     config     TEXT NOT NULL DEFAULT '{}',    -- JSON dict of param values
     position   INTEGER NOT NULL DEFAULT 0,    -- feed order, ascending
+    hidden     INTEGER NOT NULL DEFAULT 0,    -- eye toggle: 1 = body not shown/rendered
     created_at TEXT NOT NULL
 );
 """
@@ -76,6 +77,12 @@ def _connect():
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
         conn.executescript(_SCHEMA)
+        # column-add guard for DBs created before the eye toggle (polaris's pattern —
+        # no migration engine; an existing altair.db picks the column up on connect)
+        have = {r["name"] for r in conn.execute("PRAGMA table_info(widgets)")}
+        if "hidden" not in have:
+            conn.execute("ALTER TABLE widgets ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
+            conn.commit()
     return conn
 
 
@@ -102,6 +109,7 @@ def _instance_row(r, types_by_id):
         "widget": r["widget"],
         "config": config,
         "position": r["position"],
+        "hidden": bool(r["hidden"]),
         # display metadata from the live registry; a widget whose provider vanished
         # stays in the feed as known:False (removable, renders an error card)
         "known": t is not None,
@@ -142,6 +150,18 @@ def add_instance(widget_id, config=None):
     finally:
         conn.close()
     return _instance_row(row, {t["id"]: t})
+
+
+def set_hidden(instance_id, hidden):
+    """Persist a widget's eye toggle (True = body hidden). False for a missing id."""
+    conn = _connect()
+    try:
+        cur = conn.execute("UPDATE widgets SET hidden = ? WHERE id = ?",
+                           (1 if hidden else 0, instance_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
 
 
 def remove_instance(instance_id):

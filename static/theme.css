@@ -782,6 +782,13 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .alt-card-title { font-size: 15px; font-weight: 600; }
 .alt-card-src { margin-left: auto; font-size: 11.5px; color: var(--fg-subtle); text-transform: uppercase; letter-spacing: .04em; }
 .alt-handle { display: none; cursor: grab; color: var(--fg-muted); user-select: none; }
+/* the eye (privacy) toggle — always visible, unlike the edit-mode controls */
+.alt-eye {
+  display: inline-flex; align-items: center; background: none; border: 0;
+  color: var(--fg-muted); cursor: pointer; padding: 2px 4px; line-height: 1;
+}
+.alt-eye:hover { color: var(--fg); }
+.alt-card.hidden .alt-card-title { color: var(--fg-muted); }
 .alt-remove {
   display: none; background: none; border: 0; color: var(--fg-muted);
   cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;

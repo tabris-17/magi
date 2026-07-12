@@ -64,6 +64,41 @@ def test_vanished_provider_still_listed_as_unknown(registry):
     assert row["label"] == "alpha.one"        # falls back to the raw type id
 
 
+# ---- the eye toggle (hidden) --------------------------------------------------------------
+
+def test_hidden_defaults_false_and_persists(registry):
+    a = logic.add_instance("alpha.one")
+    assert a["hidden"] is False
+    assert logic.set_hidden(a["id"], True) is True
+    (row,) = logic.list_instances()
+    assert row["hidden"] is True
+    logic.set_hidden(a["id"], False)
+    (row,) = logic.list_instances()
+    assert row["hidden"] is False
+
+
+def test_set_hidden_missing_id(registry):
+    assert logic.set_hidden(999, True) is False
+
+
+def test_hidden_column_added_to_old_db(registry):
+    """A pre-eye-toggle altair.db (no `hidden` column) gains it on connect."""
+    import sqlite3
+    os_makedirs = __import__("os").makedirs
+    os_makedirs(logic.DATA_DIR, exist_ok=True)
+    conn = sqlite3.connect(logic.DB_PATH)
+    conn.execute("CREATE TABLE widgets (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "widget TEXT NOT NULL, config TEXT NOT NULL DEFAULT '{}', "
+                 "position INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL)")
+    conn.execute("INSERT INTO widgets (widget, config, position, created_at) "
+                 "VALUES ('alpha.one', '{}', 0, 'x')")
+    conn.commit()
+    conn.close()
+    (row,) = logic.list_instances()   # triggers the column-add guard
+    assert row["hidden"] is False
+    assert logic.set_hidden(row["id"], True) is True
+
+
 # ---- remove ------------------------------------------------------------------------------
 
 def test_remove(registry):

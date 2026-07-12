@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.0.0`**;
+  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.1.0`**;
   betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
@@ -342,7 +342,7 @@ under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tool
 
 ### Widgets — the altair feed (the third cross-function aggregation)
 
-**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.0.0`, first in the
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.1.0`, first in the
 sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
 by other functions, arranged by the user. The **widget contract** parallels
 `settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
@@ -358,12 +358,17 @@ param options (polaris's tag list) stay live. **Program the interface first**: a
 function offers widgets by adding ONE callable to its META — zero altair changes.
 
 - **Altair owns only the LAYOUT** — `functions/altair/data/altair.db` (a `widgets` table:
-  namespaced type id + JSON `config` + `position`; lazy idempotent schema, no migration
+  namespaced type id + JSON `config` + `position` + `hidden`; lazy idempotent schema with a
+  polaris-style column-add guard in `_connect()`, no migration
   engine; in `pull-prod-dbs.sh`'s `DBS` + dbtool's `DATABASES`). Routes: `GET /altair/api/feed`
   ({widgets, types} — param schemas, never render callables), `POST /api/widgets`
   ({widget,config} — config filtered to declared params, stringified),
-  `POST /api/widgets/order` ({ids}), `DELETE /api/widgets/<id>`,
-  `GET /api/widgets/<id>/render`, `GET /api/health`. **Rendering is guarded twice**
+  `POST /api/widgets/order` ({ids}), `POST /api/widgets/<id>` ({hidden} — partial update),
+  `DELETE /api/widgets/<id>`,
+  `GET /api/widgets/<id>/render`, `GET /api/health`. **Every card head carries an eye
+  (privacy) toggle** — octicon eye/eye-closed, always visible (not edit-mode-gated): it
+  collapses the card to its title row, the numbers are dropped from the DOM, and a hidden
+  card's `/render` is **never fetched**; the state persists server-side (`hidden`). **Rendering is guarded twice**
   (`logic.render_instance` catches; the route stays 200 with `{ok:false,error}`) so one broken
   provider becomes an error CARD, never a broken feed; a vanished provider's instances stay
   listed (`known:false`) and removable. The page (`templates/altair/page.html`) is the

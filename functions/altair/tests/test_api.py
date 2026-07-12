@@ -42,6 +42,20 @@ def test_order_route(client, registry):
     assert client.post("/altair/api/widgets/order", json={"ids": ["NaN"]}).status_code == 400
 
 
+def test_hidden_route(client, registry):
+    a = logic.add_instance("alpha.one")
+    r = client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": True})
+    assert r.status_code == 200 and r.get_json() == {"ok": True, "hidden": True}
+    assert logic.list_instances()[0]["hidden"] is True
+
+    r = client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": False})
+    assert r.status_code == 200
+    assert logic.list_instances()[0]["hidden"] is False
+
+    assert client.post(f"/altair/api/widgets/{a['id']}", json={}).status_code == 400
+    assert client.post("/altair/api/widgets/999", json={"hidden": True}).status_code == 404
+
+
 def test_delete_route(client, registry):
     a = logic.add_instance("alpha.one")
     assert client.delete(f"/altair/api/widgets/{a['id']}").status_code == 200
