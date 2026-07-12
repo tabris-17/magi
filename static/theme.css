@@ -778,10 +778,12 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .alt-card, .alt-modal { display: block; }
 .alt-card:hover { border-color: var(--border); }             /* not a link — no accent */
 .alt-shell.editing .alt-card:hover { border-color: var(--accent); }
-.alt-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+/* the title bar doubles as the always-on drag handle (draggable in buildCard) */
+.alt-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: grab; }
+.alt-card-head:active { cursor: grabbing; }
 .alt-card-title { font-size: 15px; font-weight: 600; }
 .alt-card-src { margin-left: auto; font-size: 11.5px; color: var(--fg-subtle); text-transform: uppercase; letter-spacing: .04em; }
-.alt-handle { display: none; cursor: grab; color: var(--fg-muted); user-select: none; }
+.alt-handle { cursor: grab; color: var(--fg-muted); user-select: none; }
 /* the eye (privacy) toggle — always visible, unlike the edit-mode controls */
 .alt-eye {
   display: inline-flex; align-items: center; background: none; border: 0;
@@ -797,9 +799,7 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;
 }
 .alt-remove:hover { color: var(--danger-fg); }
-.alt-shell.editing .alt-handle { display: inline; }
 .alt-shell.editing .alt-remove { display: inline; }
-.alt-shell.editing .alt-card { cursor: grab; }
 .alt-card.dragging { opacity: .55; border-style: dashed; }
 .alt-loading { color: var(--fg-muted); font-size: 13px; }
 .alt-error { color: var(--danger-fg); font-size: 13px; }

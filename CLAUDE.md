@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.2.1`**;
+  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.3.0`**;
   betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
@@ -342,7 +342,7 @@ under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tool
 
 ### Widgets — the altair feed (the third cross-function aggregation)
 
-**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.2.1`, first in the
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.3.0`, first in the
 sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
 by other functions, arranged by the user. The **widget contract** parallels
 `settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
@@ -377,8 +377,10 @@ function offers widgets by adding ONE callable to its META — zero altair chang
   (`logic.render_instance` catches; the route stays 200 with `{ok:false,error}`) so one broken
   provider becomes an error CARD, never a broken feed; a vanished provider's instances stay
   listed (`known:false`) and removable. The page (`templates/altair/page.html`) is the
-  iPhone-widget flow: **Edit** toggles drag-to-reorder (HTML5 DnD, order read off the DOM at
-  dragend → `POST order`) + ✕ remove; **＋ Add widget** opens a gallery modal grouped by
+  iPhone-widget flow: **drag-to-reorder works anytime** — each card's TITLE BAR is the drag
+  handle (`.alt-card-head` draggable, ⠿ always visible; HTML5 DnD, order read off the DOM at
+  dragend → `POST order`; the body stays free for text selection/links) — while **Edit** only
+  reveals ✕ remove; **＋ Add widget** opens a gallery modal grouped by
   `source`, whose config form is generated from the type's `params`. Widget bodies are
   **provider-built server-side HTML** (escaped there, theme-token colors only); their shared
   classes (`.alt-pnl-*`, `.alt-jf-*`) live in `theme.css`'s altair block so providers ship no

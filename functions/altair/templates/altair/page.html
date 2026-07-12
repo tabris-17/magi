@@ -10,7 +10,7 @@
       <button class="btn sm" id="altEdit" onclick="toggleEdit()">Edit</button>
     </div>
   </div>
-  <p class="lead">Your push feed — widgets contributed by magi's functions. <span class="alt-edit-hint">Drag cards to reorder; ✕ removes.</span></p>
+  <p class="lead">Your push feed — widgets contributed by magi's functions. Drag a card by its title bar to reorder.<span class="alt-edit-hint"> ✕ removes a widget.</span></p>
 
   <div class="alt-feed" id="altFeed"></div>
   <div class="alt-empty" id="altEmpty" style="display:none;">
@@ -76,13 +76,18 @@ function buildCard(w) {
   card.querySelector('.alt-remove').onclick = () => removeWidget(w.id);
   card.querySelector('.alt-eye').onclick = () => toggleHidden(w.id);
   applyHidden(card, w);
-  card.draggable = false;   // enabled in edit mode
-  card.addEventListener('dragstart', e => {
-    if (!editing) { e.preventDefault(); return; }
+  // Drag-to-reorder works ANYTIME (no Edit mode needed): the title bar is the drag
+  // handle — the body stays free for text selection / links inside widgets.
+  const head = card.querySelector('.alt-card-head');
+  head.draggable = true;
+  head.addEventListener('dragstart', e => {
+    if (e.target.closest('.alt-eye, .alt-remove')) { e.preventDefault(); return; }
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(w.id));   // Firefox needs data to drag
+    if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(card, 24, 18);
   });
-  card.addEventListener('dragend', async () => {
+  head.addEventListener('dragend', async () => {
     card.classList.remove('dragging');
     await saveOrder();
   });
@@ -162,13 +167,11 @@ function toggleEdit() {
   $('altShell').classList.toggle('editing', editing);
   $('altEdit').textContent = editing ? 'Done' : 'Edit';
   $('altEdit').classList.toggle('primary', editing);
-  document.querySelectorAll('.alt-card').forEach(c => { c.draggable = editing; });
 }
 
 // container-level sorting: while dragging, keep moving the dragged card to the slot
 // under the pointer; the drop itself is a no-op (order is read off the DOM at dragend)
 $('altFeed').addEventListener('dragover', e => {
-  if (!editing) return;
   e.preventDefault();
   const dragging = document.querySelector('.alt-card.dragging');
   if (!dragging) return;
@@ -283,7 +286,6 @@ function configureType(t) {
     closeGallery();
     widgets.push(data.widget);
     renderFeed();
-    if (editing) document.querySelectorAll('.alt-card').forEach(c => { c.draggable = true; });
   };
   row.appendChild(back); row.appendChild(add);
   body.appendChild(form);
