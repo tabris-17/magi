@@ -82,8 +82,8 @@ def test_set_hidden_missing_id(registry):
     assert logic.set_hidden(999, True) is False
 
 
-def test_hidden_column_added_to_old_db(registry):
-    """A pre-eye-toggle altair.db (no `hidden` column) gains it on connect."""
+def test_columns_added_to_old_db(registry):
+    """An old altair.db (no `hidden`/`size` columns) gains them on connect."""
     import sqlite3
     os_makedirs = __import__("os").makedirs
     os_makedirs(logic.DATA_DIR, exist_ok=True)
@@ -97,7 +97,43 @@ def test_hidden_column_added_to_old_db(registry):
     conn.close()
     (row,) = logic.list_instances()   # triggers the column-add guard
     assert row["hidden"] is False
+    assert row["size"] == "1x4"       # NULL size -> the type's default
     assert logic.set_hidden(row["id"], True) is True
+    assert logic.set_size(row["id"], "2x4") is True
+
+
+# ---- the size cycle (1x4 / 2x4 / 4x4) ------------------------------------------------------
+
+def test_size_defaults_per_type(registry):
+    a = logic.add_instance("alpha.one")           # type declares default_size 1x4
+    b = logic.add_instance("beta.two")            # no declaration -> global default
+    assert a["size"] == "1x4"
+    assert b["size"] == "2x4"
+
+
+def test_add_with_explicit_size_and_bad_size(registry):
+    a = logic.add_instance("alpha.one", size="4x4")
+    assert a["size"] == "4x4"
+    bad = logic.add_instance("alpha.one", size="9x9")   # invalid -> type default
+    assert bad["size"] == "1x4"
+
+
+def test_set_size_persists_and_validates(registry):
+    a = logic.add_instance("alpha.one")
+    assert logic.set_size(a["id"], "4x4") is True
+    (row,) = logic.list_instances()
+    assert row["size"] == "4x4"
+    assert logic.set_size(999, "2x4") is False
+    with pytest.raises(ValueError):
+        logic.set_size(a["id"], "huge")
+
+
+def test_render_injects_size_changes(registry):
+    _, calls = registry
+    a = logic.add_instance("alpha.one")
+    logic.set_size(a["id"], "4x4")
+    logic.render_instance(a["id"])
+    assert calls["config"]["_size"] == "4x4"
 
 
 # ---- remove ------------------------------------------------------------------------------
@@ -116,7 +152,8 @@ def test_render_passes_config_and_returns_title_html(registry):
     a = logic.add_instance("alpha.one", {"x": "42"})
     out = logic.render_instance(a["id"])
     assert out == {"ok": True, "masked": False, "title": "T:42", "html": "<b>hi</b>"}
-    assert calls["config"] == {"x": "42"}
+    # the stored config rides along with the card size injected as _size
+    assert calls["config"] == {"x": "42", "_size": "1x4"}
 
 
 def test_render_hidden_maskable_uses_mask(registry):
@@ -125,7 +162,7 @@ def test_render_hidden_maskable_uses_mask(registry):
     logic.set_hidden(a["id"], True)
     out = logic.render_instance(a["id"])
     assert out == {"ok": True, "masked": True, "title": "T:masked", "html": "<b>•••••</b>"}
-    assert calls["mask_config"] == {"x": "42"}
+    assert calls["mask_config"] == {"x": "42", "_size": "1x4"}
     (row,) = logic.list_instances()
     assert row["maskable"] is True
 

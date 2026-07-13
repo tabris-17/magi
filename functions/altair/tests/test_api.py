@@ -17,14 +17,18 @@ def test_feed_shape(client, registry):
     data = client.get("/altair/api/feed").get_json()
     assert [t["id"] for t in data["types"]] == ["alpha.one", "beta.two"]
     assert all("render" not in t for t in data["types"])
+    assert data["types"][0]["default_size"] == "1x4"    # passes through to the gallery
     assert data["widgets"][0]["id"] == a["id"]
     assert data["widgets"][0]["config"] == {"x": "1"}
+    assert data["widgets"][0]["size"] == "1x4"
 
 
 def test_add_widget_route(client, registry):
-    r = client.post("/altair/api/widgets", json={"widget": "alpha.one", "config": {"x": "9"}})
+    r = client.post("/altair/api/widgets",
+                    json={"widget": "alpha.one", "config": {"x": "9"}, "size": "4x4"})
     assert r.status_code == 200
     assert r.get_json()["widget"]["config"] == {"x": "9"}
+    assert r.get_json()["widget"]["size"] == "4x4"
 
     r = client.post("/altair/api/widgets", json={"widget": "nope"})
     assert r.status_code == 400
@@ -45,7 +49,7 @@ def test_order_route(client, registry):
 def test_hidden_route(client, registry):
     a = logic.add_instance("alpha.one")
     r = client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": True})
-    assert r.status_code == 200 and r.get_json() == {"ok": True, "hidden": True}
+    assert r.status_code == 200 and r.get_json() == {"ok": True}
     assert logic.list_instances()[0]["hidden"] is True
 
     r = client.post(f"/altair/api/widgets/{a['id']}", json={"hidden": False})
@@ -54,6 +58,23 @@ def test_hidden_route(client, registry):
 
     assert client.post(f"/altair/api/widgets/{a['id']}", json={}).status_code == 400
     assert client.post("/altair/api/widgets/999", json={"hidden": True}).status_code == 404
+
+
+def test_size_route(client, registry):
+    a = logic.add_instance("alpha.one")           # starts at the type default, 1x4
+    r = client.post(f"/altair/api/widgets/{a['id']}", json={"size": "4x4"})
+    assert r.status_code == 200
+    assert logic.list_instances()[0]["size"] == "4x4"
+
+    # size + hidden in one partial update
+    r = client.post(f"/altair/api/widgets/{a['id']}", json={"size": "2x4", "hidden": True})
+    assert r.status_code == 200
+    (row,) = logic.list_instances()
+    assert row["size"] == "2x4" and row["hidden"] is True
+
+    bad = client.post(f"/altair/api/widgets/{a['id']}", json={"size": "3x3"})
+    assert bad.status_code == 400 and "size must be" in bad.get_json()["error"]
+    assert client.post("/altair/api/widgets/999", json={"size": "1x4"}).status_code == 404
 
 
 def test_delete_route(client, registry):

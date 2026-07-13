@@ -790,6 +790,19 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
   color: var(--fg-muted); cursor: pointer; padding: 2px 4px; line-height: 1;
 }
 .alt-eye:hover { color: var(--fg); }
+/* the size cycle (1×4 → 2×4 → 4×4) — a text chip next to the eye */
+.alt-size {
+  background: none; border: 1px solid var(--border); border-radius: 5px;
+  color: var(--fg-muted); cursor: pointer; padding: 1px 6px;
+  font-size: 11px; line-height: 1.5; font-variant-numeric: tabular-nums;
+}
+.alt-size:hover { color: var(--fg); border-color: var(--fg-muted); }
+/* card sizes: FIXED body heights (iPhone-widget shapes — 1 unit ≈ half the classic
+   P&L card); a provider that draws more than fits simply scrolls inside */
+.alt-card .alt-card-body { overflow-y: auto; }
+.alt-card.alt-s-1x4 .alt-card-body { height: 120px; }
+.alt-card.alt-s-2x4 .alt-card-body { height: 248px; }
+.alt-card.alt-s-4x4 .alt-card-body { height: 500px; }
 .alt-card.hidden .alt-card-title { color: var(--fg-muted); }
 /* instant client-side cover while the server's masked view is on its way —
    blur keeps the layout identical, so the card never jumps */
@@ -866,6 +879,20 @@ input[type=text]:focus { outline: none; border-color: var(--accent); box-shadow:
 .alt-jf-title:hover { text-decoration: underline; }
 .alt-jf-preview { font-size: 12.5px; color: var(--fg-muted); margin-top: 2px; }
 .alt-jf-none { color: var(--fg-muted); font-size: 13px; }
+/* 4×4 journal items render real markdown — polaris's content sub-scale, shrunk to
+   card estate (h1 15 / h2 14 / h3 13.5, body 13; same shapes, smaller metrics) */
+.alt-jf-md { margin-top: 4px; font-size: 13px; line-height: 1.5; }
+.alt-jf-md h1, .alt-jf-md h2, .alt-jf-md h3 { margin: 6px 0 2px; font-weight: 600; }
+.alt-jf-md h1 { font-size: 15px; }
+.alt-jf-md h2 { font-size: 14px; }
+.alt-jf-md h3 { font-size: 13.5px; }
+.alt-jf-md p { margin: 2px 0; }
+.alt-jf-md ul, .alt-jf-md ol { margin: 2px 0; padding-left: 20px; }
+.alt-jf-md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px;
+  background: var(--surface-2); border-radius: 4px; padding: 1px 4px;
+}
+.alt-jf-more { font-size: 11.5px; color: var(--fg-subtle); margin-top: 2px; }
 
 /* ---- responsive (content) ------------------------------------------ */
 @media (max-width: 860px) {

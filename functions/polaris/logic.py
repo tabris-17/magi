@@ -283,7 +283,8 @@ def list_entries(query="", limit=500):
 def entries_for_widget(tag_id=None, since=None, before=None, limit=5):
     """Entries for the altair 'Journal feed' widget: optionally narrowed to one tag
     and/or an entry_date window (ISO strings compare lexically — since inclusive,
-    before exclusive), newest first. Returns light rows: id/date/title/preview."""
+    before exclusive), newest first. Rows carry id/date/title/preview PLUS the raw
+    markdown `body` — the widget's 4x4 size renders it as real markdown."""
     sql = "SELECT e.id, e.entry_date, e.title, e.body FROM entries e"
     where, args = [], []
     if tag_id:
@@ -306,7 +307,7 @@ def entries_for_widget(tag_id=None, since=None, before=None, limit=5):
     finally:
         conn.close()
     return [{"id": r["id"], "date": r["entry_date"], "title": r["title"],
-             "preview": _snippet(r["body"])} for r in rows]
+             "preview": _snippet(r["body"]), "body": r["body"] or ""} for r in rows]
 
 
 def get_entry(entry_id):

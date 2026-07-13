@@ -29,7 +29,7 @@ META = {
     "description": "Your push feed — widgets from every function, arranged your way.",
     "icon": ICON,
     "url": "/altair/",
-    "version": "altair-1.3.1",
+    "version": "altair-1.4.0",
 }
 
 
@@ -49,7 +49,8 @@ def api_feed():
 def api_add_widget():
     data = request.get_json(silent=True) or {}
     try:
-        instance = logic.add_instance(data.get("widget", ""), data.get("config"))
+        instance = logic.add_instance(data.get("widget", ""), data.get("config"),
+                                      size=data.get("size"))
     except ValueError as exc:
         return jsonify(error=str(exc)), 400
     return jsonify(widget=instance)
@@ -73,13 +74,21 @@ def api_widget(instance_id):
         if not logic.remove_instance(instance_id):
             return jsonify(error="not found"), 404
         return jsonify(ok=True)
-    # POST — partial update; today that's only the eye toggle
+    # POST — partial update: the eye toggle and/or the card size
     data = request.get_json(silent=True) or {}
-    if "hidden" not in data:
+    if "hidden" not in data and "size" not in data:
         return jsonify(error="nothing to update"), 400
-    if not logic.set_hidden(instance_id, bool(data["hidden"])):
-        return jsonify(error="not found"), 404
-    return jsonify(ok=True, hidden=bool(data["hidden"]))
+    if "size" in data:
+        try:
+            found = logic.set_size(instance_id, data["size"])
+        except ValueError as exc:
+            return jsonify(error=str(exc)), 400
+        if not found:
+            return jsonify(error="not found"), 404
+    if "hidden" in data:
+        if not logic.set_hidden(instance_id, bool(data["hidden"])):
+            return jsonify(error="not found"), 404
+    return jsonify(ok=True)
 
 
 @bp.route("/api/widgets/<int:instance_id>/render")

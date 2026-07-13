@@ -45,7 +45,21 @@ def test_widget_types_shape():
     types = bw.widget_types(lambda: FakeClient(_payload([])))
     (t,) = types
     assert t["key"] == "pnl" and t["params"] == [] and callable(t["render"])
-    assert callable(t["mask"])                # the ••••• privacy view
+    assert callable(t["mask"])                # the blur privacy view
+    assert t["default_size"] == "2x4"
+
+
+def test_compact_1x4_is_total_only():
+    """At the 1x4 strip size the per-holding bars are dropped — Total IS the widget."""
+    client = FakeClient(_payload([_h("AAA", -50, -10), _h("BBB", 100, 25)]))
+    html = bw.render_pnl(client, size="1x4")["html"]
+    assert "alt-pnl-row" not in html and "AAA" not in html
+    assert "Total" in html and "-200,000" in html
+    assert "2 holding(s)" in html and "enlarge the card" in html
+    # the size rides through the type's render callable via config["_size"]
+    t = bw.widget_types(lambda: client)[0]
+    assert "alt-pnl-row" not in t["render"]({"_size": "1x4"})["html"]
+    assert "alt-pnl-row" in t["render"]({"_size": "4x4"})["html"]
 
 
 def test_masked_render_blurs_amounts_keeps_bars_and_pcts():

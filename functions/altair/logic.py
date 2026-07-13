@@ -13,8 +13,17 @@ imports the host or another function). Each registry entry is a widget TYPE:
      "source": "<function label>", # e.g. "Betelgeuse"
      "key", "label", "description",
      "params": [{name,label,type: select|number|text, options?, default?}, …],
+     "default_size"?: "1x4"|"2x4"|"4x4",   # the size a new instance starts at
      "render": callable(config: dict) -> {"html": str, "title"?: str},
      "mask"?:  callable(config: dict) -> {"html": str, "title"?: str}}
+
+Every instance has a SIZE — one of SIZES ("<height>x<width>" in feed units; the feed
+is one column, so width is always 4 and only the height varies: 1x4 strip, 2x4 half,
+4x4 square-ish). Altair owns the card's outer size (fixed heights in theme.css);
+render_instance() passes the size to the provider as config["_size"] (injected at
+call time, never stored) so a provider MAY adapt how much it draws to the estate —
+e.g. the P&L collapses to its Total row at 1x4, the Journal renders full markdown
+only at 4x4. Providers that ignore _size simply scroll inside the card.
 
 A type MAY also declare `mask` — the privacy view used while the instance's eye is
 closed (e.g. the P&L with its amounts replaced by •••••). Masking happens SERVER-side:
@@ -40,6 +49,10 @@ from datetime import datetime, timezone
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 DB_PATH = os.path.join(DATA_DIR, "altair.db")
 
+# card sizes, "<height>x<width>" in feed units (width is always the full 4 columns)
+SIZES = ("1x4", "2x4", "4x4")
+DEFAULT_SIZE = "2x4"
+
 _schema_lock = threading.Lock()
 
 _SCHEMA = """
@@ -49,6 +62,7 @@ CREATE TABLE IF NOT EXISTS widgets (
     config     TEXT NOT NULL DEFAULT '{}',    -- JSON dict of param values
     position   INTEGER NOT NULL DEFAULT 0,    -- feed order, ascending
     hidden     INTEGER NOT NULL DEFAULT 0,    -- eye toggle: 1 = body not shown/rendered
+    size       TEXT,                          -- one of SIZES; NULL = the type's default
     created_at TEXT NOT NULL
 );
 """
@@ -84,12 +98,14 @@ def _connect():
         conn = sqlite3.connect(DB_PATH, timeout=10)
         conn.row_factory = sqlite3.Row
         conn.executescript(_SCHEMA)
-        # column-add guard for DBs created before the eye toggle (polaris's pattern —
-        # no migration engine; an existing altair.db picks the column up on connect)
+        # column-add guards for DBs created before newer columns (polaris's pattern —
+        # no migration engine; an existing altair.db picks them up on connect)
         have = {r["name"] for r in conn.execute("PRAGMA table_info(widgets)")}
-        if "hidden" not in have:
-            conn.execute("ALTER TABLE widgets ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
-            conn.commit()
+        missing = {"hidden": "INTEGER NOT NULL DEFAULT 0", "size": "TEXT"}.items()
+        for col, decl in missing:
+            if col not in have:
+                conn.execute(f"ALTER TABLE widgets ADD COLUMN {col} {decl}")
+                conn.commit()
     return conn
 
 
@@ -107,6 +123,18 @@ def available_types():
 
 # ---- widget instances (the user's configured feed) ------------------------------------
 
+def _default_size(t):
+    """A type's declared default_size, validated, else the global default."""
+    d = (t or {}).get("default_size")
+    return d if d in SIZES else DEFAULT_SIZE
+
+
+def _row_size(r, t):
+    """An instance's effective size: its stored value, else its type's default."""
+    stored = r["size"] if "size" in r.keys() else None
+    return stored if stored in SIZES else _default_size(t)
+
+
 def _instance_row(r, types_by_id):
     t = types_by_id.get(r["widget"])
     try:
@@ -119,6 +147,7 @@ def _instance_row(r, types_by_id):
         "config": config,
         "position": r["position"],
         "hidden": bool(r["hidden"]),
+        "size": _row_size(r, t),
         # a maskable widget renders a •••••-masked body while hidden, instead of collapsing
         "maskable": bool(t and callable(t.get("mask"))),
         # display metadata from the live registry; a widget whose provider vanished
@@ -140,8 +169,9 @@ def list_instances():
     return [_instance_row(r, types_by_id) for r in rows]
 
 
-def add_instance(widget_id, config=None):
-    """Add one widget to the end of the feed. Unknown type → ValueError."""
+def add_instance(widget_id, config=None, size=None):
+    """Add one widget to the end of the feed. Unknown type → ValueError.
+    `size` outside SIZES (or None) stores NULL, i.e. the type's default_size."""
     t = _type(widget_id)
     if t is None:
         raise ValueError(f"unknown widget: {widget_id}")
@@ -154,8 +184,8 @@ def add_instance(widget_id, config=None):
     try:
         pos = conn.execute("SELECT COALESCE(MAX(position), -1) + 1 FROM widgets").fetchone()[0]
         cur = conn.execute(
-            "INSERT INTO widgets (widget, config, position, created_at) VALUES (?,?,?,?)",
-            (widget_id, json.dumps(config), pos, _now()))
+            "INSERT INTO widgets (widget, config, position, size, created_at) VALUES (?,?,?,?,?)",
+            (widget_id, json.dumps(config), pos, size if size in SIZES else None, _now()))
         conn.commit()
         row = conn.execute("SELECT * FROM widgets WHERE id = ?", (cur.lastrowid,)).fetchone()
     finally:
@@ -169,6 +199,19 @@ def set_hidden(instance_id, hidden):
     try:
         cur = conn.execute("UPDATE widgets SET hidden = ? WHERE id = ?",
                            (1 if hidden else 0, instance_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def set_size(instance_id, size):
+    """Persist a widget's card size. Bad size → ValueError; missing id → False."""
+    if size not in SIZES:
+        raise ValueError(f"size must be one of {', '.join(SIZES)}")
+    conn = _connect()
+    try:
+        cur = conn.execute("UPDATE widgets SET size = ? WHERE id = ?", (size, instance_id))
         conn.commit()
         return cur.rowcount > 0
     finally:
@@ -228,6 +271,9 @@ def render_instance(instance_id):
         # no privacy view — while hidden this instance renders NOTHING (the page
         # collapses the card client-side and shouldn't even ask; belt-and-braces)
         return {"ok": True, "masked": True, "title": t["label"], "html": ""}
+    # the card's size rides along as _size (injected here, never stored in config)
+    # so the provider can adapt how much it draws to the estate
+    config = dict(config, _size=_row_size(r, t))
     try:
         out = (t["mask"] if hidden else t["render"])(config) or {}
         return {"ok": True, "masked": hidden,

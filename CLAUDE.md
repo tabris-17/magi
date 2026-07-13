@@ -122,7 +122,7 @@ isolated.
 
   **Per-function versioning.** Each function owns a `META["version"]` with its own
   short prefix — youtube → **`yd-1.2.0`**; taxation → **`tax-1.0.0`**; notifier →
-  **`notifier-1.0.0`**; polaris → **`polaris-1.10.0`**; altair → **`altair-1.3.1`**;
+  **`notifier-1.0.0`**; polaris → **`polaris-1.11.0`**; altair → **`altair-1.4.0`**;
   betelgeuse → **`betelgeuse-app-<x>` ·
   `betelgeuse-server-<x>`** (composed in `magi.py` from betelgeuse's
   `core.version.app_version_string()`/`server_version_string()`, which wrap
@@ -342,15 +342,16 @@ under Settings → Tools** (`base.html`); betelgeuse pages reach it via the Tool
 
 ### Widgets — the altair feed (the third cross-function aggregation)
 
-**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.3.1`, first in the
+**Altair** (`functions/altair/`, a blueprint at `/altair/`, `altair-1.4.0`, first in the
 sidebar) is magi's **push feed**: a single-column page of **widgets** (applets) contributed
 by other functions, arranged by the user. The **widget contract** parallels
 `settings_section`/`health`: a function opts in with a **`widgets` callable on its META**
 returning widget TYPE descriptors —
 `{key, label, description, params: [{name,label,type: select|number|text, options?,
-default?}, …], render: callable(config) -> {html[, title]}, mask?: callable(config) ->
-{html[, title]}}` — `mask` (optional) is the **privacy view** used while the widget's eye
-is closed (see the eye toggle below).
+default?}, …], default_size?: "1x4"|"2x4"|"4x4", render: callable(config) -> {html[,
+title]}, mask?: callable(config) -> {html[, title]}}` — `mask` (optional) is the **privacy
+view** used while the widget's eye is closed (see the eye toggle below), `default_size`
+(optional) the card size a new instance starts at (see Card sizes below).
 `magi.py`'s **`_widget_registry()`** composes the app-wide registry per request (guarded per
 function — a raising provider drops out), namespacing each type as **`<function>.<key>`** and
 tagging it with the function's `label` as `source`; it's injected into altair via
@@ -370,14 +371,24 @@ consistency and a stronger implementation conflict (the blur mask ships real val
 browser under CSS, where ••••• was server-side redaction), the user chose consistency —
 match the source function's tier, and note the tradeoff in the provider docstring.
 
+- **Card sizes.** Every instance has one of THREE sizes — **`1x4` / `2x4` / `4x4`**
+  ("height×width" in feed units; the feed is one column, so width is always 4 and only the
+  height varies — fixed body heights 120/248/500px in `theme.css`, `overflow-y: auto`).
+  Stored per instance (`widgets.size`, NULL = the type's `default_size`, else `2x4`); the
+  card head carries a **size chip** (next to the eye) that cycles 1×4 → 2×4 → 4×4 and
+  persists (`POST /api/widgets/<id> {size}`), and the Add-widget form has a Size select
+  preset to the type's default. **`render_instance()` injects the size as `config["_size"]`**
+  (call-time only, never stored) so a provider MAY adapt how much it draws to the estate —
+  the P&L is Total-row-only at 1×4, the Journal renders full markdown only at 4×4; a
+  provider that ignores `_size` simply scrolls inside the fixed card.
 - **Altair owns only the LAYOUT** — `functions/altair/data/altair.db` (a `widgets` table:
-  namespaced type id + JSON `config` + `position` + `hidden`; lazy idempotent schema with a
-  polaris-style column-add guard in `_connect()`, no migration
+  namespaced type id + JSON `config` + `position` + `hidden` + `size`; lazy idempotent schema
+  with a polaris-style column-add guard in `_connect()`, no migration
   engine; in `pull-prod-dbs.sh`'s `DBS` + dbtool's `DATABASES`). Routes: `GET /altair/api/feed`
   ({widgets, types} — param schemas, never render callables), `POST /api/widgets`
-  ({widget,config} — config filtered to declared params, stringified),
-  `POST /api/widgets/order` ({ids}), `POST /api/widgets/<id>` ({hidden} — partial update),
-  `DELETE /api/widgets/<id>`,
+  ({widget,config[,size]} — config filtered to declared params, stringified),
+  `POST /api/widgets/order` ({ids}), `POST /api/widgets/<id>` ({hidden and/or size} —
+  partial update), `DELETE /api/widgets/<id>`,
   `GET /api/widgets/<id>/render`, `GET /api/health`. **Every card head carries an eye
   (privacy) toggle** — octicon eye/eye-closed, always visible (not edit-mode-gated), state
   persisted server-side (`hidden`). While hidden, a **maskable** type (one declaring `mask`;
@@ -403,7 +414,8 @@ match the source function's tier, and note the tradeoff in the provider docstrin
   own `/api/portfolio/pnl` in-process via `betel_app.test_client()` (wired in `magi.py` next to
   health), then draws per-holding bars around a zero axis (sorted by P&L desc, incomplete
   holdings noted + excluded, `--success-fg`/`--danger-fg`) plus a **Total** row
-  (value · cost · P&L %). No params. Its `mask` view is the same card with every currency
+  (value · cost · P&L %). No params; `default_size` 2×4, and at **1×4 only the Total row is
+  drawn** (+ a "N holding(s) — enlarge" note). Its `mask` view is the same card with every currency
   AMOUNT wrapped in an `.alt-blur` span (CSS blur — privacy looks like betelgeuse's blur,
   per the consistency principle above); bars and percentages stay crisp (relative
   performance, not absolute wealth). **Betelgeuse's own Overview page has a sibling privacy eye**
@@ -414,12 +426,19 @@ match the source function's tier, and note the tradeoff in the provider docstrin
 - **Polaris "Journal feed"** (`polaris.tag-feed`, `functions/polaris/widgets.py` +
   `logic.entries_for_widget`): params **tag** (select over live tags; empty = all entries),
   **age** (entry-date window: any / last 7/30/90/365 days / **older than 1 year**) and
-  **limit**; renders date + title links (`/polaris/?entry=<id>`) + previews; title becomes
-  `Journal · <tag>`. Multiple instances = one widget per tag.
+  **limit**; renders date + title links (`/polaris/?entry=<id>`); title becomes
+  `Journal · <tag>`. Multiple instances = one widget per tag. `default_size` 1×4, and the
+  size sets each entry's DEPTH: 1×4 = compact date+title rows, 2×4 = + the one-line prose
+  preview, **4×4 = the body as real rendered Markdown** via `widgets._md_to_html` — a
+  **display-only, one-way Python renderer** for polaris's closed subset (h1-h3/ul/ol/p;
+  bold/italic/code), carrying the SAME escape invariant as `polaris-md.js` (HTML-escape
+  first, park `\*` `\_` `` \` `` `\\` behind sentinels before the emphasis regexes) and a
+  ~700-char per-entry cap cut at a line boundary. The round-trip converter stays
+  `polaris-md.js` — never reimplement the store side in Python.
 - Tests: `functions/altair/tests/` (logic + API + the P&L adapter over a fake client;
   `python3 -m pytest functions/altair/tests/ -q`) and `functions/polaris/tests/test_widgets.py`
-  (query filters + render). Both tests dirs carry an `__init__.py` so the suites can run
-  together despite same-named test modules.
+  (query filters + render + sizes + the markdown renderer). Both tests dirs carry an
+  `__init__.py` so the suites can run together despite same-named test modules.
 
 ### Theming
 
@@ -721,12 +740,12 @@ inside `functions/betelgeuse/`), with only settings shared.
   Chrome type→select→listify flow, NBSP normalization, the full round-trip suite; runs the real
   `polaris-md.js` in headless Chrome, so it **needs the dev server up**) — it must print ALL PASS
   before AND after any converter change; and (2) the **Python `pytest` suite**
-  **`functions/polaris/tests/{test_logic.py,test_api.py,test_widgets.py}`** (56 cases over the
+  **`functions/polaris/tests/{test_logic.py,test_api.py,test_widgets.py}`** (65 cases over the
   whole `logic.py` store + the blueprint's JSON/media routes: entry CRUD + search/previews, tags
   unique/partial/unlink, entry↔tag links, attachment blobs + the inline-vs-download gate, the
   **backup/schema-guard rollback net** — asserts a `pre-vN` snapshot captures the pre-change bytes
   on a version bump — plus the daily-backup prune, worker interface, and the altair
-  Journal-feed widget filters/render). Run it from the repo root,
+  Journal-feed widget filters/render/sizes + its display-only `_md_to_html`). Run it from the repo root,
   **no server needed**: `python3 -m pytest functions/polaris/tests/ -q` (`conftest.py` points
   `logic` at a throwaway DB per test). Run both after touching polaris. No WYSIWYG
   bundle, no Markdown dependency (the repo has no npm/bundler); `polaris-md.js` also exports for

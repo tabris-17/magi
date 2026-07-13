@@ -49,9 +49,9 @@ def registry():
     types = [
         {"id": "alpha.one", "source": "Alpha", "key": "one", "label": "One",
          "description": "d1", "params": [{"name": "x", "label": "X", "type": "text"}],
-         "render": render_ok, "mask": mask_ok},
+         "default_size": "1x4", "render": render_ok, "mask": mask_ok},
         {"id": "beta.two", "source": "Beta", "key": "two", "label": "Two",
-         "description": "d2", "params": [], "render": render_boom},
+         "description": "d2", "params": [], "render": render_boom},   # no default_size
     ]
     logic.set_widget_registry_resolver(lambda: types)
     return types, calls

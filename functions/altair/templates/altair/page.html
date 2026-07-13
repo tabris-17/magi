@@ -58,15 +58,18 @@ function renderFeed() {
   for (const w of widgets) if (!w.hidden || w.maskable) renderWidget(w.id);
 }
 
+const SIZES = ['1x4', '2x4', '4x4'];   // card heights; width is always the full column
+
 function buildCard(w) {
   const card = document.createElement('div');
-  card.className = 'card alt-card';
+  card.className = 'card alt-card alt-s-' + (SIZES.includes(w.size) ? w.size : '2x4');
   card.dataset.id = w.id;
   card.innerHTML = `
     <div class="alt-card-head">
       <span class="alt-handle" title="Drag to reorder">⠿</span>
       <span class="alt-card-title"></span>
       <span class="alt-card-src"></span>
+      <button class="alt-size" type="button"></button>
       <button class="alt-eye" type="button"></button>
       <button class="alt-remove" title="Remove widget">✕</button>
     </div>
@@ -75,13 +78,15 @@ function buildCard(w) {
   card.querySelector('.alt-card-src').textContent = w.source || '';
   card.querySelector('.alt-remove').onclick = () => removeWidget(w.id);
   card.querySelector('.alt-eye').onclick = () => toggleHidden(w.id);
+  applySize(card, w);
+  card.querySelector('.alt-size').onclick = () => cycleSize(w.id);
   applyHidden(card, w);
   // Drag-to-reorder works ANYTIME (no Edit mode needed): the title bar is the drag
   // handle — the body stays free for text selection / links inside widgets.
   const head = card.querySelector('.alt-card-head');
   head.draggable = true;
   head.addEventListener('dragstart', e => {
-    if (e.target.closest('.alt-eye, .alt-remove')) { e.preventDefault(); return; }
+    if (e.target.closest('.alt-eye, .alt-remove, .alt-size')) { e.preventDefault(); return; }
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', String(w.id));   // Firefox needs data to drag
@@ -158,6 +163,38 @@ async function toggleHidden(id) {
   }
   if (!w.hidden || w.maskable) await renderWidget(id);     // full or masked view
   if (body) body.classList.remove('alt-masking');          // real dots are in place now
+}
+
+// ---- the size cycle (persisted server-side) ---------------------------------------
+// Every widget supports the three card sizes; the provider re-renders for the new
+// estate (the P&L collapses to its Total row at 1×4, the Journal goes full markdown
+// at 4×4), so a size change always re-fetches the body.
+
+function applySize(card, w) {
+  const size = SIZES.includes(w.size) ? w.size : '2x4';
+  for (const s of SIZES) card.classList.toggle('alt-s-' + s, s === size);
+  const btn = card.querySelector('.alt-size');
+  btn.textContent = size.replace('x', '×');
+  btn.title = 'Card size — click to cycle 1×4 → 2×4 → 4×4';
+}
+
+async function cycleSize(id) {
+  const w = widgets.find(x => x.id === id);
+  if (!w) return;
+  const prev = w.size;
+  w.size = SIZES[(SIZES.indexOf(w.size) + 1) % SIZES.length] || '2x4';
+  const card = document.querySelector(`.alt-card[data-id="${id}"]`);
+  if (card) applySize(card, w);                            // optimistic
+  const r = await fetch(`/altair/api/widgets/${id}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ size: w.size }),
+  });
+  if (!r.ok) {                                             // roll back
+    w.size = prev;
+    if (card) applySize(card, w);
+    return;
+  }
+  if (!w.hidden || w.maskable) await renderWidget(id);     // content adapts to the size
 }
 
 // ---- edit mode: drag to reorder + remove ------------------------------------------
@@ -268,6 +305,20 @@ function configureType(t) {
     field.appendChild(input);
     form.appendChild(field);
   }
+  // every widget supports the three card sizes; the type picks the starting one
+  const sizeField = document.createElement('label');
+  sizeField.className = 'alt-config-field';
+  sizeField.innerHTML = '<span>Size</span>';
+  const sizeSel = document.createElement('select');
+  sizeSel.id = 'altConfigSize';
+  for (const s of SIZES) {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s.replace('x', '×');
+    sizeSel.appendChild(opt);
+  }
+  sizeSel.value = SIZES.includes(t.default_size) ? t.default_size : '2x4';
+  sizeField.appendChild(sizeSel);
+  form.appendChild(sizeField);
   const row = document.createElement('div');
   row.className = 'alt-config-actions';
   const back = document.createElement('button');
@@ -279,7 +330,7 @@ function configureType(t) {
     form.querySelectorAll('[data-param]').forEach(i => { config[i.dataset.param] = i.value; });
     const r = await fetch('/altair/api/widgets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ widget: t.id, config }),
+      body: JSON.stringify({ widget: t.id, config, size: sizeSel.value }),
     });
     const data = await r.json();
     if (!r.ok) { alert(data.error || 'could not add widget'); return; }
